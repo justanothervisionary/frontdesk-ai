@@ -97,8 +97,14 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ reply: reply });
   } catch (err) {
     console.error("[frontdesk chat] provider error:", err.message);
-    // Never leak provider error details to the client - fall back to the
-    // same safe default the widget itself uses when this endpoint is absent.
-    return res.status(200).json({ reply: config.fallbackAnswer, degraded: true });
+    // A non-2xx here (not the generic fallback text with a 200) is
+    // deliberate: it's what makes the widget's own .catch() handler kick
+    // in and fall back to real local FAQ matching, instead of everyone
+    // silently getting the same canned non-answer regardless of what they
+    // asked. Found this the hard way testing the live deployment - a 200
+    // here reads as "success" to the client, so real answers were being
+    // replaced by a generic one even for questions with a perfect FAQ
+    // match.
+    return res.status(503).json({ error: "AI backend unavailable", degraded: true });
   }
 };
