@@ -1,0 +1,45 @@
+{
+  "businessName": "Riverside Plumbing & Heating (example)",
+  "theme": {
+    "accentColor": "#0a6ecb",
+    "position": "right"
+  },
+  "greeting": "Hi! This is a live example - I'm set up as a fictional plumbing company so you can try asking real questions. Try things like \"do you do emergency call-outs?\" or \"what areas do you cover?\"",
+  "afterHoursGreeting": "Hi! This is a live example, set up as a fictional plumbing company - and it's currently outside its configured office hours, so notice how the greeting just changed. For genuine emergencies we'd still be available 24/7; for anything else I'd take a message for the morning. Try asking a question to see it in action.",
+  "fallbackAnswer": "On a real install, this is exactly where I'd offer to take your name and number for a callback - for this demo, try rephrasing your question instead.",
+  "hours": {
+    "mon": ["08:00", "18:00"],
+    "tue": ["08:00", "18:00"],
+    "wed": ["08:00", "18:00"],
+    "thu": ["08:00", "18:00"],
+    "fri": ["08:00", "18:00"],
+    "sat": ["08:00", "18:00"],
+    "sun": null
+  },
+  "faqs": [
+    {
+      "keywords": ["emergency", "urgent", "call-out", "callout", "burst"],
+      "answer": "Yes - we offer 24/7 emergency call-outs for burst pipes, no heating, and leaks. Response is usually within the hour."
+    },
+    {
+      "keywords": ["area", "cover", "where", "location"],
+      "answer": "We cover the whole city and surrounding suburbs within about 20 miles."
+    },
+    {
+      "keywords": ["price", "cost", "how much", "quote"],
+      "answer": "Call-out fee is a flat rate, with the job cost confirmed before any work starts - no surprises on the invoice."
+    },
+    {
+      "keywords": ["boiler"],
+      "answer": "We install, service, and repair boilers from all major brands, and offer annual service plans too."
+    },
+    {
+      "keywords": ["book", "appointment", "available"],
+      "answer": "You can book online or leave your details here and we'll call you back to arrange a time."
+    },
+    {
+      "keywords": ["hour", "open", "close"],
+      "answer": "Office hours are 8am-6pm Monday to Saturday, with 24/7 cover for genuine emergencies."
+    }
+  ]
+}

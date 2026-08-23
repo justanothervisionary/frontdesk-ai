@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk — config generator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px; background: #f4f5f7; color: #1a1a1a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .hint { color: #666; font-size: 13px; margin: 0 0 24px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 14px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: #444; margin: 10px 0 4px; }
+  input[type=text], input[type=color], textarea, select {
+    width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 7px;
+    font-size: 13px; font-family: inherit;
+  }
+  textarea { resize: vertical; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  .faq-row { border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-bottom: 8px; position: relative; }
+  .faq-row button.remove {
+    position: absolute; top: 8px; right: 8px; background: none; border: none;
+    color: #c00; font-size: 12px; cursor: pointer;
+  }
+  #add-faq, #generate {
+    background: #0a6ecb; color: #fff; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  #add-faq { background: #eee; color: #333; }
+  .output { margin-top: 8px; }
+  .output label { display: flex; justify-content: space-between; align-items: center; }
+  .output button.copy { font-size: 11px; padding: 3px 8px; border-radius: 5px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+  pre.out {
+    background: #0b0b0c; color: #d7f7e0; padding: 12px; border-radius: 8px;
+    font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Frontdesk config generator</h1>
+  <p class="hint">Fill this in per prospect, hit Generate, save the JSON as <code>configs/&lt;business-key&gt;.json</code>, and copy the install snippet into their site (or the demo page).</p>
+
+  <div class="card">
+    <h2>Business</h2>
+    <div class="row">
+      <div>
+        <label>Business key (lowercase, hyphens only - used in the URL/filename)</label>
+        <input type="text" id="businessKey" placeholder="e.g. dentistw4" />
+      </div>
+      <div>
+        <label>Display name</label>
+        <input type="text" id="businessName" placeholder="e.g. West London Dental Centres" />
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Phone number (used in fallback replies)</label>
+        <input type="text" id="phone" placeholder="e.g. 020 8994 3088" />
+      </div>
+      <div>
+        <label>Website (for reference only)</label>
+        <input type="text" id="website" placeholder="e.g. dentistw4.co.uk" />
+      </div>
+    </div>
+    <label>Notification email (where captured leads get sent - required before this business goes live)</label>
+    <input type="text" id="notifyEmail" placeholder="e.g. reception@theirbusiness.co.uk" />
+    <label>Greeting (first message the widget sends when opened)</label>
+    <textarea id="greeting" rows="2" placeholder="Hi, welcome to ...! Ask me about ..."></textarea>
+    <label>Fallback answer (used when nothing matches / AI backend is down)</label>
+    <textarea id="fallback" rows="2" placeholder="I'll pass that on to the team..."></textarea>
+  </div>
+
+  <div class="card">
+    <h2>Theme</h2>
+    <div class="row">
+      <div>
+        <label>Accent color</label>
+        <input type="color" id="accentColor" value="#0a6ecb" />
+      </div>
+      <div>
+        <label>Bubble position</label>
+        <select id="position">
+          <option value="right">Bottom right</option>
+          <option value="left">Bottom left</option>
+        </select>
+      </div>
+      <div>
+        <label>Avatar/logo URL (optional)</label>
+        <input type="text" id="avatarUrl" placeholder="https://.../logo.png" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>FAQs</h2>
+    <div id="faq-list"></div>
+    <button id="add-faq" type="button">+ Add FAQ</button>
+  </div>
+
+  <button id="generate" type="button">Generate</button>
+
+  <div class="card output" style="margin-top:16px;">
+    <label>configs/&lt;business-key&gt;.json <button class="copy" data-target="json-out" type="button">Copy</button></label>
+    <pre class="out" id="json-out">Fill in the form and click Generate.</pre>
+  </div>
+  <div class="card output">
+    <label>Install snippet <button class="copy" data-target="snippet-out" type="button">Copy</button></label>
+    <pre class="out" id="snippet-out">-</pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  var faqList = document.getElementById("faq-list");
+
+  function addFaqRow(keywords, answer) {
+    var row = document.createElement("div");
+    row.className = "faq-row";
+    row.innerHTML =
+      '<button class="remove" type="button">remove</button>' +
+      '<label>Keywords (comma separated)</label>' +
+      '<input type="text" class="faq-keywords" value="' + (keywords || "").replace(/"/g, "&quot;") + '" placeholder="e.g. nhs, national health" />' +
+      '<label>Answer</label>' +
+      '<textarea class="faq-answer" rows="2" placeholder="Yes, we offer...">' + (answer || "") + '</textarea>';
+    row.querySelector(".remove").addEventListener("click", function () { row.remove(); });
+    faqList.appendChild(row);
+  }
+
+  document.getElementById("add-faq").addEventListener("click", function () { addFaqRow("", ""); });
+  // Start with three blank rows - enough for a first pass without feeling empty.
+  addFaqRow(); addFaqRow(); addFaqRow();
+
+  document.getElementById("generate").addEventListener("click", function () {
+    var businessKey = document.getElementById("businessKey").value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    var config = {
+      businessName: document.getElementById("businessName").value.trim(),
+      notifyEmail: document.getElementById("notifyEmail").value.trim() || undefined,
+      theme: {
+        accentColor: document.getElementById("accentColor").value,
+        position: document.getElementById("position").value,
+        avatarUrl: document.getElementById("avatarUrl").value.trim() || undefined
+      },
+      greeting: document.getElementById("greeting").value.trim(),
+      fallbackAnswer: document.getElementById("fallback").value.trim(),
+      faqs: Array.prototype.map.call(document.querySelectorAll(".faq-row"), function (row) {
+        var kw = row.querySelector(".faq-keywords").value.split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
+        var ans = row.querySelector(".faq-answer").value.trim();
+        return { keywords: kw, answer: ans };
+      }).filter(function (f) { return f.keywords.length && f.answer; })
+    };
+
+    if (!config.theme.avatarUrl) delete config.theme.avatarUrl;
+
+    document.getElementById("json-out").textContent = JSON.stringify(config, null, 2);
+
+    var snippet =
+      '<script src="https://YOUR-DOMAIN/widget/frontdesk-widget.js"\n' +
+      '        data-business="' + (businessKey || "your-business-key") + '"\n' +
+      '        data-config-url="https://YOUR-DOMAIN/configs/' + (businessKey || "your-business-key") + '.json"\n' +
+      '        data-api-url="https://YOUR-DOMAIN/api/chat"\n' +
+      '        defer><' + '/script>';
+    document.getElementById("snippet-out").textContent = snippet;
+  });
+
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = document.getElementById(btn.getAttribute("data-target")).textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        var orig = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = orig; }, 1200);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

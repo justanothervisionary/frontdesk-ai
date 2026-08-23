@@ -1,0 +1,61 @@
+{
+  "businessName": "West London Dental Centres",
+  "notifyEmail": "TODO-add-real-contact-email@example.com",
+  "accentColor": "#0a6ecb",
+  "greeting": "Hi, welcome to West London Dental Centres! Ask me about appointments, treatments, or opening times - or leave your details and the team will call you back.",
+  "fallbackAnswer": "I'll pass that on to the reception team and someone will get back to you shortly. Would you like to leave your name and number, or you can call us directly on 020 8994 3088?",
+  "faqs": [
+    {
+      "keywords": ["address", "location", "where", "find you", "postcode"],
+      "answer": "We're at 2b Belmont Road, Chiswick, London W4 5UH - we also see patients from Acton, Hammersmith and Ealing."
+    },
+    {
+      "keywords": ["phone", "call", "number", "telephone"],
+      "answer": "You can call us on 020 8994 3088 and the team will be happy to help."
+    },
+    {
+      "keywords": ["nhs"],
+      "answer": "Yes, we offer both NHS and Private dental services here at the practice."
+    },
+    {
+      "keywords": ["private"],
+      "answer": "We offer a full range of private dental treatments alongside our NHS service - happy to talk through options."
+    },
+    {
+      "keywords": ["invisalign", "align", "brace", "straighten", "crooked", "orthodont"],
+      "answer": "We offer Invisalign and other orthodontic treatments including fixed braces, and use iTero scanning to show you the expected outcome before you start."
+    },
+    {
+      "keywords": ["whiten"],
+      "answer": "Yes, teeth whitening is one of our cosmetic treatments - it's a great way to freshen up your smile."
+    },
+    {
+      "keywords": ["bonding", "facial aesthetic", "cosmetic"],
+      "answer": "Alongside whitening, we offer cosmetic bonding and facial aesthetics treatments - happy to talk through what would suit you."
+    },
+    {
+      "keywords": ["implant"],
+      "answer": "We offer dental implants to replace missing teeth - it's best to book a consultation so we can assess what's right for you."
+    },
+    {
+      "keywords": ["emergency", "pain", "urgent", "broken", "hurts", "hurting", "ache"],
+      "answer": "For a dental emergency, please call us directly on 020 8994 3088 as soon as possible so the team can advise you - this assistant can't help with urgent or medical concerns."
+    },
+    {
+      "keywords": ["new patient", "register", "join", "moved"],
+      "answer": "We're accepting new private patients - if you've moved to the area or want to change dentist, get in touch with reception and they'll get you set up."
+    },
+    {
+      "keywords": ["hour", "open", "close", "when are you", "what time"],
+      "answer": "For our exact opening hours it's best to check dentistw4.co.uk or call us on 020 8994 3088 - reception can confirm times and fit you in."
+    },
+    {
+      "keywords": ["cost", "price", "how much", "fee"],
+      "answer": "Costs vary by treatment - the fees page on our website has the details, or reception can talk you through pricing on 020 8994 3088."
+    },
+    {
+      "keywords": ["book", "appointment", "availability"],
+      "answer": "The best way to book is to call reception on 020 8994 3088, or leave your details here and we'll call you back to arrange a time."
+    }
+  ]
+}

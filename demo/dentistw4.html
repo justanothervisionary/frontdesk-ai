@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk demo — West London Dental Centres</title>
+<style>
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f4f5f7;
+    color: #1a1a1a;
+  }
+  .banner {
+    background: #0a6ecb;
+    color: #fff;
+    padding: 14px 20px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .banner strong { font-weight: 700; }
+  .mock-site {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+    min-height: 100vh;
+  }
+  .mock-header {
+    padding: 40px 32px 30px;
+    border-bottom: 1px solid #eee;
+  }
+  .mock-header h1 { margin: 0 0 8px; font-size: 26px; }
+  .mock-header p { margin: 0; color: #666; font-size: 14px; }
+  .mock-body { padding: 32px; color: #444; font-size: 14px; line-height: 1.6; }
+  .try-hint {
+    margin-top: 28px;
+    padding: 14px 16px;
+    background: #eef6ff;
+    border: 1px solid #cfe4fb;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .about-footer {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 32px 40px;
+    font-size: 12px;
+    color: #888;
+    border-top: 1px solid #eee;
+  }
+  .about-footer a { color: #0a6ecb; }
+</style>
+</head>
+<body>
+  <div class="banner">
+    This is a <strong>working demo</strong> built for West London Dental Centres (dentistw4.co.uk) —
+    not a live change to your site. Click the chat bubble in the bottom-right to try it.
+  </div>
+
+  <div class="mock-site">
+    <div class="mock-header">
+      <h1>West London Dental Centres</h1>
+      <p>2b Belmont Road, Chiswick, London W4 5UH · 020 8994 3088</p>
+    </div>
+    <div class="mock-body">
+      <p>This page is a stand-in for your real site — same widget, dropped in with one script tag,
+      would sit on your actual pages exactly like this.</p>
+      <div class="try-hint">
+        Try asking things like: "do you take NHS patients?", "do you offer Invisalign?",
+        "what are your opening hours?", or "I want to book an appointment."
+      </div>
+    </div>
+  </div>
+
+  <div class="about-footer">
+    This demo was built by <a href="../site/index.html">Frontdesk</a> — not affiliated with West
+    London Dental Centres. <a href="../site/index.html">See how it works and what it costs &rarr;</a>
+  </div>
+
+  <script src="../widget/frontdesk-widget.js"
+          data-business="dentistw4"
+          data-config-url="../configs/dentistw4.json"
+          data-api-url="/api/chat"
+          defer></script>
+</body>
+</html>
