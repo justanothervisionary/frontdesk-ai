@@ -7,6 +7,27 @@ Sold direct as a monthly subscription — no marketplace cut.
 
 First target: **West London Dental Centres** (dentistw4.co.uk), Chiswick.
 
+## Future idea: a premium tier that takes payment in-chat (not built yet)
+
+Instead of just capturing a lead for the business to follow up on, Ivy
+closes the transaction herself - customer books and pays right in the
+widget. Noted here so it doesn't get lost, deliberately **not** scoped for
+now - it's a materially bigger build than anything else in this project:
+
+- Needs real availability/calendar data, not just FAQ config - can't sell
+  a slot without knowing what's actually free.
+- Needs **Stripe Connect**, not a simple Payment Link - money has to land
+  in each business's own account, so every client onboards their own
+  connected Stripe account (KYC, payouts) and the backend routes to the
+  right one per transaction.
+- Raises the error budget a lot - a bug here means misplaced money or a
+  double-booked slot, not just a missed FAQ answer, so it needs more
+  careful building/testing than anything shipped so far.
+
+Right sequencing: after client #1 is real and paying, not before. Also a
+legitimate premium-tier price justification once it exists - "closes
+sales while you sleep" is worth noticeably more than £45/mo.
+
 ## Bug fixes from real usage feedback
 
 - **Bot replies invisible on some host pages - a real gap in the isolation
