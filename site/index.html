@@ -40,7 +40,11 @@
     border: 1px solid rgba(47,143,224,.35); color: #a9d3f7; padding: 7px 14px;
     border-radius: 999px; font-size: 12px; margin-bottom: 22px;
   }
-  h1 { font-size: 40px; line-height: 1.12; letter-spacing: -0.03em; margin: 0 0 16px; }
+  h1 { font-size: 52px; line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 16px; }
+  @media (max-width: 640px) {
+    /* Keep mobile at the original size - only the larger screens get bigger */
+    h1 { font-size: 40px; line-height: 1.12; }
+  }
   h1 span { background: linear-gradient(90deg, #7cc4ff, var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .sub { color: var(--muted); font-size: 17px; max-width: 540px; margin: 0 auto 30px; }
   .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
