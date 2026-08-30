@@ -28,6 +28,30 @@ Right sequencing: after client #1 is real and paying, not before. Also a
 legitimate premium-tier price justification once it exists - "closes
 sales while you sleep" is worth noticeably more than £45/mo.
 
+## Future idea: give Claude read-only Stripe access (not built yet)
+
+Once there are real paying clients, it'd be useful for Claude to answer
+things like "how many are actually paying right now," "did anyone's
+payment fail this month," "what's MRR" - direct reporting instead of
+digging through the Stripe dashboard by hand.
+
+**How, when we get there:** a Stripe **Restricted API key**, scoped to
+read-only on Payment Links / Subscriptions / Charges specifically. No
+refund, payout, transfer, or account-settings permissions on that key -
+ever. Stored the same way as the other secrets (env var, never pasted
+loosely in chat).
+
+**Hard line, not just a preference:** anything write/mutating - issuing a
+refund, cancelling a client's subscription, changing payout details,
+creating new pricing products - stays prepare-but-don't-execute even with
+that key in hand. Claude drafts the action, a person clicks confirm. This
+isn't extra caution for its own sake - it's the same boundary Claude
+already operates under around moving money, and it matches Stripe's own
+least-privilege guidance for exactly this kind of access.
+
+**Timing:** not urgent - nothing to report on with zero paying clients.
+Worth doing once there's real subscription activity to actually watch.
+
 ## Bug fixes from real usage feedback
 
 - **Bot replies invisible on some host pages - a real gap in the isolation
