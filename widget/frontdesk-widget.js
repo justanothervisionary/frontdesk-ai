@@ -149,6 +149,15 @@
       "  border-radius: 999px; cursor: pointer; transition: background .12s, border-color .12s;" +
       "}" +
       ".fd-chip:hover { background: #f7f8fa; border-color: var(--fd-accent, #ff7a59); }" +
+      // The opening moment, styled as a real greeting rather than a small
+      // chat bubble - a big centered avatar + bold heading text, not
+      // buried at bubble scale. This is the one idea worth adapting from
+      // full-screen chat apps: the first thing a visitor sees should read
+      // like a genuine hello, not another line of tiny text.
+      ".fd-hero { text-align: center; padding: 22px 22px 6px; background: linear-gradient(180deg, color-mix(in srgb, var(--fd-accent, #ff7a59) 10%, #fff), #fff 70%); }" +
+      ".fd-hero-avatar { width: 52px; height: 52px; margin: 0 auto; border-radius: 50%; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.12); }" +
+      ".fd-hero-avatar img, .fd-hero-avatar svg { width: 100%; height: 100%; display: block; }" +
+      ".fd-hero-text { font-size: 16px; font-weight: 700; line-height: 1.35; color: #1a1a1a; margin-top: 14px; }" +
       ".fd-messages { flex: 1; overflow-y: auto; padding: 12px; background: #f7f8fa; }" +
       ".fd-msg { max-width: 85%; margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; animation: fd-msg-in .18s ease-out; }" +
       "@keyframes fd-msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }" +
@@ -487,6 +496,15 @@
       });
     }
 
+    function renderHeroGreeting(text) {
+      var el = document.createElement("div");
+      el.className = "fd-hero";
+      el.innerHTML = '<div class="fd-hero-avatar">' + bubbleInner + '</div><div class="fd-hero-text"></div>';
+      el.querySelector(".fd-hero-text").textContent = text; // textContent only, same rule as addMessage
+      messages.appendChild(el);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
     var greeted = false;
     function showGreeting() {
       if (greeted) return;
@@ -495,7 +513,19 @@
       var greeting = (openNow === false && config.afterHoursGreeting)
         ? config.afterHoursGreeting
         : (config.greeting || "Hi! How can I help you today?");
+      // Short, bold hero line first (the actual "moment"), then the fuller
+      // informational greeting as a normal message below it - existing
+      // configs already write greeting as a helpful paragraph, which reads
+      // badly blown up to headline size. This way nothing in configs.json
+      // needs rewriting to get the better opening moment.
+      renderHeroGreeting("Hi! I'm " + theme.assistantName + " 👋");
       addMessage(greeting, "bot");
+      // Both of the above auto-scroll to the bottom as they're appended,
+      // which would scroll straight past the hero the instant the second
+      // message lands - defeating the point of it. Show from the top for
+      // this opening moment instead; normal back-and-forth after this
+      // still scrolls to bottom as expected.
+      messages.scrollTop = 0;
       if (openNow === false) {
         root.querySelector(".fd-sub").textContent = "Currently closed - I can still help";
       }
