@@ -144,6 +144,12 @@
   .avatar-upload:hover { border-color: var(--accent2); color: var(--accent2); }
   .avatar-upload input { display: none; }
   .avatar-hint { font-size: 11px; color: var(--muted2); margin: 6px 0 14px; }
+  textarea#pv-extra-info {
+    width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; resize: none;
+  }
+  .char-count { font-size: 11px; color: var(--muted2); text-align: right; margin: 4px 0 14px; }
+  .char-count.near-limit { color: var(--accent2); }
 
   footer { padding: 34px 0 60px; text-align: center; color: var(--muted2); font-size: 12px; }
   footer a { color: var(--muted2); }
@@ -222,6 +228,11 @@
           📁 Upload your own <input type="file" id="pv-avatar-upload" accept="image/*" />
         </label>
         <p class="avatar-hint">Optional - a photo, a logo, whatever you like. Only used for this quick preview.</p>
+
+        <label for="pv-extra-info" id="pv-extra-label">Teach your AI receptionist something about your business</label>
+        <textarea id="pv-extra-info" maxlength="100" rows="2"
+          placeholder="e.g. We're a 24/7 emergency locksmith covering North London"></textarea>
+        <div class="char-count" id="pv-extra-count">0 / 100</div>
 
         <div class="field-row">
           <div>
@@ -362,18 +373,27 @@
         var type = document.getElementById("pv-type").value;
         var phone = (document.getElementById("pv-phone").value || "your number").trim();
         var color = document.getElementById("pv-color").value;
+        // Capped to 100 chars in the input itself - one crisp fact, not a
+        // wall of text. Travels through as just another FAQ entry, so it
+        // inherits the exact same server-side sanitization/hard-cap and
+        // untrusted-data framing as everything else in this array already
+        // does - no new backend surface for this.
+        var extraInfo = (document.getElementById("pv-extra-info").value || "").trim().slice(0, 100);
+
+        var faqs = [
+          { keywords: ["hour", "open", "close", "time"], answer: "For exact hours it's best to call " + phone + " - the team can confirm and fit you in." },
+          { keywords: ["price", "cost", "how much", "quote"], answer: "Pricing depends on what you need - call " + phone + " or leave your details for a quote." },
+          { keywords: ["book", "appointment", "callout", "viewing", "available"], answer: "You can book by calling " + phone + ", or leave your details here and we'll be in touch." },
+          { keywords: ["where", "location", "address"], answer: "Give us a call on " + phone + " for directions and parking info." }
+        ];
+        if (extraInfo) faqs.unshift({ keywords: [], answer: extraInfo });
 
         return {
           businessName: name,
           theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: selectedAvatarDataUri || undefined },
           greeting: GREETINGS[type].replace("{name}", name),
           fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",
-          faqs: [
-            { keywords: ["hour", "open", "close", "time"], answer: "For exact hours it's best to call " + phone + " - the team can confirm and fit you in." },
-            { keywords: ["price", "cost", "how much", "quote"], answer: "Pricing depends on what you need - call " + phone + " or leave your details for a quote." },
-            { keywords: ["book", "appointment", "callout", "viewing", "available"], answer: "You can book by calling " + phone + ", or leave your details here and we'll be in touch." },
-            { keywords: ["where", "location", "address"], answer: "Give us a call on " + phone + " for directions and parking info." }
-          ]
+          faqs: faqs
         };
       }
 
@@ -382,6 +402,14 @@
       document.getElementById("pv-agent-name").addEventListener("input", function () {
         var n = this.value.trim();
         document.getElementById("preview-btn").textContent = n ? ("Bring " + n + " to life →") : "Bring them to life →";
+        document.getElementById("pv-extra-label").textContent = "Teach " + (n || "your AI receptionist") + " something about your business";
+      });
+
+      document.getElementById("pv-extra-info").addEventListener("input", function () {
+        var len = this.value.length;
+        var counter = document.getElementById("pv-extra-count");
+        counter.textContent = len + " / 100";
+        counter.classList.toggle("near-limit", len >= 90);
       });
 
       document.getElementById("preview-btn").addEventListener("click", function () {
