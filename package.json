@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Embeddable AI front-desk widget for local business websites.",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.32.0"
+    "@anthropic-ai/sdk": "^0.32.0",
+    "stripe": "^17.0.0"
   }
 }

@@ -194,6 +194,27 @@ own blue accent color untouched.
   "not configured yet" safe fallback all verified. Needs a Resend account
   (see below) to actually deliver for a real client - until then it logs
   server-side instead of silently losing leads.
+- **Automated signup: pay, get a live config, get your snippet - no human
+  step.** Previously, a customer paying via Stripe still needed someone to
+  hand-write their config, commit it, and email them an install snippet.
+  Now: `api/create-checkout.js` starts a real Stripe Checkout Session for a
+  7-day free trial (card collected upfront, so Stripe auto-charges the
+  standard rate the moment the trial ends - no manual "chase payment"
+  step), `api/stripe-webhook.js` verifies the signed `checkout.session.
+  completed` event and publishes `configs/{key}.json` by committing it
+  straight to this repo via the GitHub API (the same auto-deploy pipeline
+  that already publishes every other config, just done by an API call
+  instead of by hand), and `site/success.html` polls until it's live and
+  hands over the real install snippet. `shared/build-config.js` is the one
+  place that turns a draft into a config, shared by the free preview tool
+  and the webhook so they can never drift into two different shapes.
+  Cancelling (or a failed renewal) flips the config to `active: false` via
+  `customer.subscription.updated`/`.deleted`, and both the widget itself
+  and `api/chat.js`/`api/lead.js` refuse to operate for an inactive
+  business - cancelling actually takes the bot offline, not just stops
+  billing. Deliberate v1 scope cut: a paid signup can only pick one of the
+  six preset avatars (not a custom photo upload, which is preview-only) -
+  Stripe metadata has a size limit a full-size image can exceed.
 
 ## Deliberate scope decisions (read before extending)
 
@@ -212,6 +233,22 @@ own blue accent color untouched.
 - **Config-driven, not per-client-forked.** New prospects = a new JSON
   config, not a new copy of the widget code. Keep it that way as more
   demos get built.
+- **Committed-to-git configs, not a database, for now.** Automated signup
+  publishes configs by committing to this repo rather than provisioning a
+  real datastore - zero new paid infrastructure, reuses the exact pipeline
+  that already publishes every hand-written config, at the cost of a ~1-2
+  minute delay after payment before a business's config is actually live
+  (handled honestly with a wait screen on `site/success.html`, not a fake
+  instant success). Worth revisiting for a real database once signup volume
+  makes that delay or the "each signup triggers a redeploy" pattern a
+  genuine problem, not before.
+- **Paid signup avatars are presets-only, no custom photo upload.** The
+  free preview tool still allows uploading any image, but that path isn't
+  carried into a paid trial - Stripe Checkout metadata caps each value at
+  500 characters, which a real uploaded photo's data URI can easily exceed.
+  Six preset avatars cover the "give it a face" idea without that limit;
+  a real per-client file-upload pipeline is a fair future upgrade, not a
+  v1 requirement.
 
 ## What needs you, next
 
@@ -231,9 +268,33 @@ own blue accent color untouched.
    specifically (or another Node serverless host), not a plain static
    host.
 5. **Set up Stripe** for Frontdesk specifically (separate from anything
-   set up for `miser-ai`) - a Payment Link is enough to start, no need to
-   build full subscription infrastructure before there's a first client.
+   set up for `miser-ai`). The original static Payment Link was enough to
+   start; automated trial signup (see below) now needs real API access
+   instead.
 6. **Check for a named contact** (practice manager/owner) before sending
    the outreach email — noted in the draft.
 7. **Review and send the email yourself** — I don't send messages on your
    behalf without you reviewing them first.
+8. **Find the Price ID behind the existing £45/mo product** — Stripe
+   Dashboard → that product → copy the `price_...` id (don't create a new
+   product) — into `STRIPE_PRICE_ID`.
+9. **Add a Stripe webhook endpoint** at `https://<your-domain>/api/stripe-
+   webhook`, subscribed to `checkout.session.completed`, `customer.
+   subscription.updated`, and `customer.subscription.deleted` — copy its
+   signing secret into `STRIPE_WEBHOOK_SECRET`. Do this after the first
+   deploy with the new code, since the endpoint needs to exist first.
+10. **Create a GitHub fine-grained personal access token**, scoped to only
+    this repo, **Contents: Read & Write** and nothing else — into
+    `GITHUB_TOKEN` (plus `GITHUB_OWNER`/`GITHUB_REPO`). Fine-grained tokens
+    expire (max 1 year) — worth a calendar reminder to rotate it.
+11. **Decide on Stripe's dunning/retry settings** (Billing settings) — how
+    many times a failed renewal charge retries before the subscription is
+    marked cancelled controls how fast a client's bot goes dark after a
+    card fails. A business/legal call, not a coding one.
+12. **Decide whether to deactivate the old static Payment Link** once the
+    new trial flow is live — it currently bypasses the trial, the webhook,
+    and the automation entirely (immediate charge, no config auto-
+    published). Your call, since the link may already be shared somewhere.
+13. **Sign off on the trial/auto-charge wording** on the pricing section
+    before this goes live to real prospects — it should read clearly as
+    "card required, charged automatically after 7 days" with no surprises.

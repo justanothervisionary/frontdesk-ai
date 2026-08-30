@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk — setting up your AI receptionist</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --card: #14161a; --text: #f3f4f6; --muted: #9aa1ac;
+    --accent2: #35d68f; --border: #22262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(900px 480px at 15% -10%, rgba(47,143,224,.16), transparent 60%), var(--bg);
+    color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 20px;
+  }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; max-width: 480px; width: 100%; text-align: center; }
+  .spinner {
+    width: 32px; height: 32px; margin: 0 auto 18px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--accent2);
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 19px; margin: 0 0 10px; }
+  p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+  #snippet-box { display: none; margin-top: 22px; text-align: left; }
+  pre {
+    background: #0d0f12; border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+    font-size: 12px; overflow-x: auto; color: #cbd5e1; margin: 12px 0;
+  }
+  button {
+    background: var(--accent2); color: #04160c; border: none; border-radius: 9px; padding: 10px 18px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  a { color: var(--accent2); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h1 id="stage">Confirming your payment...</h1>
+    <p id="status-text">One moment.</p>
+    <div id="snippet-box">
+      <pre id="snippet-code"></pre>
+      <button id="copy-btn" type="button">Copy snippet</button>
+      <p style="margin-top:12px;">Full step-by-step install instructions for WordPress, Squarespace, Wix, and
+      Shopify are in <a href="../INSTALL.md">INSTALL.md</a>.</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var sessionId = params.get("session_id");
+      var businessKey = params.get("key") || null;
+      var businessName = null;
+      var agentName = null;
+
+      var spinnerEl = document.getElementById("spinner");
+      var stageEl = document.getElementById("stage");
+      var statusEl = document.getElementById("status-text");
+      var snippetBox = document.getElementById("snippet-box");
+      var snippetCode = document.getElementById("snippet-code");
+      var copyBtn = document.getElementById("copy-btn");
+
+      function stopSpinning() {
+        spinnerEl.style.display = "none";
+      }
+
+      if (!sessionId) {
+        stopSpinning();
+        stageEl.textContent = "Something's missing";
+        statusEl.textContent = "We couldn't find your checkout session. If you just paid, check your email receipt or contact us and we'll sort it out.";
+        return;
+      }
+
+      var paymentAttempts = 0;
+      var MAX_PAYMENT_ATTEMPTS = 20; // ~60s at 3s intervals
+
+      function pollPaymentStatus() {
+        paymentAttempts++;
+        fetch("/api/checkout-status?session_id=" + encodeURIComponent(sessionId))
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.businessKey) businessKey = data.businessKey;
+            businessName = data.businessName || businessName;
+            agentName = data.agentName || agentName;
+
+            if (data.paymentStatus === "complete") {
+              startPollingConfig();
+            } else if (data.paymentStatus === "expired") {
+              stopSpinning();
+              stageEl.textContent = "This checkout expired";
+              statusEl.textContent = "No charge was made - head back and start the trial again whenever you're ready.";
+            } else if (paymentAttempts < MAX_PAYMENT_ATTEMPTS) {
+              statusEl.textContent = "Confirming your payment...";
+              setTimeout(pollPaymentStatus, 3000);
+            } else {
+              stopSpinning();
+              stageEl.textContent = "Still confirming";
+              statusEl.textContent = "Payment is taking longer than expected to confirm - refresh this page in a minute, or contact us.";
+            }
+          })
+          .catch(function () {
+            if (paymentAttempts < MAX_PAYMENT_ATTEMPTS) setTimeout(pollPaymentStatus, 3000);
+          });
+      }
+
+      var configAttempts = 0;
+      var MAX_CONFIG_ATTEMPTS = 40; // ~2 min at 3s intervals
+
+      function startPollingConfig() {
+        if (!businessKey) {
+          stopSpinning();
+          stageEl.textContent = "Almost there";
+          statusEl.textContent = "Payment confirmed, but we couldn't identify your business key - contact us and we'll get you set up by hand.";
+          return;
+        }
+        stageEl.textContent = "Personalizing " + (agentName || "your receptionist") + (businessName ? " for " + businessName : "") + "...";
+        statusEl.textContent = "This usually takes about a minute.";
+        pollConfigLive();
+      }
+
+      function pollConfigLive() {
+        configAttempts++;
+        fetch("../configs/" + businessKey + ".json", { cache: "no-store" })
+          .then(function (r) { if (!r.ok) throw new Error("not yet live"); return r.json(); })
+          .then(function () { stopSpinning(); showSnippet(); })
+          .catch(function () {
+            if (configAttempts < MAX_CONFIG_ATTEMPTS) {
+              setTimeout(pollConfigLive, 3000);
+            } else {
+              stopSpinning();
+              stageEl.textContent = "Still finishing up";
+              statusEl.textContent = "This is taking longer than expected - we've been notified and will follow up by email shortly.";
+            }
+          });
+      }
+
+      function showSnippet() {
+        var origin = window.location.origin;
+        var snippet =
+          '<script src="' + origin + '/widget/frontdesk-widget.js"\n' +
+          '        data-business="' + businessKey + '"\n' +
+          '        data-config-url="' + origin + '/configs/' + businessKey + '.json"\n' +
+          '        data-api-url="' + origin + '/api/chat"\n' +
+          '        defer><' + '/script>';
+        stageEl.textContent = "It's live!";
+        statusEl.textContent = "Paste this one line into your site and your AI receptionist goes live there too.";
+        snippetCode.textContent = snippet;
+        snippetBox.style.display = "block";
+      }
+
+      copyBtn.addEventListener("click", function () {
+        navigator.clipboard.writeText(snippetCode.textContent).then(function () {
+          copyBtn.textContent = "Copied!";
+          setTimeout(function () { copyBtn.textContent = "Copy snippet"; }, 1800);
+        });
+      });
+
+      pollPaymentStatus();
+    })();
+  </script>
+</body>
+</html>

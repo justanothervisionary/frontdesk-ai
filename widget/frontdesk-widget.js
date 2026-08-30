@@ -191,6 +191,15 @@
       "@media (max-width: 480px) {" +
       "  .fd-panel { right: 8px; left: 8px; width: auto; bottom: 84px; height: 70vh; max-height: 70vh; }" +
       "  .fd-bubble { " + side + ": 14px; bottom: 14px; }" +
+      "}" +
+      // Trial ended / subscription cancelled - a muted, non-interactive
+      // bubble instead of the full chat. No click handler is ever attached
+      // in this state, so this is never just a styling difference.
+      ".fd-bubble.fd-inactive { cursor: default; opacity: .55; animation: none; }" +
+      ".fd-inactive-note {" +
+      "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 64px);" +
+      "  background: #1a1a1a; color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 8px;" +
+      "  z-index: 999999; white-space: nowrap; opacity: .85;" +
       "}"
     );
   }
@@ -268,6 +277,22 @@
     root.className = "fd-root";
     root.style.setProperty("--fd-accent", theme.accentColor);
     root.style.setProperty("--fd-on-accent", contrastTextColor(theme.accentColor));
+
+    // Trial cancelled or a renewal charge failed - the config file itself
+    // still exists (so an install doesn't just 404), but the assistant
+    // should visibly stop working rather than keep answering for free
+    // forever. This is the primary, always-effective layer since the
+    // config is public and fetched directly; api/chat.js and api/lead.js
+    // enforce the same thing server-side as a defense-in-depth backstop.
+    // No fetch calls to either endpoint ever happen in this branch.
+    if (config.active === false) {
+      root.innerHTML =
+        '<div class="fd-bubble fd-inactive">' + defaultAvatarSvg() + "</div>" +
+        '<div class="fd-inactive-note">This assistant is no longer available</div>';
+      shadow.appendChild(root);
+      return { destroy: function () { host.remove(); } };
+    }
+
     var bubbleInner = theme.avatarUrl
       ? '<img src="' + escapeHtml(theme.avatarUrl) + '" alt="" />'
       : defaultAvatarSvg();

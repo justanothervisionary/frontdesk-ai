@@ -2,8 +2,8 @@
 // The API key lives in process.env.ANTHROPIC_API_KEY (Vercel env var), and is
 // never returned to, or reachable from, the browser.
 const Anthropic = require("@anthropic-ai/sdk");
-const fs = require("fs");
-const path = require("path");
+const { loadConfig, sanitizePreviewConfig } = require("./_lib/config");
+const { createRateLimiter } = require("./_lib/rateLimit");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -13,53 +13,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // noted in SECURITY.md. For now the primary safety net is the hard spending
 // cap you set in the Anthropic console (do this before going live) - this
 // in-memory counter is a best-effort secondary layer only, not a guarantee.
-const requestLog = new Map();
-const MAX_REQUESTS_PER_WINDOW = 20;
-const WINDOW_MS = 60 * 1000;
-
-function isRateLimited(ip) {
-  const now = Date.now();
-  const entry = requestLog.get(ip) || { count: 0, windowStart: now };
-  if (now - entry.windowStart > WINDOW_MS) {
-    entry.count = 0;
-    entry.windowStart = now;
-  }
-  entry.count += 1;
-  requestLog.set(ip, entry);
-  return entry.count > MAX_REQUESTS_PER_WINDOW;
-}
-
-function loadConfig(businessKey) {
-  // businessKey is validated against a strict allowlist pattern before ever
-  // touching the filesystem, so this can't be used to read arbitrary paths.
-  if (!/^[a-z0-9-]+$/.test(businessKey || "")) return null;
-  const configPath = path.join(__dirname, "..", "configs", `${businessKey}.json`);
-  if (!fs.existsSync(configPath)) return null;
-  return JSON.parse(fs.readFileSync(configPath, "utf8"));
-}
-
-// The "Make Your AI Receptionist" self-serve tool builds a config live from
-// whatever a stranger types in, with no file behind it - this validates and
-// hard-caps that input before it's ever allowed near a prompt. Never trust
-// size or shape of anything from here; this is the one config path that
-// isn't reviewed by us first.
-function sanitizePreviewConfig(raw) {
-  if (!raw || typeof raw !== "object") return null;
-  var businessName = (raw.businessName || "").toString().slice(0, 80);
-  if (!businessName.trim()) return null;
-
-  var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
-  faqs = faqs.map(function (f) {
-    return { answer: ((f && f.answer) || "").toString().slice(0, 300) };
-  }).filter(function (f) { return f.answer.trim(); });
-
-  return {
-    businessName: businessName,
-    faqs: faqs,
-    fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||
-      "I'll pass that on to the team and someone will get back to you shortly."
-  };
-}
+const isRateLimited = createRateLimiter(20, 60 * 1000);
 
 function buildSystemPrompt(config) {
   var faqLines = (config.faqs || [])
@@ -108,6 +62,15 @@ module.exports = async function handler(req, res) {
   // client's own settings.
   var config = loadConfig(businessKey) || sanitizePreviewConfig(body.previewConfig);
   if (!config) return res.status(400).json({ error: "Unknown business" });
+  // Deliberately not the 503 path below - that's what tells the widget to
+  // fall back to local keyword matching, which would keep a cancelled
+  // client's bot quietly answering forever off stale data. This is a
+  // defense-in-depth backstop only; in normal operation the widget itself
+  // already refuses to even load for an inactive config (see
+  // widget/frontdesk-widget.js), so this path should rarely if ever fire.
+  if (config.active === false) {
+    return res.status(403).json({ error: "This assistant is no longer active.", inactive: true });
+  }
   if (!message.trim()) return res.status(400).json({ error: "Empty message" });
 
   try {

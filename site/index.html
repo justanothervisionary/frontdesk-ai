@@ -187,12 +187,14 @@
           <div class="price">£45<small>/mo</small></div>
           <div class="note">Locked in for early customers</div>
           <ul>
+            <li>7-day free trial, card required to start</li>
             <li>Your business's own assistant, built and hosted</li>
             <li>Self-install (one script tag) included</li>
             <li>Lead capture, emailed to you directly</li>
-            <li>Cancel any time</li>
+            <li>Cancel any time before the trial ends and you're not charged</li>
           </ul>
-          <a class="plan-cta primary" href="https://buy.stripe.com/28E14f13wfba0Yl3p35EY00">Get started</a>
+          <button class="plan-cta primary" id="pricing-trial-btn" type="button">Start your 7-day free trial &rarr;</button>
+          <div class="preview-hint" id="pricing-trial-status"></div>
         </div>
         <div class="plan">
           <h3>+ Done-for-you setup</h3>
@@ -207,7 +209,7 @@
         </div>
       </div>
       <p class="price-note">Standard rate after early customers is £69–79/mo — this rate is for the first businesses on board, not a limited-time trick.</p>
-      <p class="price-note">Monthly plan is a real, secure checkout via Stripe. The done-for-you setup fee is quoted first, so that button opens an email instead.</p>
+      <p class="price-note">Card required to start the trial - we don't charge anything until the 7 days are up, and you can cancel anytime before then with no charge. Checkout is real, secure Stripe. The done-for-you setup fee is quoted first, so that button opens an email instead.</p>
     </section>
 
     <section id="preview">
@@ -264,6 +266,14 @@
         <p class="preview-note">This is genuinely real AI, live - it's actually trained on whatever you type
         above, not a script. Nothing here is saved or sent anywhere beyond answering your own questions back
         to you.</p>
+
+        <div id="trial-cta" style="display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--border);">
+          <button id="start-trial-btn" class="plan-cta primary" type="button" style="width:auto; display:inline-block; padding:11px 22px;">Love it? Start your 7-day free trial &rarr;</button>
+          <div class="preview-hint" id="trial-status"></div>
+          <p class="avatar-hint">£45/mo after the trial, card required to start, cancel anytime before then.
+          This exact setup goes live on your own site - a custom uploaded photo is preview-only for now;
+          trial signups use one of the preset faces above.</p>
+        </div>
       </div>
     </section>
 
@@ -310,28 +320,19 @@
           data-config-url="../configs/demo-example.json"
           data-api-url="/api/chat"
           defer></script>
+  <script src="../shared/avatar-presets.js"></script>
+  <script src="../shared/build-config.js"></script>
 
   <script>
     (function () {
       var currentPreview = null;
-      var selectedAvatarDataUri = null; // null = use the widget's own default face
+      var hasGeneratedPreview = false;
+      var trialInFlight = false;
+      var selectedAvatarDataUri = null; // full data URI (preset or upload) - free preview only
+      var selectedAvatarPresetId = null; // only a known preset id ever travels to a paid signup
 
-      // A small illustrated set, not real photos - "human receptionist,
-      // robot, or something fun" per the brief, but kept in the same
-      // honestly-not-a-real-person style as Ivy's own default face rather
-      // than stock photos of actual people.
-      var AVATAR_PRESETS = [
-        { id: "coral", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffb37a"/><stop offset="100%" stop-color="#ff7a59"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#a1)"/><circle cx="14" cy="19" r="2.3" fill="#3a1f14"/><circle cx="26" cy="19" r="2.3" fill="#3a1f14"/><path d="M13 25 Q20 30.5 27 25" stroke="#3a1f14" stroke-width="2.3" fill="none" stroke-linecap="round"/></svg>' },
-        { id: "sky", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8fd8ff"/><stop offset="100%" stop-color="#2f8fe0"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#a2)"/><circle cx="14" cy="19" r="2.3" fill="#0b2a45"/><circle cx="26" cy="19" r="2.3" fill="#0b2a45"/><path d="M13 25 Q20 30.5 27 25" stroke="#0b2a45" stroke-width="2.3" fill="none" stroke-linecap="round"/></svg>' },
-        { id: "violet", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#d3b6ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#a3)"/><circle cx="14" cy="19" r="2.3" fill="#2c1a4d"/><circle cx="26" cy="19" r="2.3" fill="#2c1a4d"/><path d="M13 25 Q20 30.5 27 25" stroke="#2c1a4d" stroke-width="2.3" fill="none" stroke-linecap="round"/></svg>' },
-        { id: "robot-silver", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#dde2e8"/><stop offset="100%" stop-color="#9aa4b2"/></linearGradient></defs><circle cx="20" cy="6" r="2" fill="#9aa4b2"/><rect x="1" y="8" width="38" height="31" rx="12" fill="url(#a4)"/><rect x="11" y="18" width="6" height="4" rx="1.5" fill="#1a2230"/><rect x="23" y="18" width="6" height="4" rx="1.5" fill="#1a2230"/><rect x="14" y="27" width="12" height="2.5" rx="1.25" fill="#1a2230"/></svg>' },
-        { id: "robot-teal", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7fe0d8"/><stop offset="100%" stop-color="#1f9fa3"/></linearGradient></defs><circle cx="20" cy="6" r="2" fill="#1f9fa3"/><rect x="1" y="8" width="38" height="31" rx="15" fill="url(#a5)"/><circle cx="14" cy="21" r="3" fill="#0b3030"/><circle cx="26" cy="21" r="3" fill="#0b3030"/><path d="M14 28 Q20 31 26 28" stroke="#0b3030" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },
-        { id: "star", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffe27a"/><stop offset="100%" stop-color="#ffb020"/></linearGradient></defs><path d="M20 2 L24.5 14.5 L38 15 L27 23 L31 36 L20 28 L9 36 L13 23 L2 15 L15.5 14.5 Z" fill="url(#a6)"/><circle cx="16" cy="20" r="2" fill="#5c3a00"/><circle cx="24" cy="20" r="2" fill="#5c3a00"/><path d="M15 25 Q20 28.5 25 25" stroke="#5c3a00" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' }
-      ];
-
-      function svgToDataUri(svg) {
-        return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
-      }
+      var AVATAR_PRESETS = window.FrontdeskAvatarPresets.PRESETS;
+      var svgToDataUri = window.FrontdeskAvatarPresets.svgToDataUri;
 
       var gallery = document.getElementById("avatar-gallery");
       AVATAR_PRESETS.forEach(function (preset, i) {
@@ -341,12 +342,15 @@
         btn.innerHTML = preset.svg;
         btn.addEventListener("click", function () {
           selectedAvatarDataUri = svgToDataUri(preset.svg);
+          selectedAvatarPresetId = preset.id;
           Array.prototype.forEach.call(gallery.querySelectorAll(".avatar-option"), function (b) { b.classList.remove("selected"); });
           btn.classList.add("selected");
         });
         gallery.appendChild(btn);
       });
-      selectedAvatarDataUri = svgToDataUri(AVATAR_PRESETS[0].svg); // first option selected by default, matches the pre-highlighted tile
+      // First option selected by default, matches the pre-highlighted tile.
+      selectedAvatarDataUri = svgToDataUri(AVATAR_PRESETS[0].svg);
+      selectedAvatarPresetId = AVATAR_PRESETS[0].id;
 
       document.getElementById("pv-avatar-upload").addEventListener("change", function (e) {
         var file = e.target.files && e.target.files[0];
@@ -354,47 +358,37 @@
         var reader = new FileReader();
         reader.onload = function () {
           selectedAvatarDataUri = reader.result;
+          // A custom upload has no preset id - a paid trial signup can only
+          // ever carry a known preset through Stripe metadata (see
+          // shared/build-config.js), so this falls back to the default face
+          // there. Free live preview above still shows the real photo.
+          selectedAvatarPresetId = null;
           Array.prototype.forEach.call(gallery.querySelectorAll(".avatar-option"), function (b) { b.classList.remove("selected"); });
           document.getElementById("preview-hint").textContent = "Photo added - hit \"Bring them to life\" below to see it.";
         };
         reader.readAsDataURL(file);
       });
 
-      var GREETINGS = {
-        appointments: "Hi! Welcome to {name}. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
-        callouts: "Hi! Welcome to {name}. Ask about call-outs, pricing, or coverage area - or leave your details for a callback.",
-        viewings: "Hi! Welcome to {name}. Ask about viewings, valuations, or current listings - or leave your details and we'll be in touch.",
-        general: "Hi! Welcome to {name}. Ask me anything, or leave your details and the team will get back to you."
-      };
+      // Raw form values, not the assembled widget config - sent to
+      // /api/create-checkout, which re-runs them through the exact same
+      // buildFrontdeskConfig() (shared/build-config.js) server-side once
+      // payment succeeds. One source of truth for both paths.
+      function collectDraftFields() {
+        return {
+          businessName: document.getElementById("pv-name").value,
+          agentName: document.getElementById("pv-agent-name").value,
+          type: document.getElementById("pv-type").value,
+          phone: document.getElementById("pv-phone").value,
+          color: document.getElementById("pv-color").value,
+          extraInfo: document.getElementById("pv-extra-info").value,
+          avatarPresetId: selectedAvatarPresetId
+        };
+      }
 
       function buildPreviewConfig() {
-        var name = (document.getElementById("pv-name").value || "Your Business").trim();
-        var agentName = (document.getElementById("pv-agent-name").value || "Ivy").trim();
-        var type = document.getElementById("pv-type").value;
-        var phone = (document.getElementById("pv-phone").value || "your number").trim();
-        var color = document.getElementById("pv-color").value;
-        // Capped to 100 chars in the input itself - one crisp fact, not a
-        // wall of text. Travels through as just another FAQ entry, so it
-        // inherits the exact same server-side sanitization/hard-cap and
-        // untrusted-data framing as everything else in this array already
-        // does - no new backend surface for this.
-        var extraInfo = (document.getElementById("pv-extra-info").value || "").trim().slice(0, 100);
-
-        var faqs = [
-          { keywords: ["hour", "open", "close", "time"], answer: "For exact hours it's best to call " + phone + " - the team can confirm and fit you in." },
-          { keywords: ["price", "cost", "how much", "quote"], answer: "Pricing depends on what you need - call " + phone + " or leave your details for a quote." },
-          { keywords: ["book", "appointment", "callout", "viewing", "available"], answer: "You can book by calling " + phone + ", or leave your details here and we'll be in touch." },
-          { keywords: ["where", "location", "address"], answer: "Give us a call on " + phone + " for directions and parking info." }
-        ];
-        if (extraInfo) faqs.unshift({ keywords: [], answer: extraInfo });
-
-        return {
-          businessName: name,
-          theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: selectedAvatarDataUri || undefined },
-          greeting: GREETINGS[type].replace("{name}", name),
-          fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",
-          faqs: faqs
-        };
+        var draft = collectDraftFields();
+        draft.avatarDataUri = selectedAvatarDataUri || undefined; // may be a custom upload - fine, this stays client-side only
+        return window.FrontdeskBuildConfig.buildFrontdeskConfig(draft);
       }
 
       // Button text follows the name as it's typed - a small touch, but it's
@@ -437,6 +431,44 @@
 
         document.getElementById("preview-hint").textContent =
           "There it is, bottom-right - genuinely trained on what you just typed. Try asking it something.";
+
+        hasGeneratedPreview = true;
+        document.getElementById("trial-cta").style.display = "block";
+      });
+
+      // Shared by both trial CTAs (the one inside the preview box, and the
+      // one in the pricing section) - a stranger's own typed input still
+      // isn't trusted just because it's about to be paid for, so
+      // api/create-checkout.js re-validates everything server-side too.
+      function startTrial(statusEl) {
+        if (trialInFlight) return;
+        if (!hasGeneratedPreview) {
+          document.getElementById("preview").scrollIntoView({ behavior: "smooth" });
+          if (statusEl) statusEl.textContent = "Build your receptionist above first, then start the trial from there.";
+          return;
+        }
+
+        trialInFlight = true;
+        if (statusEl) statusEl.textContent = "Setting up your checkout...";
+
+        fetch("/api/create-checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(collectDraftFields())
+        })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) { window.location.href = data.url; })
+          .catch(function () {
+            trialInFlight = false;
+            if (statusEl) statusEl.textContent = "Something went wrong starting checkout - please try again in a moment.";
+          });
+      }
+
+      document.getElementById("start-trial-btn").addEventListener("click", function () {
+        startTrial(document.getElementById("trial-status"));
+      });
+      document.getElementById("pricing-trial-btn").addEventListener("click", function () {
+        startTrial(document.getElementById("pricing-trial-status"));
       });
     })();
   </script>

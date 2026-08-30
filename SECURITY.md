@@ -89,6 +89,34 @@ case cost in the meantime.
 
 ## Hosting
 
-Demo/static assets are served over HTTPS. The chat backend is a small
-serverless function - no persistent server, no database, and it holds no
-data beyond the current request.
+Demo/static assets are served over HTTPS. The chat and lead-capture
+backends are small serverless functions holding no data beyond the current
+request. A business's own config (name, FAQs, phone, colors) is a real,
+version-controlled file in this project's git repository - not a database,
+but a genuine persistent store, and Stripe separately holds payment/
+subscription data for paying customers (never card numbers themselves,
+which Stripe's own hosted checkout collects directly).
+
+## Automated trial signup
+
+A visitor can start a 7-day free trial directly from the website with no
+human involved on our side:
+
+- **Card is collected upfront, by Stripe's own hosted checkout page** -
+  never by us, never touching our servers. Stripe automatically charges
+  the standard monthly rate the moment the 7-day trial ends, unless
+  cancelled first.
+- **Webhook calls are cryptographically signature-verified** before
+  anything is processed - an unsigned or forged request is rejected
+  outright, so nothing can trigger a config publish except a genuine event
+  from Stripe.
+- **Every field in a self-serve signup is sanitized and hard-capped again,
+  server-side, before being committed** - the same defense-in-depth
+  posture as the free preview tool, extended to anything that becomes a
+  real, permanent, publicly-answering config. An uploaded custom photo is
+  preview-only for now; a paid signup can only select one of six known
+  preset avatars, never an arbitrary uploaded image.
+- **Cancelling actually takes the widget offline.** If a trial is
+  cancelled, or a renewal charge fails, the business's config is flipped to
+  inactive and the widget itself refuses to load its normal chat panel for
+  that business - it does not keep quietly answering for free.

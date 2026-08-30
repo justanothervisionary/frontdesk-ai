@@ -1,36 +1,15 @@
 // Vercel serverless function - server-side only. Sends a lead notification
 // email to the business via Resend. RESEND_API_KEY lives in a server-side
 // env var, never reachable from the browser.
-const fs = require("fs");
-const path = require("path");
+const { loadConfig } = require("./_lib/config");
+const { createRateLimiter } = require("./_lib/rateLimit");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
 
 // Same best-effort, provider-independent safety net as api/chat.js - see
 // that file's comment for why this isn't a guaranteed persistent limit.
-const requestLog = new Map();
-const MAX_REQUESTS_PER_WINDOW = 10;
-const WINDOW_MS = 60 * 1000;
-
-function isRateLimited(ip) {
-  const now = Date.now();
-  const entry = requestLog.get(ip) || { count: 0, windowStart: now };
-  if (now - entry.windowStart > WINDOW_MS) {
-    entry.count = 0;
-    entry.windowStart = now;
-  }
-  entry.count += 1;
-  requestLog.set(ip, entry);
-  return entry.count > MAX_REQUESTS_PER_WINDOW;
-}
-
-function loadConfig(businessKey) {
-  if (!/^[a-z0-9-]+$/.test(businessKey || "")) return null;
-  const configPath = path.join(__dirname, "..", "configs", `${businessKey}.json`);
-  if (!fs.existsSync(configPath)) return null;
-  return JSON.parse(fs.readFileSync(configPath, "utf8"));
-}
+const isRateLimited = createRateLimiter(10, 60 * 1000);
 
 function escapeHtml(str) {
   return String(str || "")
@@ -99,6 +78,9 @@ module.exports = async function handler(req, res) {
 
   var config = loadConfig(businessKey);
   if (!config) return res.status(400).json({ error: "Unknown business" });
+  if (config.active === false) {
+    return res.status(403).json({ error: "This assistant is no longer active." });
+  }
   if (!name || !contact) return res.status(400).json({ error: "Name and contact are required" });
 
   var result = await sendNotification(config, { name: name, contact: contact, transcript: transcript });
