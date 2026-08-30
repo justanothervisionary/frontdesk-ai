@@ -163,7 +163,8 @@
       "@keyframes fd-msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }" +
       ".fd-msg.fd-bot { background: #fff; border: 1px solid #e5e7eb; border-" + radiusCorner + "-radius: 2px; }" +
       ".fd-msg.fd-user { background: var(--fd-accent, #ff7a59); color: var(--fd-on-accent, #fff); margin-" + other + ": auto; border-bottom-" + other + "-radius: 2px; }" +
-      ".fd-feedback { display: flex; gap: 6px; margin: -4px 0 8px; }" +
+      ".fd-feedback { display: flex; align-items: center; gap: 6px; margin: -4px 0 8px; }" +
+      ".fd-answered-by { font-size: 10px; color: #a8adb5; margin-right: auto; }" +
       ".fd-feedback button { border: none; background: none; cursor: pointer; font-size: 12px; opacity: .35; padding: 2px 4px; }" +
       ".fd-feedback button:hover { opacity: .8; }" +
       ".fd-feedback button.fd-picked { opacity: 1; }" +
@@ -330,7 +331,8 @@
     function addFeedback(forQuestion, answerText) {
       var el = document.createElement("div");
       el.className = "fd-feedback";
-      el.innerHTML = '<button data-v="up" type="button" aria-label="Good answer">&#128077;</button>' +
+      el.innerHTML = '<span class="fd-answered-by">' + escapeHtml(theme.assistantName) + ' &middot; AI Agent</span>' +
+        '<button data-v="up" type="button" aria-label="Good answer">&#128077;</button>' +
         '<button data-v="down" type="button" aria-label="Not helpful">&#128078;</button>';
       messages.appendChild(el);
       el.addEventListener("click", function (e) {
@@ -361,11 +363,19 @@
       var controller = new AbortController();
       var timeout = setTimeout(function () { controller.abort(); }, 8000);
 
+      // opts.sendConfigInline is set for the "Make Your AI Receptionist"
+      // self-serve tool: there's no reviewed file behind that businessKey,
+      // so the current live config travels with the request instead. The
+      // backend independently sanitizes/caps this - never trust that this
+      // client-side object matches what actually gets used server-side.
+      var body = { businessKey: instanceKey, message: text, history: history };
+      if (opts.sendConfigInline) body.previewConfig = config;
+
       return fetch(instanceApiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ businessKey: instanceKey, message: text, history: history })
+        body: JSON.stringify(body)
       })
         .then(function (r) {
           clearTimeout(timeout);

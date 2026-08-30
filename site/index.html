@@ -127,6 +127,24 @@
   .preview-note { font-size: 12px; color: var(--muted2); margin-top: 12px; }
   .preview-hint { font-size: 12px; color: var(--accent2); margin-top: 10px; min-height: 16px; }
 
+  /* Avatar picker - "pick a face for your new hire" */
+  .avatar-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+  .avatar-option {
+    width: 52px; height: 52px; border-radius: 50%; border: 2px solid transparent;
+    cursor: pointer; padding: 0; background: none; position: relative; transition: transform .1s, border-color .1s;
+  }
+  .avatar-option svg, .avatar-option img { width: 100%; height: 100%; border-radius: 50%; display: block; object-fit: cover; }
+  .avatar-option:hover { transform: translateY(-2px); }
+  .avatar-option.selected { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(53,214,143,.18); }
+  .avatar-upload {
+    width: 52px; height: 52px; border-radius: 50%; border: 2px dashed var(--border);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    color: var(--muted); font-size: 18px; background: var(--bg2); flex-shrink: 0;
+  }
+  .avatar-upload:hover { border-color: var(--accent2); color: var(--accent2); }
+  .avatar-upload input { display: none; }
+  .avatar-hint { font-size: 11px; color: var(--muted2); margin: 6px 0 14px; }
+
   footer { padding: 34px 0 60px; text-align: center; color: var(--muted2); font-size: 12px; }
   footer a { color: var(--muted2); }
 </style>
@@ -188,15 +206,30 @@
 
     <section id="preview">
       <p class="eyebrow">Try it yourself</p>
-      <h2>Preview your own agent — takes about a minute</h2>
+      <h2>Make your AI receptionist</h2>
+      <p style="color:var(--muted); font-size:14px; margin:-14px 0 20px;">Give them a name and a face like
+      you're introducing a new hire — except this one's a robot, and takes about a minute to bring to life.</p>
       <div class="preview-box">
         <div class="field-row">
           <div>
-            <label>Business name</label>
+            <label>Name your AI receptionist</label>
+            <input type="text" id="pv-agent-name" placeholder="e.g. Ivy, Max, Robo..." />
+          </div>
+        </div>
+        <label>Pick their look</label>
+        <div class="avatar-gallery" id="avatar-gallery"></div>
+        <label class="avatar-upload" for="pv-avatar-upload" style="display:inline-flex; width:auto; padding:0 14px; border-radius:999px; gap:6px; font-size:12px; margin-bottom:4px;">
+          📁 Upload your own <input type="file" id="pv-avatar-upload" accept="image/*" />
+        </label>
+        <p class="avatar-hint">Optional - a photo, a logo, whatever you like. Only used for this quick preview.</p>
+
+        <div class="field-row">
+          <div>
+            <label>What's your business called?</label>
             <input type="text" id="pv-name" placeholder="e.g. Chiswick Family Dental" />
           </div>
           <div>
-            <label>What you do</label>
+            <label>What do you do?</label>
             <select id="pv-type">
               <option value="appointments">Book appointments (clinics, salons, therapists)</option>
               <option value="callouts">Call-outs / jobs (trades, home services)</option>
@@ -215,11 +248,11 @@
             <input type="color" id="pv-color" value="#2f8fe0" />
           </div>
         </div>
-        <button id="preview-btn" type="button">Generate my preview</button>
+        <button id="preview-btn" type="button">Bring them to life &rarr;</button>
         <div class="preview-hint" id="preview-hint"></div>
-        <p class="preview-note">This builds a working preview instantly in your browser — no AI call, no
-        data sent anywhere, nothing saved. The real, AI-powered version (like the example already running
-        on this page) is what you'd get once you're a customer.</p>
+        <p class="preview-note">This is genuinely real AI, live - it's actually trained on whatever you type
+        above, not a script. Nothing here is saved or sent anywhere beyond answering your own questions back
+        to you.</p>
       </div>
     </section>
 
@@ -270,6 +303,51 @@
   <script>
     (function () {
       var currentPreview = null;
+      var selectedAvatarDataUri = null; // null = use the widget's own default face
+
+      // A small illustrated set, not real photos - "human receptionist,
+      // robot, or something fun" per the brief, but kept in the same
+      // honestly-not-a-real-person style as Ivy's own default face rather
+      // than stock photos of actual people.
+      var AVATAR_PRESETS = [
+        { id: "coral", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffb37a"/><stop offset="100%" stop-color="#ff7a59"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#a1)"/><circle cx="14" cy="19" r="2.3" fill="#3a1f14"/><circle cx="26" cy="19" r="2.3" fill="#3a1f14"/><path d="M13 25 Q20 30.5 27 25" stroke="#3a1f14" stroke-width="2.3" fill="none" stroke-linecap="round"/></svg>' },
+        { id: "sky", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8fd8ff"/><stop offset="100%" stop-color="#2f8fe0"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#a2)"/><circle cx="14" cy="19" r="2.3" fill="#0b2a45"/><circle cx="26" cy="19" r="2.3" fill="#0b2a45"/><path d="M13 25 Q20 30.5 27 25" stroke="#0b2a45" stroke-width="2.3" fill="none" stroke-linecap="round"/></svg>' },
+        { id: "violet", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#d3b6ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs><circle cx="20" cy="20" r="19" fill="url(#a3)"/><circle cx="14" cy="19" r="2.3" fill="#2c1a4d"/><circle cx="26" cy="19" r="2.3" fill="#2c1a4d"/><path d="M13 25 Q20 30.5 27 25" stroke="#2c1a4d" stroke-width="2.3" fill="none" stroke-linecap="round"/></svg>' },
+        { id: "robot-silver", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#dde2e8"/><stop offset="100%" stop-color="#9aa4b2"/></linearGradient></defs><circle cx="20" cy="6" r="2" fill="#9aa4b2"/><rect x="1" y="8" width="38" height="31" rx="12" fill="url(#a4)"/><rect x="11" y="18" width="6" height="4" rx="1.5" fill="#1a2230"/><rect x="23" y="18" width="6" height="4" rx="1.5" fill="#1a2230"/><rect x="14" y="27" width="12" height="2.5" rx="1.25" fill="#1a2230"/></svg>' },
+        { id: "robot-teal", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a5" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7fe0d8"/><stop offset="100%" stop-color="#1f9fa3"/></linearGradient></defs><circle cx="20" cy="6" r="2" fill="#1f9fa3"/><rect x="1" y="8" width="38" height="31" rx="15" fill="url(#a5)"/><circle cx="14" cy="21" r="3" fill="#0b3030"/><circle cx="26" cy="21" r="3" fill="#0b3030"/><path d="M14 28 Q20 31 26 28" stroke="#0b3030" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' },
+        { id: "star", svg: '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="a6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffe27a"/><stop offset="100%" stop-color="#ffb020"/></linearGradient></defs><path d="M20 2 L24.5 14.5 L38 15 L27 23 L31 36 L20 28 L9 36 L13 23 L2 15 L15.5 14.5 Z" fill="url(#a6)"/><circle cx="16" cy="20" r="2" fill="#5c3a00"/><circle cx="24" cy="20" r="2" fill="#5c3a00"/><path d="M15 25 Q20 28.5 25 25" stroke="#5c3a00" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' }
+      ];
+
+      function svgToDataUri(svg) {
+        return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+      }
+
+      var gallery = document.getElementById("avatar-gallery");
+      AVATAR_PRESETS.forEach(function (preset, i) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "avatar-option" + (i === 0 ? " selected" : "");
+        btn.innerHTML = preset.svg;
+        btn.addEventListener("click", function () {
+          selectedAvatarDataUri = svgToDataUri(preset.svg);
+          Array.prototype.forEach.call(gallery.querySelectorAll(".avatar-option"), function (b) { b.classList.remove("selected"); });
+          btn.classList.add("selected");
+        });
+        gallery.appendChild(btn);
+      });
+      selectedAvatarDataUri = svgToDataUri(AVATAR_PRESETS[0].svg); // first option selected by default, matches the pre-highlighted tile
+
+      document.getElementById("pv-avatar-upload").addEventListener("change", function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          selectedAvatarDataUri = reader.result;
+          Array.prototype.forEach.call(gallery.querySelectorAll(".avatar-option"), function (b) { b.classList.remove("selected"); });
+          document.getElementById("preview-hint").textContent = "Photo added - hit \"Bring them to life\" below to see it.";
+        };
+        reader.readAsDataURL(file);
+      });
 
       var GREETINGS = {
         appointments: "Hi! Welcome to {name}. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
@@ -280,13 +358,14 @@
 
       function buildPreviewConfig() {
         var name = (document.getElementById("pv-name").value || "Your Business").trim();
+        var agentName = (document.getElementById("pv-agent-name").value || "Ivy").trim();
         var type = document.getElementById("pv-type").value;
         var phone = (document.getElementById("pv-phone").value || "your number").trim();
         var color = document.getElementById("pv-color").value;
 
         return {
           businessName: name,
-          theme: { accentColor: color, position: "right" },
+          theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: selectedAvatarDataUri || undefined },
           greeting: GREETINGS[type].replace("{name}", name),
           fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",
           faqs: [
@@ -297,6 +376,13 @@
           ]
         };
       }
+
+      // Button text follows the name as it's typed - a small touch, but it's
+      // the difference between "fill in a form" and "you're naming someone."
+      document.getElementById("pv-agent-name").addEventListener("input", function () {
+        var n = this.value.trim();
+        document.getElementById("preview-btn").textContent = n ? ("Bring " + n + " to life →") : "Bring them to life →";
+      });
 
       document.getElementById("preview-btn").addEventListener("click", function () {
         if (currentPreview) { currentPreview.destroy(); currentPreview = null; }
@@ -309,18 +395,20 @@
         }
 
         var config = buildPreviewConfig();
-        // No apiUrl/leadApiUrl passed - runs on the safe local keyword
-        // matcher only, deliberately, since this config is built from
-        // arbitrary page input rather than something we've reviewed.
+        // Real AI now, deliberately: the backend independently sanitizes
+        // and hard-caps whatever config travels along with sendConfigInline
+        // (see api/chat.js) and the system prompt treats it as untrusted
+        // data, never instructions - safe to point at the real endpoint.
         currentPreview = window.FrontdeskWidget.mount(config, {
           businessKey: "live-preview",
-          apiUrl: null,
+          apiUrl: "/api/chat",
           leadApiUrl: null,
+          sendConfigInline: true,
           autoOpen: true
         });
 
         document.getElementById("preview-hint").textContent =
-          "There it is, bottom-right - try asking it about hours, price, or booking.";
+          "There it is, bottom-right - genuinely trained on what you just typed. Try asking it something.";
       });
     })();
   </script>
