@@ -138,19 +138,26 @@ own blue accent color untouched.
   what makes personalizing prospect #2, #3, #50 fast instead of hand-
   writing JSON each time. Tested end-to-end (form → generated JSON →
   validated it parses correctly).
-- **Site redesign + live "preview your business" tool.** The site now leads
-  with pricing (no scrolling to find the number) and a real interactive
-  preview: type in a business name, type, and phone, and it mounts a second,
-  independent widget instance right there using the actual widget's new
-  `window.FrontdeskWidget.mount()` API - not a mockup screenshot, the real
-  thing, personalized live. Deliberately kept AI-free (runs on the same
-  local keyword-matcher as the safe fallback elsewhere) since this config
-  is built from arbitrary page input, not something we've reviewed - no
-  reason to give that access to a live AI backend. Found and fixed a real
-  bug while testing this: the preview and the generic example widget
-  stacked exactly on top of each other at the same screen position: fixed
-  by swapping out the generic one the first time a real preview is
-  generated, so there's only ever one bubble on screen.
+- **Site redesign + live "Make your AI receptionist" tool.** The site now
+  leads with pricing (no scrolling to find the number) and a real
+  interactive preview: name the AI, pick or upload its face, fill in the
+  business, and it mounts a second, independent widget instance right
+  there using the actual widget's `window.FrontdeskWidget.mount()` API -
+  not a mockup screenshot, the real thing, personalized live. Runs on the
+  **real Claude backend** (`sendConfigInline`: the visitor's own draft
+  config travels with each chat request instead of needing a config file
+  on disk first), sanitized and capped server-side exactly like a real
+  client's config (see `sanitizePreviewConfig()` in `api/chat.js`) - proven
+  resistant to a direct prompt-injection attempt typed into the business
+  name field. A free-text box (100 chars, capped both client- and
+  server-side) lets the visitor teach it one real fact about their
+  business, which then actually shows up in the AI's answers - verified
+  live end-to-end (typed a made-up fact, asked a question only that fact
+  could answer, got it back correctly). Found and fixed a real bug while
+  testing the original version of this: the preview and the generic
+  example widget stacked exactly on top of each other at the same screen
+  position: fixed by swapping out the generic one the first time a real
+  preview is generated, so there's only ever one bubble on screen.
 - **Business-hours awareness.** Optional `hours` field per config (per day,
   open/close times). Outside those hours, the greeting and header subtitle
   automatically switch to an `afterHoursGreeting` - verified live (tested
