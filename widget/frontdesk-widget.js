@@ -108,23 +108,14 @@
       ".fd-bubble img { border-radius: 50%; object-fit: cover; }" +
       ".fd-eye { transition: transform .08s; transform-origin: center; }" +
       ".fd-blinking .fd-eye { transform: scaleY(.12); }" +
-      ".fd-teaser {" +
-      "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); max-width: 210px;" +
-      "  background: #fff; color: #1a1a1a; padding: 10px 14px; border-radius: 14px; font-size: 13px;" +
-      "  box-shadow: 0 8px 28px rgba(0,0,0,.22); z-index: 999998; cursor: pointer;" +
-      "  animation: fd-pop-in .35s cubic-bezier(.34,1.56,.64,1);" +
-      "}" +
-      ".fd-teaser::after {" +
-      "  content: ''; position: absolute; bottom: -7px; " + side + ": 24px; width: 14px; height: 14px;" +
-      "  background: #fff; clip-path: polygon(0 0, 100% 0, 15% 100%);" +
-      "}" +
       ".fd-panel {" +
-      "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); width: 340px; max-width: calc(100vw - 32px);" +
-      "  height: 460px; max-height: calc(100vh - 140px); border-radius: 20px;" +
-      "  box-shadow: 0 16px 44px rgba(0,0,0,.22); display: none; flex-direction: column;" +
+      "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); width: 368px; max-width: calc(100vw - 32px);" +
+      "  height: 500px; max-height: calc(100vh - 140px); border-radius: 22px;" +
+      "  box-shadow: 0 20px 56px rgba(0,0,0,.28); display: none; flex-direction: column;" +
       "  overflow: visible; z-index: 999999;" +
+      "  animation: fd-pop-in .32s cubic-bezier(.34,1.56,.64,1);" +
       "}" +
-      ".fd-panel-inner { display: flex; flex-direction: column; height: 100%; border-radius: 20px; overflow: hidden; background: #fff; }" +
+      ".fd-panel-inner { display: flex; flex-direction: column; height: 100%; border-radius: 22px; overflow: hidden; background: #fff; }" +
       // A small rounded tail connecting the panel back down to the bubble it
       // came from - the visual grammar of a speech bubble, not a floating
       // corporate card that happens to appear near the icon. Sits behind
@@ -137,12 +128,27 @@
       "  background: var(--fd-accent, #ff7a59); clip-path: polygon(0 0, 100% 0, 15% 100%);" +
       "}" +
       ".fd-panel.fd-open { display: flex; }" +
-      ".fd-header { background: var(--fd-accent, #ff7a59); color: var(--fd-on-accent, #fff); padding: 14px 16px; display: flex; align-items: center; gap: 10px; }" +
-      ".fd-header img, .fd-face-sm { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; }" +
+      ".fd-header {" +
+      "  background: linear-gradient(135deg, var(--fd-accent, #ff7a59), color-mix(in srgb, var(--fd-accent, #ff7a59) 70%, #000));" +
+      "  color: var(--fd-on-accent, #fff); padding: 18px 18px 20px; display: flex; align-items: center; gap: 12px; position: relative;" +
+      "}" +
+      ".fd-header img, .fd-face-sm { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.2); }" +
       ".fd-face-sm svg { width: 100%; height: 100%; display: block; }" +
       ".fd-bubble { overflow: hidden; }" +
-      ".fd-header .fd-name { font-weight: 700; font-size: 14px; }" +
-      ".fd-header .fd-sub { font-size: 11px; opacity: .85; margin-top: 2px; }" +
+      ".fd-header .fd-name { font-weight: 700; font-size: 15px; }" +
+      ".fd-header .fd-sub { font-size: 12px; opacity: .9; margin-top: 3px; }" +
+      ".fd-close {" +
+      "  position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; border-radius: 50%;" +
+      "  border: none; background: rgba(255,255,255,.22); color: inherit; cursor: pointer; font-size: 15px;" +
+      "  display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;" +
+      "}" +
+      ".fd-close:hover { background: rgba(255,255,255,.34); }" +
+      ".fd-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; }" +
+      ".fd-chip {" +
+      "  border: 1px solid #e5e7eb; background: #fff; color: #333; font-size: 12px; padding: 6px 12px;" +
+      "  border-radius: 999px; cursor: pointer; transition: background .12s, border-color .12s;" +
+      "}" +
+      ".fd-chip:hover { background: #f7f8fa; border-color: var(--fd-accent, #ff7a59); }" +
       ".fd-messages { flex: 1; overflow-y: auto; padding: 12px; background: #f7f8fa; }" +
       ".fd-msg { max-width: 85%; margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; animation: fd-msg-in .18s ease-out; }" +
       "@keyframes fd-msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }" +
@@ -175,7 +181,6 @@
       "@media (max-width: 480px) {" +
       "  .fd-panel { right: 8px; left: 8px; width: auto; bottom: 84px; height: 70vh; max-height: 70vh; }" +
       "  .fd-bubble { " + side + ": 14px; bottom: 14px; }" +
-      "  .fd-teaser { " + side + ": 14px; bottom: 78px; max-width: calc(100vw - 90px); }" +
       "}"
     );
   }
@@ -263,8 +268,10 @@
     root.innerHTML =
       '<button class="fd-bubble" aria-label="Chat with us" type="button">' + bubbleInner + "</button>" +
       '<div class="fd-panel"><div class="fd-panel-inner">' +
-      '<div class="fd-header">' + headerAvatar + '<div><div class="fd-name"></div><div class="fd-sub"></div></div></div>' +
+      '<div class="fd-header">' + headerAvatar + '<div><div class="fd-name"></div><div class="fd-sub"></div></div>' +
+      '<button class="fd-close" type="button" aria-label="Close chat">&#10005;</button></div>' +
       '<div class="fd-messages"></div>' +
+      '<div class="fd-chips"></div>' +
       '<button class="fd-leave-link" type="button">Leave your details for a callback</button>' +
       '<div class="fd-lead-form">' +
       '<input class="fd-lead-name" type="text" placeholder="Your name" />' +
@@ -285,6 +292,8 @@
 
     var bubble = root.querySelector(".fd-bubble");
     var panel = root.querySelector(".fd-panel");
+    var closeBtn = root.querySelector(".fd-close");
+    var chipsEl = root.querySelector(".fd-chips");
     var messages = root.querySelector(".fd-messages");
     var input = root.querySelector(".fd-input");
     var sendBtn = root.querySelector(".fd-send");
@@ -443,27 +452,66 @@
     leadCancel.addEventListener("click", function () { setLeadFormOpen(false); });
     leadSubmit.addEventListener("click", submitLead);
 
+    var dismissed = false; // any real engagement (open or explicit close) stops the proactive stuff
+
     function settle() {
+      dismissed = true;
       bubble.classList.add("fd-settled");
-      hideTeaser();
       clearInterval(blinkTimer);
     }
 
+    function chipLabelFor(faq) {
+      if (faq.chipLabel) return faq.chipLabel;
+      var kw = (faq.keywords && faq.keywords[0]) || "";
+      var titled = kw.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+      return titled + (/[?.!]$/.test(titled) ? "" : "?");
+    }
+
+    // Quick-reply suggestion chips so a first-time visitor doesn't have to
+    // think of what to type - one tap sends a real question straight
+    // through the normal send() path (real AI or local matching, same as
+    // typing it by hand).
+    function renderChips() {
+      var faqs = (config.faqs || []).slice(0, 3);
+      faqs.forEach(function (faq) {
+        var chip = document.createElement("button");
+        chip.className = "fd-chip";
+        chip.type = "button";
+        chip.textContent = chipLabelFor(faq);
+        chip.addEventListener("click", function () {
+          chipsEl.innerHTML = ""; // one-shot - keeps the panel tidy after first use
+          input.value = chip.textContent.replace(/\?$/, "");
+          send();
+        });
+        chipsEl.appendChild(chip);
+      });
+    }
+
     var greeted = false;
+    function showGreeting() {
+      if (greeted) return;
+      greeted = true;
+      var openNow = isOpenNow(config);
+      var greeting = (openNow === false && config.afterHoursGreeting)
+        ? config.afterHoursGreeting
+        : (config.greeting || "Hi! How can I help you today?");
+      addMessage(greeting, "bot");
+      if (openNow === false) {
+        root.querySelector(".fd-sub").textContent = "Currently closed - I can still help";
+      }
+      renderChips();
+    }
+
     bubble.addEventListener("click", function () {
       settle();
       var open = panel.classList.toggle("fd-open");
-      if (open && !greeted) {
-        greeted = true;
-        var openNow = isOpenNow(config);
-        var greeting = (openNow === false && config.afterHoursGreeting)
-          ? config.afterHoursGreeting
-          : (config.greeting || "Hi! How can I help you today?");
-        addMessage(greeting, "bot");
-        if (openNow === false) {
-          root.querySelector(".fd-sub").textContent = "Currently closed - I can still help";
-        }
-      }
+      if (open) showGreeting();
+    });
+
+    closeBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      settle();
+      panel.classList.remove("fd-open");
     });
 
     sendBtn.addEventListener("click", send);
@@ -483,24 +531,19 @@
       }, 3200 + Math.random() * 2600); // irregular timing reads as a real blink, not a machine tick
     }
 
-    // A one-time, dismissible teaser bubble - draws a first glance with an
-    // actual invitation, not just motion. Never shown again once someone's
-    // opened the panel (settle()), never re-shown after being closed once.
-    var teaserEl = null;
-    var teaserTimer = setTimeout(function () {
-      if (panel.classList.contains("fd-open")) return;
-      teaserEl = document.createElement("div");
-      teaserEl.className = "fd-teaser";
-      teaserEl.textContent = (config.teaserText || ("👋 Got a question? I'm " + theme.assistantName + "."));
-      teaserEl.addEventListener("click", function () { bubble.click(); });
-      root.appendChild(teaserEl);
-      teaserTimer = setTimeout(hideTeaser, 9000);
-    }, 4500);
-
-    function hideTeaser() {
-      clearTimeout(teaserTimer);
-      if (teaserEl) { teaserEl.remove(); teaserEl = null; }
-    }
+    // Proactively open with the real greeting after a short delay, instead
+    // of relying on the bubble alone or a small teaser tooltip to catch the
+    // eye. Checked how Intercom's own site behaves for this: their launcher
+    // icon is actually smaller than ours (48px), but they auto-open the
+    // full greeting card within ~2 seconds of page load - the invitation
+    // itself is what gets noticed, not bubble motion. Never fires if the
+    // visitor's already engaged (opened or explicitly closed it first).
+    var autoOpenTimer = setTimeout(function () {
+      if (dismissed || panel.classList.contains("fd-open")) return;
+      settle();
+      panel.classList.add("fd-open");
+      showGreeting();
+    }, 2500);
 
     // Auto-open and greet immediately when explicitly asked to (used by the
     // "try it for your business" live preview, where a visitor just filled
@@ -513,7 +556,7 @@
     return {
       destroy: function () {
         clearInterval(blinkTimer);
-        clearTimeout(teaserTimer);
+        clearTimeout(autoOpenTimer);
         host.remove();
       }
     };
