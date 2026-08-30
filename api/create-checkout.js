@@ -83,6 +83,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ url: session.url });
   } catch (err) {
     console.error("[frontdesk create-checkout] error:", err.message);
-    return res.status(502).json({ error: "Could not start checkout - please try again." });
+    // TEMP-DEBUG: surfacing the real error while diagnosing initial setup -
+    // revert to the generic message before this is exposed to real
+    // visitors, since err.message can leak internal details.
+    return res.status(502).json({ error: "Could not start checkout - please try again.", debug: err.message });
   }
 };
