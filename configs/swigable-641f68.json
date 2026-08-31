@@ -1,0 +1,57 @@
+{
+  "businessName": "Swigable",
+  "theme": {
+    "accentColor": "#12d6c5",
+    "position": "right",
+    "assistantName": "Jade"
+  },
+  "greeting": "Hi! Welcome to Swigable. Ask me anything, or leave your details and the team will get back to you.",
+  "fallbackAnswer": "I'll pass that on to the team - would you like to leave your name and number, or call 07720497066?",
+  "faqs": [
+    {
+      "keywords": [],
+      "answer": "Swigable is a smart bottle that tracks your intake & reminds you to drink. It Builds better habits."
+    },
+    {
+      "keywords": [
+        "hour",
+        "open",
+        "close",
+        "time"
+      ],
+      "answer": "For exact hours it's best to call 07720497066 - the team can confirm and fit you in."
+    },
+    {
+      "keywords": [
+        "price",
+        "cost",
+        "how much",
+        "quote"
+      ],
+      "answer": "Pricing depends on what you need - call 07720497066 or leave your details for a quote."
+    },
+    {
+      "keywords": [
+        "book",
+        "appointment",
+        "callout",
+        "viewing",
+        "available"
+      ],
+      "answer": "You can book by calling 07720497066, or leave your details here and we'll be in touch."
+    },
+    {
+      "keywords": [
+        "where",
+        "location",
+        "address"
+      ],
+      "answer": "Give us a call on 07720497066 for directions and parking info."
+    }
+  ],
+  "notifyEmail": "danielbodell@outlook.com",
+  "active": true,
+  "stripeCustomerId": "cus_VAx24mSNgLS0DQ",
+  "stripeSubscriptionId": "sub_1UAb8L1PzE19HBxHSWMs0lJZ",
+  "stripeCheckoutSessionId": "cs_live_a1waE3j6P40m4cdngAcjY6zDAOy13MCUuac4xGwi1IG6stkes6N8Kl9BI0"
+}
