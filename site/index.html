@@ -150,8 +150,13 @@
   .char-count { font-size: 11px; color: var(--muted2); text-align: right; margin: 4px 0 14px; }
   .char-count.near-limit { color: var(--accent2); }
 
+  .about-block { max-width: 640px; }
+  .about-block p { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+
   footer { padding: 34px 0 60px; text-align: center; color: var(--muted2); font-size: 12px; }
   footer a { color: var(--muted2); }
+  footer p { margin: 0 0 8px; }
+  .footer-company { line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -160,6 +165,7 @@
     <div>
       <a href="#pricing">Pricing</a>
       <a href="#preview">Preview yours</a>
+      <a href="#about">About</a>
       <a href="#trust">Security</a>
     </div>
   </nav>
@@ -289,6 +295,22 @@
       </ol>
     </section>
 
+    <section id="about">
+      <p class="eyebrow">Who's behind this</p>
+      <h2>Built by people who had the same problem</h2>
+      <div class="about-block">
+        <p>We're Danny and Jade, based in West London. Between us we've spent years building
+        marketing systems and automation — first inside our own business, solving our own problem:
+        too many enquiries falling through the cracks outside office hours, and not enough time to
+        answer everything ourselves.</p>
+        <p>Frontdesk started as a tool we built for that. Once it worked for us, it was obvious most
+        local businesses are sitting on the exact same problem — and that AI and automation, done
+        properly, isn't the overhyped, confusing thing it's often made out to be. We built Frontdesk
+        to make it simple: one AI receptionist that actually helps, not a chatbot with your logo
+        stuck on it.</p>
+      </div>
+    </section>
+
     <section id="trust">
       <p class="eyebrow">Trust &amp; safety</p>
       <h2>Built to survive an IT review</h2>
@@ -305,12 +327,17 @@
           <h3>Minimal data, on purpose</h3>
           <p>No tracking, no cookies. Leads are emailed directly to you, not stored in a database we hold.</p>
         </div>
+        <div class="card">
+          <h3>Payments handled by Stripe</h3>
+          <p>Your card details go straight to Stripe's own secure checkout — they never touch our servers. Bank-level encryption, PCI-compliant, the same processor trusted by millions of businesses worldwide.</p>
+        </div>
       </div>
       <p class="price-note">Full plain-language write-up for whoever handles IT on your side: <a href="../SECURITY.md" style="color:var(--accent2)">read the security overview</a>.</p>
     </section>
 
     <footer>
-      &copy; 2026 Frontdesk
+      <p class="footer-company"><strong>Frontdesk</strong><br>44 Brentvale Avenue, Southall, Ealing, London, UB1 3ER</p>
+      <p>&copy; 2026 Frontdesk. Payments securely processed by Stripe.</p>
     </footer>
   </div>
 
