@@ -21,13 +21,23 @@
     general: "Hi! Welcome to {name}. Ask me anything, or leave your details and the team will get back to you."
   };
 
+  // Node only (no `process` in a browser) - matches the fallback used
+  // elsewhere (api/create-checkout.js etc) so a resolved avatar URL always
+  // points at wherever this is actually deployed.
+  function siteBaseUrl() {
+    if (typeof process !== "undefined" && process.env && process.env.SITE_BASE_URL) return process.env.SITE_BASE_URL;
+    return "https://frontdesk-ai-chi-ten.vercel.app";
+  }
+
   // input: { businessName, agentName, type, phone, color, extraInfo,
-  //          avatarDataUri?, avatarPresetId? }
+  //          avatarDataUri?, avatarId?, avatarPresetId? }
   // avatarDataUri (a full data URI, possibly a large custom-uploaded photo)
   // is only ever safe to trust from the free, client-side-only preview path.
-  // avatarPresetId is the only avatar path safe to trust from a paid
-  // signup, since it's resolved here against our own known preset list
-  // rather than accepting an arbitrary caller-supplied string/URL.
+  // avatarId is a short reference to an image already uploaded via
+  // api/upload-avatar.js and committed to the repo - the only avatar path
+  // that actually survives into a paid signup, since Stripe metadata can't
+  // carry a full image. avatarPresetId (one of the 6 built-in faces) still
+  // works too, kept for backwards compatibility with anything already using it.
   function buildFrontdeskConfig(input) {
     input = input || {};
     var name = (input.businessName || "Your Business").toString().trim().slice(0, 80) || "Your Business";
@@ -40,6 +50,8 @@
     var avatarUrl;
     if (input.avatarDataUri) {
       avatarUrl = input.avatarDataUri;
+    } else if (input.avatarId && /^[0-9a-f]{24}\.(png|jpg|webp|gif)$/i.test(input.avatarId)) {
+      avatarUrl = siteBaseUrl() + "/configs/avatars/" + input.avatarId;
     } else if (input.avatarPresetId) {
       var preset = avatarPresets.findPreset(input.avatarPresetId);
       if (preset) avatarUrl = avatarPresets.svgToDataUri(preset.svg);

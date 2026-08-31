@@ -113,9 +113,12 @@ human involved on our side:
 - **Every field in a self-serve signup is sanitized and hard-capped again,
   server-side, before being committed** - the same defense-in-depth
   posture as the free preview tool, extended to anything that becomes a
-  real, permanent, publicly-answering config. An uploaded custom photo is
-  preview-only for now; a paid signup can only select one of six known
-  preset avatars, never an arbitrary uploaded image.
+  real, permanent, publicly-answering config. An uploaded photo/logo is
+  validated server-side (image type restricted to PNG/JPEG/WebP/GIF - no
+  SVG, since that format can embed scripts; 2MB size cap) before being
+  stored, and a config's avatar can only ever point at that upload path or
+  one of the built-in preset faces - never an arbitrary attacker-supplied
+  URL.
 - **Cancelling actually takes the widget offline.** If a trial is
   cancelled, or a renewal charge fails, the business's config is flipped to
   inactive and the widget itself refuses to load its normal chat panel for

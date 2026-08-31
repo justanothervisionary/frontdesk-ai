@@ -39,13 +39,9 @@ async function getFile(filePath) {
 // `.conflict = true` on a 409 (the file moved since the caller last read its
 // sha) so callers can decide whether to re-fetch-and-retry rather than
 // silently overwriting something newer.
-async function putFile(filePath, jsonObj, message, sha) {
+async function putRawFile(filePath, base64Content, message, sha) {
   var branch = process.env.GITHUB_BRANCH || "main";
-  var body = {
-    message: message,
-    content: Buffer.from(JSON.stringify(jsonObj, null, 2) + "\n", "utf8").toString("base64"),
-    branch: branch
-  };
+  var body = { message: message, content: base64Content, branch: branch };
   if (sha) body.sha = sha;
 
   var res = await fetch(repoContentsUrl(filePath), { method: "PUT", headers: ghHeaders(), body: JSON.stringify(body) });
@@ -58,4 +54,15 @@ async function putFile(filePath, jsonObj, message, sha) {
   return res.json();
 }
 
-module.exports = { getFile, putFile };
+// Config files specifically - JSON-encodes the object first.
+function putFile(filePath, jsonObj, message, sha) {
+  return putRawFile(filePath, Buffer.from(JSON.stringify(jsonObj, null, 2) + "\n", "utf8").toString("base64"), message, sha);
+}
+
+// Binary assets (avatar uploads) - content is already a base64 string, no
+// JSON re-encoding.
+function putBinaryFile(filePath, base64Content, message) {
+  return putRawFile(filePath, base64Content, message);
+}
+
+module.exports = { getFile, putFile, putBinaryFile };

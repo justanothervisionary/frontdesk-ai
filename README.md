@@ -212,9 +212,21 @@ own blue accent color untouched.
   `customer.subscription.updated`/`.deleted`, and both the widget itself
   and `api/chat.js`/`api/lead.js` refuse to operate for an inactive
   business - cancelling actually takes the bot offline, not just stops
-  billing. Deliberate v1 scope cut: a paid signup can only pick one of the
-  six preset avatars (not a custom photo upload, which is preview-only) -
-  Stripe metadata has a size limit a full-size image can exceed.
+  billing.
+- **Real photo/logo upload, for real - not preview-only.** The self-serve
+  tool's avatar picker is now a single upload circle with a live preview
+  (the old 6-preset gallery is gone). Since Stripe Checkout metadata caps
+  each value at 500 characters - far too small for an actual image -
+  `api/upload-avatar.js` commits the uploaded photo to this repo *before*
+  checkout starts (same GitHub-as-storage pattern as configs themselves,
+  reusing `api/_lib/github.js`), and only a short filename reference travels
+  through Stripe. The webhook resolves that reference back into a real URL
+  when it publishes the config. Validated server-side regardless of what
+  the browser already checked: image MIME type restricted to PNG/JPEG/
+  WebP/GIF (SVG deliberately excluded - it can embed scripts), 2MB cap,
+  and `api/_lib/config.js`'s `sanitizeCommittedConfig()` only ever accepts
+  an avatar URL matching our own generated upload path or one of the
+  legacy presets - never an arbitrary caller-supplied URL.
 
 ## Deliberate scope decisions (read before extending)
 
@@ -242,13 +254,12 @@ own blue accent color untouched.
   instant success). Worth revisiting for a real database once signup volume
   makes that delay or the "each signup triggers a redeploy" pattern a
   genuine problem, not before.
-- **Paid signup avatars are presets-only, no custom photo upload.** The
-  free preview tool still allows uploading any image, but that path isn't
-  carried into a paid trial - Stripe Checkout metadata caps each value at
-  500 characters, which a real uploaded photo's data URI can easily exceed.
-  Six preset avatars cover the "give it a face" idea without that limit;
-  a real per-client file-upload pipeline is a fair future upgrade, not a
-  v1 requirement.
+- **Uploaded avatars live in `configs/avatars/` forever, with no cleanup
+  path yet.** Every photo ever uploaded through the self-serve tool gets
+  committed and stays, even if that visitor never actually pays - low
+  volume makes this a non-issue today, but worth a cleanup job (delete
+  orphaned uploads with no matching config after some window) once there's
+  real traffic through this tool.
 
 ## What needs you, next
 

@@ -42,7 +42,12 @@ module.exports = async function handler(req, res) {
 
   var body = req.body || {};
   // Never trust the client's own caps - re-cap everything here regardless
-  // of what the self-serve form already enforces.
+  // of what the self-serve form already enforces. avatarId must already be
+  // a real, previously-uploaded reference (see api/upload-avatar.js) -
+  // silently dropped if it doesn't match that shape, rather than passing
+  // an arbitrary string through to Stripe metadata and eventually into a
+  // committed config's avatarUrl.
+  var rawAvatarId = capStr(body.avatarId, 40);
   var draft = {
     businessName: capStr(body.businessName, 80).trim(),
     agentName: capStr(body.agentName, 40).trim(),
@@ -50,7 +55,7 @@ module.exports = async function handler(req, res) {
     phone: capStr(body.phone, 40).trim(),
     color: capStr(body.color, 10),
     extraInfo: capStr(body.extraInfo, 100).trim(),
-    avatarPresetId: capStr(body.avatarPresetId, 30)
+    avatarId: /^[0-9a-f]{24}\.(png|jpg|webp|gif)$/i.test(rawAvatarId) ? rawAvatarId : ""
   };
   if (!draft.businessName) return res.status(400).json({ error: "Business name is required" });
   if (!stripe || !process.env.STRIPE_PRICE_ID) return res.status(500).json({ error: "Checkout isn't configured yet" });

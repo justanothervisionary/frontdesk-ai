@@ -127,23 +127,22 @@
   .preview-note { font-size: 12px; color: var(--muted2); margin-top: 12px; }
   .preview-hint { font-size: 12px; color: var(--accent2); margin-top: 10px; min-height: 16px; }
 
-  /* Avatar picker - "pick a face for your new hire" */
-  .avatar-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
-  .avatar-option {
-    width: 52px; height: 52px; border-radius: 50%; border: 2px solid transparent;
-    cursor: pointer; padding: 0; background: none; position: relative; transition: transform .1s, border-color .1s;
-  }
-  .avatar-option svg, .avatar-option img { width: 100%; height: 100%; border-radius: 50%; display: block; object-fit: cover; }
-  .avatar-option:hover { transform: translateY(-2px); }
-  .avatar-option.selected { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(53,214,143,.18); }
-  .avatar-upload {
-    width: 52px; height: 52px; border-radius: 50%; border: 2px dashed var(--border);
+  /* Avatar picker - a single upload circle, live preview of whatever's dropped in */
+  .avatar-uploader {
+    width: 88px; height: 88px; border-radius: 50%; border: 2px dashed var(--border);
     display: flex; align-items: center; justify-content: center; cursor: pointer;
-    color: var(--muted); font-size: 18px; background: var(--bg2); flex-shrink: 0;
+    color: var(--muted); font-size: 12px; background: var(--bg2); flex-shrink: 0;
+    text-align: center; line-height: 1.3; transition: border-color .15s, transform .1s; overflow: hidden;
+    position: relative;
   }
-  .avatar-upload:hover { border-color: var(--accent2); color: var(--accent2); }
-  .avatar-upload input { display: none; }
-  .avatar-hint { font-size: 11px; color: var(--muted2); margin: 6px 0 14px; }
+  .avatar-uploader:hover { border-color: var(--accent2); color: var(--accent2); transform: translateY(-2px); }
+  .avatar-uploader.has-image { border-style: solid; border-color: var(--accent2); color: transparent; }
+  .avatar-uploader img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .avatar-uploader.has-image img { display: block; }
+  .avatar-uploader .avatar-uploader-label { padding: 0 8px; }
+  .avatar-uploader.has-image .avatar-uploader-label { display: none; }
+  .avatar-uploader input { display: none; }
+  .avatar-hint { font-size: 11px; color: var(--muted2); margin: 8px 0 14px; }
   textarea#pv-extra-info {
     width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
     background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; resize: none;
@@ -224,12 +223,13 @@
             <input type="text" id="pv-agent-name" placeholder="e.g. Ivy, Max, Robo..." />
           </div>
         </div>
-        <label>Pick their look</label>
-        <div class="avatar-gallery" id="avatar-gallery"></div>
-        <label class="avatar-upload" for="pv-avatar-upload" style="display:inline-flex; width:auto; padding:0 14px; border-radius:999px; gap:6px; font-size:12px; margin-bottom:4px;">
-          📁 Upload your own <input type="file" id="pv-avatar-upload" accept="image/*" />
+        <label>Give them a face</label>
+        <label class="avatar-uploader" for="pv-avatar-upload" id="avatar-uploader">
+          <span class="avatar-uploader-label">📁 Upload a photo or logo</span>
+          <img id="avatar-preview-img" alt="" />
+          <input type="file" id="pv-avatar-upload" accept="image/*" />
         </label>
-        <p class="avatar-hint">Optional - a photo, a logo, whatever you like. Only used for this quick preview.</p>
+        <p class="avatar-hint">Optional - if you skip it, your AI receptionist gets a friendly default face instead.</p>
 
         <label for="pv-extra-info" id="pv-extra-label">Teach your AI receptionist something about your business</label>
         <textarea id="pv-extra-info" maxlength="100" rows="2"
@@ -271,8 +271,7 @@
           <button id="start-trial-btn" class="plan-cta primary" type="button" style="width:auto; display:inline-block; padding:11px 22px;">Love it? Start your 7-day free trial &rarr;</button>
           <div class="preview-hint" id="trial-status"></div>
           <p class="avatar-hint">£45/mo after the trial, card required to start, cancel anytime before then.
-          This exact setup goes live on your own site - a custom uploaded photo is preview-only for now;
-          trial signups use one of the preset faces above.</p>
+          This exact setup - including your uploaded photo, if you added one - goes live on your own site.</p>
         </div>
       </div>
     </section>
@@ -328,46 +327,57 @@
       var currentPreview = null;
       var hasGeneratedPreview = false;
       var trialInFlight = false;
-      var selectedAvatarDataUri = null; // full data URI (preset or upload) - free preview only
-      var selectedAvatarPresetId = null; // only a known preset id ever travels to a paid signup
+      var selectedAvatarDataUri = null; // full data URI - used for the free, client-only live preview
+      var selectedAvatarFile = null; // the raw File - uploaded to our backend only once a trial actually starts
+      var uploadedAvatarId = null; // short reference returned once selectedAvatarFile is actually uploaded
 
-      var AVATAR_PRESETS = window.FrontdeskAvatarPresets.PRESETS;
-      var svgToDataUri = window.FrontdeskAvatarPresets.svgToDataUri;
+      var MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB - generous for a profile photo, keeps upload/commit size sane
 
-      var gallery = document.getElementById("avatar-gallery");
-      AVATAR_PRESETS.forEach(function (preset, i) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "avatar-option" + (i === 0 ? " selected" : "");
-        btn.innerHTML = preset.svg;
-        btn.addEventListener("click", function () {
-          selectedAvatarDataUri = svgToDataUri(preset.svg);
-          selectedAvatarPresetId = preset.id;
-          Array.prototype.forEach.call(gallery.querySelectorAll(".avatar-option"), function (b) { b.classList.remove("selected"); });
-          btn.classList.add("selected");
-        });
-        gallery.appendChild(btn);
-      });
-      // First option selected by default, matches the pre-highlighted tile.
-      selectedAvatarDataUri = svgToDataUri(AVATAR_PRESETS[0].svg);
-      selectedAvatarPresetId = AVATAR_PRESETS[0].id;
+      var uploaderEl = document.getElementById("avatar-uploader");
+      var previewImgEl = document.getElementById("avatar-preview-img");
 
       document.getElementById("pv-avatar-upload").addEventListener("change", function (e) {
         var file = e.target.files && e.target.files[0];
         if (!file) return;
+        if (!/^image\//.test(file.type)) {
+          document.getElementById("preview-hint").textContent = "That doesn't look like an image - try a JPG, PNG, or WebP.";
+          return;
+        }
+        if (file.size > MAX_AVATAR_BYTES) {
+          document.getElementById("preview-hint").textContent = "That image is a bit large (max 2MB) - try a smaller file.";
+          return;
+        }
+
+        selectedAvatarFile = file;
+        uploadedAvatarId = null; // stale - re-uploaded fresh the next time a trial actually starts
+
         var reader = new FileReader();
         reader.onload = function () {
           selectedAvatarDataUri = reader.result;
-          // A custom upload has no preset id - a paid trial signup can only
-          // ever carry a known preset through Stripe metadata (see
-          // shared/build-config.js), so this falls back to the default face
-          // there. Free live preview above still shows the real photo.
-          selectedAvatarPresetId = null;
-          Array.prototype.forEach.call(gallery.querySelectorAll(".avatar-option"), function (b) { b.classList.remove("selected"); });
+          previewImgEl.src = reader.result;
+          uploaderEl.classList.add("has-image");
           document.getElementById("preview-hint").textContent = "Photo added - hit \"Bring them to life\" below to see it.";
         };
         reader.readAsDataURL(file);
       });
+
+      // Uploads the chosen photo to our backend (committed to the repo, same
+      // pattern as configs themselves) and returns a short reference id -
+      // small enough to fit in Stripe Checkout metadata, unlike the raw
+      // image itself. Only called once, lazily, the moment a trial actually
+      // starts - never during the free preview, which stays fully local.
+      function ensureAvatarUploaded() {
+        if (!selectedAvatarFile) return Promise.resolve(null);
+        if (uploadedAvatarId) return Promise.resolve(uploadedAvatarId);
+
+        return fetch("/api/upload-avatar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageDataUri: selectedAvatarDataUri })
+        })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) { uploadedAvatarId = data.avatarId; return uploadedAvatarId; });
+      }
 
       // Raw form values, not the assembled widget config - sent to
       // /api/create-checkout, which re-runs them through the exact same
@@ -381,13 +391,13 @@
           phone: document.getElementById("pv-phone").value,
           color: document.getElementById("pv-color").value,
           extraInfo: document.getElementById("pv-extra-info").value,
-          avatarPresetId: selectedAvatarPresetId
+          avatarId: uploadedAvatarId // null until ensureAvatarUploaded() has actually run
         };
       }
 
       function buildPreviewConfig() {
         var draft = collectDraftFields();
-        draft.avatarDataUri = selectedAvatarDataUri || undefined; // may be a custom upload - fine, this stays client-side only
+        draft.avatarDataUri = selectedAvatarDataUri || undefined; // the real uploaded photo - free preview only, stays local
         return window.FrontdeskBuildConfig.buildFrontdeskConfig(draft);
       }
 
@@ -449,13 +459,17 @@
         }
 
         trialInFlight = true;
-        if (statusEl) statusEl.textContent = "Setting up your checkout...";
+        if (statusEl) statusEl.textContent = selectedAvatarFile ? "Uploading your photo..." : "Setting up your checkout...";
 
-        fetch("/api/create-checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(collectDraftFields())
-        })
+        ensureAvatarUploaded()
+          .then(function () {
+            if (statusEl) statusEl.textContent = "Setting up your checkout...";
+            return fetch("/api/create-checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(collectDraftFields())
+            });
+          })
           .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
           .then(function (data) { window.location.href = data.url; })
           .catch(function () {

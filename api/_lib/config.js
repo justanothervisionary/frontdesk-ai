@@ -46,6 +46,16 @@ function isEmailShaped(v) {
 
 var KNOWN_AVATAR_URLS = avatarPresets.PRESETS.map(function (p) { return avatarPresets.svgToDataUri(p.svg); });
 
+// An uploaded-avatar URL is only ever trusted if it matches our own
+// upload path with a properly-formed generated filename - never an
+// arbitrary caller-supplied URL, which would otherwise let a config point
+// the widget at attacker-controlled content.
+var UPLOADED_AVATAR_RE = /^https:\/\/[^\/\s]+\/configs\/avatars\/[0-9a-f]{24}\.(png|jpg|webp|gif)$/i;
+
+function isKnownAvatarUrl(url) {
+  return KNOWN_AVATAR_URLS.indexOf(url) !== -1 || UPLOADED_AVATAR_RE.test(url || "");
+}
+
 // Stricter sanitizer for anything about to become a REAL, permanent,
 // committed client config (as opposed to sanitizePreviewConfig's disposable
 // in-memory preview). Extends the same capping/hardening rather than
@@ -62,7 +72,7 @@ function sanitizeCommittedConfig(raw) {
   var theme = raw.theme || {};
   var accentColor = isHexColor(theme.accentColor) ? theme.accentColor : "#2f8fe0";
   var assistantName = ((theme.assistantName || "Ivy").toString().slice(0, 40).trim()) || "Ivy";
-  var avatarUrl = KNOWN_AVATAR_URLS.indexOf(theme.avatarUrl) !== -1 ? theme.avatarUrl : undefined;
+  var avatarUrl = isKnownAvatarUrl(theme.avatarUrl) ? theme.avatarUrl : undefined;
 
   var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
   faqs = faqs.map(function (f) {
