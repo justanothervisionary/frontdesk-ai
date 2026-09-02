@@ -27,6 +27,8 @@ function capStr(v, max) {
   return (v == null ? "" : String(v)).slice(0, max);
 }
 
+var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -51,6 +53,7 @@ module.exports = async function handler(req, res) {
   // already be uploaded and referenced by id, same reasoning as the avatar.
   var rawAvatarId = capStr(body.avatarId, 40);
   var rawExtraInfoId = capStr(body.extraInfoId, 40);
+  var rawEmail = capStr(body.email, 200).trim();
   var draft = {
     businessName: capStr(body.businessName, 80).trim(),
     agentName: capStr(body.agentName, 40).trim(),
@@ -60,6 +63,7 @@ module.exports = async function handler(req, res) {
     avatarId: /^[0-9a-f]{24}\.(png|jpg|webp|gif)$/i.test(rawAvatarId) ? rawAvatarId : "",
     extraInfoId: /^[0-9a-f]{24}\.txt$/i.test(rawExtraInfoId) ? rawExtraInfoId : ""
   };
+  var email = EMAIL_RE.test(rawEmail) ? rawEmail : undefined;
   if (!draft.businessName) return res.status(400).json({ error: "Business name is required" });
   if (!stripe || !process.env.STRIPE_PRICE_ID) return res.status(500).json({ error: "Checkout isn't configured yet" });
 
@@ -82,10 +86,15 @@ module.exports = async function handler(req, res) {
       // where the webhook rebuilds the real config from these exact fields
       // via the same buildFrontdeskConfig() the free preview uses.
       metadata: Object.assign({ businessKey: businessKey }, draft),
-      // No customer_email passed - Stripe's own Checkout page collects it
-      // natively, and the webhook reads it back off customer_details.email.
+      // Pre-fills Stripe's own email field with whatever was captured
+      // early on site/signup.html (see api/capture-lead-email.js) - still
+      // editable by the visitor there. Falls back to Stripe collecting it
+      // natively if it wasn't captured or didn't look like a real email;
+      // either way the webhook reads the final value back off
+      // customer_details.email once checkout actually completes.
+      customer_email: email,
       success_url: SITE_BASE_URL + "/site/success.html?key=" + encodeURIComponent(businessKey) + "&session_id={CHECKOUT_SESSION_ID}",
-      cancel_url: SITE_BASE_URL + "/site/index.html#pricing"
+      cancel_url: SITE_BASE_URL + "/site/signup.html"
     });
 
     return res.status(200).json({ url: session.url });

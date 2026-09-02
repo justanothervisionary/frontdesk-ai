@@ -198,8 +198,7 @@
             <li>Lead capture, emailed to you directly</li>
             <li>Cancel any time before the trial ends and you're not charged</li>
           </ul>
-          <button class="plan-cta primary" id="pricing-trial-btn" type="button">Start your 7-day free trial &rarr;</button>
-          <div class="preview-hint" id="pricing-trial-status"></div>
+          <a class="plan-cta primary" href="signup.html">Start your 7-day free trial &rarr;</a>
         </div>
         <div class="plan">
           <h3>+ Done-for-you setup</h3>
@@ -267,18 +266,10 @@
             <input type="color" id="pv-color" value="#2f8fe0" />
           </div>
         </div>
-        <button id="preview-btn" type="button">Bring them to life &rarr;</button>
+        <button id="preview-btn" type="button">Continue to sign up &rarr;</button>
         <div class="preview-hint" id="preview-hint"></div>
-        <p class="preview-note">This is genuinely real AI, live - it's actually trained on whatever you type
-        above, not a script. Nothing here is saved or sent anywhere beyond answering your own questions back
-        to you.</p>
-
-        <div id="trial-cta" style="display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--border);">
-          <button id="start-trial-btn" class="plan-cta primary" type="button" style="width:auto; display:inline-block; padding:11px 22px;">Love it? Start your 7-day free trial &rarr;</button>
-          <div class="preview-hint" id="trial-status"></div>
-          <p class="avatar-hint">£45/mo after the trial, card required to start, cancel anytime before then.
-          This exact setup - including your uploaded photo, if you added one - goes live on your own site.</p>
-        </div>
+        <p class="preview-note">This continues on a dedicated sign-up page where you'll see it live in
+        context, add a photo or PDF of extra detail, and start your 7-day free trial when you're ready.</p>
       </div>
     </section>
 
@@ -346,19 +337,16 @@
           data-config-url="../configs/demo-example.json"
           data-api-url="/api/chat"
           defer></script>
-  <script src="../shared/avatar-presets.js"></script>
-  <script src="../shared/build-config.js"></script>
 
   <script>
     (function () {
-      var currentPreview = null;
-      var hasGeneratedPreview = false;
-      var trialInFlight = false;
-      var selectedAvatarDataUri = null; // full data URI - used for the free, client-only live preview
-      var selectedAvatarFile = null; // the raw File - uploaded to our backend only once a trial actually starts
-      var uploadedAvatarId = null; // short reference returned once selectedAvatarFile is actually uploaded
-
-      var MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB - generous for a profile photo, keeps upload/commit size sane
+      // This page no longer mounts a live AI preview or talks to any
+      // backend itself - it's just an intake form that hands off to
+      // site/signup.html, where the real building (live preview, PDF
+      // upload, the actual trial signup) happens in one place. Only local,
+      // client-side avatar validation/preview lives here.
+      var selectedAvatarDataUri = null;
+      var MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB - generous for a profile photo
 
       var uploaderEl = document.getElementById("avatar-uploader");
       var previewImgEl = document.getElementById("avatar-preview-img");
@@ -375,103 +363,20 @@
           return;
         }
 
-        selectedAvatarFile = file;
-        uploadedAvatarId = null; // stale - re-uploaded fresh the next time a trial actually starts
-
         var reader = new FileReader();
         reader.onload = function () {
           selectedAvatarDataUri = reader.result;
           previewImgEl.src = reader.result;
           uploaderEl.classList.add("has-image");
-          document.getElementById("preview-hint").textContent = "Photo added - hit \"Bring them to life\" below to see it.";
         };
         reader.readAsDataURL(file);
       });
-
-      // Uploads the chosen photo to our backend (committed to the repo, same
-      // pattern as configs themselves) and returns a short reference id -
-      // small enough to fit in Stripe Checkout metadata, unlike the raw
-      // image itself. Only called once, lazily, the moment a trial actually
-      // starts - never during the free preview, which stays fully local.
-      function ensureAvatarUploaded() {
-        if (!selectedAvatarFile) return Promise.resolve(null);
-        if (uploadedAvatarId) return Promise.resolve(uploadedAvatarId);
-
-        return fetch("/api/upload-avatar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageDataUri: selectedAvatarDataUri })
-        })
-          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
-          .then(function (data) { uploadedAvatarId = data.avatarId; return uploadedAvatarId; });
-      }
-
-      var uploadedExtraInfoId = null;
-      var lastUploadedExtraInfoText = null;
-
-      // Same reasoning as ensureAvatarUploaded(): the training-text box
-      // allows up to 1000 characters, which can exceed Stripe Checkout
-      // metadata's hard 500-char-per-value limit - sending it raw would
-      // fail checkout creation outright above that. Uploaded lazily, only
-      // once a trial actually starts, and re-uploaded if the text changed
-      // since the last upload.
-      function ensureExtraInfoUploaded() {
-        var text = document.getElementById("pv-extra-info").value.trim();
-        if (!text) return Promise.resolve(null);
-        if (uploadedExtraInfoId && lastUploadedExtraInfoText === text) return Promise.resolve(uploadedExtraInfoId);
-
-        return fetch("/api/upload-draft-text", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: text })
-        })
-          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
-          .then(function (data) {
-            uploadedExtraInfoId = data.draftTextId;
-            lastUploadedExtraInfoText = text;
-            return uploadedExtraInfoId;
-          });
-      }
-
-      // Raw form values for the FREE live preview - stays entirely
-      // client-side, so extraInfo travels as plain text here (no Stripe
-      // metadata size limit applies to this path).
-      function collectDraftFields() {
-        return {
-          businessName: document.getElementById("pv-name").value,
-          agentName: document.getElementById("pv-agent-name").value,
-          type: document.getElementById("pv-type").value,
-          phone: document.getElementById("pv-phone").value,
-          color: document.getElementById("pv-color").value,
-          extraInfo: document.getElementById("pv-extra-info").value
-        };
-      }
-
-      function buildPreviewConfig() {
-        var draft = collectDraftFields();
-        draft.avatarDataUri = selectedAvatarDataUri || undefined; // the real uploaded photo - free preview only, stays local
-        return window.FrontdeskBuildConfig.buildFrontdeskConfig(draft);
-      }
-
-      // Same fields, but for /api/create-checkout: extraInfo and the
-      // avatar both travel as short upload references instead of raw
-      // values - see ensureAvatarUploaded()/ensureExtraInfoUploaded() and
-      // api/upload-draft-text.js for why (Stripe metadata's 500-char
-      // per-value limit). Only call this after both of those have
-      // resolved.
-      function collectCheckoutDraftFields() {
-        var draft = collectDraftFields();
-        delete draft.extraInfo;
-        draft.extraInfoId = uploadedExtraInfoId;
-        draft.avatarId = uploadedAvatarId;
-        return draft;
-      }
 
       // Button text follows the name as it's typed - a small touch, but it's
       // the difference between "fill in a form" and "you're naming someone."
       document.getElementById("pv-agent-name").addEventListener("input", function () {
         var n = this.value.trim();
-        document.getElementById("preview-btn").textContent = n ? ("Bring " + n + " to life →") : "Bring them to life →";
+        document.getElementById("preview-btn").textContent = n ? ("Continue as " + n + " →") : "Continue to sign up →";
         document.getElementById("pv-extra-label").textContent = "Teach " + (n || "your AI receptionist") + " something about your business";
       });
 
@@ -482,73 +387,28 @@
         counter.classList.toggle("near-limit", len >= 900);
       });
 
+      // Hands the draft off to site/signup.html via sessionStorage (small
+      // fields only - never the avatar image itself, which can run to a
+      // couple of MB as a data URI and isn't worth the storage-quota risk;
+      // it's a small, acceptable ask to re-add a photo on the next page).
       document.getElementById("preview-btn").addEventListener("click", function () {
-        if (currentPreview) { currentPreview.destroy(); currentPreview = null; }
-        // Only one bubble should ever be on screen - swap out the generic
-        // example the first time someone generates their own preview,
-        // rather than stacking a second bubble in the same spot.
-        if (window.FrontdeskWidget.autoInstance) {
-          window.FrontdeskWidget.autoInstance.destroy();
-          window.FrontdeskWidget.autoInstance = null;
-        }
-
-        var config = buildPreviewConfig();
-        // Real AI now, deliberately: the backend independently sanitizes
-        // and hard-caps whatever config travels along with sendConfigInline
-        // (see api/chat.js) and the system prompt treats it as untrusted
-        // data, never instructions - safe to point at the real endpoint.
-        currentPreview = window.FrontdeskWidget.mount(config, {
-          businessKey: "live-preview",
-          apiUrl: "/api/chat",
-          leadApiUrl: null,
-          sendConfigInline: true,
-          autoOpen: true
-        });
-
-        document.getElementById("preview-hint").textContent =
-          "There it is, bottom-right - genuinely trained on what you just typed. Try asking it something.";
-
-        hasGeneratedPreview = true;
-        document.getElementById("trial-cta").style.display = "block";
-      });
-
-      // Shared by both trial CTAs (the one inside the preview box, and the
-      // one in the pricing section) - a stranger's own typed input still
-      // isn't trusted just because it's about to be paid for, so
-      // api/create-checkout.js re-validates everything server-side too.
-      function startTrial(statusEl) {
-        if (trialInFlight) return;
-        if (!hasGeneratedPreview) {
-          document.getElementById("preview").scrollIntoView({ behavior: "smooth" });
-          if (statusEl) statusEl.textContent = "Build your receptionist above first, then start the trial from there.";
+        var businessName = document.getElementById("pv-name").value.trim();
+        if (!businessName) {
+          document.getElementById("preview-hint").textContent = "Give your business a name first.";
           return;
         }
 
-        trialInFlight = true;
-        if (statusEl) statusEl.textContent = selectedAvatarFile ? "Uploading your photo..." : "Setting up your checkout...";
+        var draft = {
+          businessName: businessName,
+          agentName: document.getElementById("pv-agent-name").value,
+          type: document.getElementById("pv-type").value,
+          phone: document.getElementById("pv-phone").value,
+          color: document.getElementById("pv-color").value,
+          extraInfo: document.getElementById("pv-extra-info").value
+        };
+        try { sessionStorage.setItem("frontdeskDraft", JSON.stringify(draft)); } catch (e) {}
 
-        Promise.all([ensureAvatarUploaded(), ensureExtraInfoUploaded()])
-          .then(function () {
-            if (statusEl) statusEl.textContent = "Setting up your checkout...";
-            return fetch("/api/create-checkout", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(collectCheckoutDraftFields())
-            });
-          })
-          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
-          .then(function (data) { window.location.href = data.url; })
-          .catch(function () {
-            trialInFlight = false;
-            if (statusEl) statusEl.textContent = "Something went wrong starting checkout - please try again in a moment.";
-          });
-      }
-
-      document.getElementById("start-trial-btn").addEventListener("click", function () {
-        startTrial(document.getElementById("trial-status"));
-      });
-      document.getElementById("pricing-trial-btn").addEventListener("click", function () {
-        startTrial(document.getElementById("pricing-trial-status"));
+        window.location.href = "signup.html";
       });
     })();
   </script>

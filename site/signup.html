@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk — set up your AI receptionist</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --bg2: #0d0f12; --card: #14161a; --card-hover: #191c21;
+    --text: #f3f4f6; --muted: #9aa1ac; --muted2: #6b7280;
+    --accent: #2f8fe0; --accent2: #35d68f; --border: #22262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(900px 480px at 15% -10%, rgba(47,143,224,.16), transparent 60%), var(--bg);
+    color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  nav { display: flex; align-items: center; justify-content: space-between; max-width: 1160px; margin: 0 auto; padding: 20px 20px; }
+  .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  nav a.back { color: var(--muted); text-decoration: none; font-size: 13px; }
+  nav a.back:hover { color: var(--text); }
+
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 10px 20px 70px; }
+  h1.page-title { font-size: 26px; margin: 6px 0 6px; letter-spacing: -0.02em; }
+  .page-sub { color: var(--muted); font-size: 14px; margin: 0 0 30px; max-width: 560px; }
+
+  .layout { display: grid; grid-template-columns: 420px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  input[type=text], input[type=email], select, textarea {
+    width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  input[type=color] { width: 44px; height: 38px; padding: 2px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg2); }
+  textarea { resize: none; }
+  .field { margin-bottom: 16px; }
+  .field-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .field-row > div { flex: 1; min-width: 160px; }
+  .field-hint { font-size: 11px; color: var(--muted2); margin-top: 5px; }
+  .field-error { font-size: 11px; color: #f2837a; margin-top: 5px; min-height: 14px; }
+
+  .avatar-uploader {
+    width: 76px; height: 76px; border-radius: 50%; border: 2px dashed var(--border);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    color: var(--muted); font-size: 11px; background: var(--bg2); flex-shrink: 0;
+    text-align: center; line-height: 1.3; transition: border-color .15s, transform .1s; overflow: hidden; position: relative;
+  }
+  .avatar-uploader:hover { border-color: var(--accent2); color: var(--accent2); transform: translateY(-2px); }
+  .avatar-uploader.has-image { border-style: solid; border-color: var(--accent2); color: transparent; }
+  .avatar-uploader img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .avatar-uploader.has-image img { display: block; }
+  .avatar-uploader .lbl { padding: 0 6px; }
+  .avatar-uploader.has-image .lbl { display: none; }
+  .avatar-uploader input { display: none; }
+
+  .extra-actions { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 0; }
+  .char-count { font-size: 11px; color: var(--muted2); }
+  .char-count.near-limit { color: var(--accent2); }
+  .pdf-btn {
+    font-size: 11px; color: var(--accent2); background: none; border: none; cursor: pointer;
+    font-family: inherit; padding: 0; text-decoration: underline;
+  }
+  .pdf-status { font-size: 11px; color: var(--muted2); margin-top: 4px; min-height: 14px; }
+
+  .start-btn {
+    width: 100%; background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
+    padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 6px;
+  }
+  .start-btn:hover { filter: brightness(1.08); }
+  .start-btn:active { transform: scale(.98); }
+  .terms { font-size: 11px; color: var(--muted2); margin-top: 10px; line-height: 1.5; }
+  .status-line { font-size: 12px; color: var(--accent2); margin-top: 10px; min-height: 16px; }
+
+  /* Live mock-website preview */
+  .preview-col { position: sticky; top: 20px; }
+  .browser-frame {
+    border-radius: 14px; overflow: hidden; border: 1px solid var(--border);
+    box-shadow: 0 20px 50px rgba(0,0,0,.4);
+  }
+  .browser-chrome { background: #2a2d33; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  .browser-dots { display: flex; gap: 6px; }
+  .browser-dots span { width: 9px; height: 9px; border-radius: 50%; background: #4a4e57; }
+  .browser-url {
+    flex: 1; background: #1c1e22; border-radius: 6px; padding: 5px 12px; font-size: 11px; color: #8a8f99;
+    font-family: -apple-system, sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mock-site {
+    background: #ffffff; min-height: 640px; position: relative;
+    transform: translateZ(0); /* contains position:fixed widget children within this frame instead of the whole viewport */
+  }
+  .mock-nav {
+    display: flex; align-items: center; justify-content: space-between; padding: 16px 26px;
+    border-bottom: 1px solid #eee; font-family: -apple-system, sans-serif;
+  }
+  .mock-nav .mock-biz-name { font-weight: 700; font-size: 15px; color: #1a1a1a; display: flex; align-items: center; gap: 8px; }
+  .mock-nav .mock-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .mock-nav .mock-links { display: flex; gap: 18px; font-size: 12px; color: #888; }
+  .mock-hero { text-align: center; padding: 60px 30px 50px; font-family: -apple-system, sans-serif; }
+  .mock-hero h2 { font-size: 26px; color: #1a1a1a; margin: 0 0 12px; }
+  .mock-hero p { color: #777; font-size: 14px; max-width: 380px; margin: 0 auto 22px; }
+  .mock-hero button {
+    border: none; padding: 11px 24px; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 700;
+    font-family: inherit; cursor: default;
+  }
+  .mock-sections { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 30px 50px; }
+  .mock-card { background: #f7f7f8; border-radius: 10px; padding: 18px; font-family: -apple-system, sans-serif; }
+  .mock-card .mock-card-dot { width: 26px; height: 26px; border-radius: 7px; margin-bottom: 10px; }
+  .mock-card h4 { font-size: 13px; color: #1a1a1a; margin: 0 0 4px; }
+  .mock-card p { font-size: 11px; color: #999; margin: 0; }
+  @media (max-width: 640px) { .mock-sections { grid-template-columns: 1fr; } }
+  .preview-caption { font-size: 12px; color: var(--muted2); text-align: center; margin-top: 12px; }
+</style>
+</head>
+<body>
+  <nav>
+    <a class="logo" href="index.html"><span class="dot"></span>Frontdesk</a>
+    <a class="back" href="index.html">&larr; Back to home</a>
+  </nav>
+
+  <div class="wrap">
+    <h1 class="page-title">Set up your AI receptionist</h1>
+    <p class="page-sub">Fill this in and watch it appear on the right, exactly as it'll look once it's live on your own site.</p>
+
+    <div class="layout">
+      <div class="panel">
+        <div class="field">
+          <label for="su-email">Your email</label>
+          <input type="email" id="su-email" placeholder="you@yourbusiness.com" />
+          <div class="field-hint">Used for your receipt, login, and lead notifications - not shared or sold.</div>
+        </div>
+
+        <div class="field">
+          <label>Name your AI receptionist</label>
+          <input type="text" id="su-agent-name" placeholder="e.g. Ivy, Max, Robo..." />
+        </div>
+
+        <div class="field" style="display:flex; align-items:center; gap:14px;">
+          <label class="avatar-uploader" for="su-avatar-upload" id="avatar-uploader" style="margin-bottom:0;">
+            <span class="lbl">📁 Photo</span>
+            <img id="avatar-preview-img" alt="" />
+            <input type="file" id="su-avatar-upload" accept="image/*" />
+          </label>
+          <div class="field-hint" style="margin-top:0;">Optional - a photo or logo. Skip it for a friendly default face.</div>
+        </div>
+
+        <div class="field">
+          <label for="su-extra-info" id="su-extra-label">Teach your AI receptionist something about your business</label>
+          <textarea id="su-extra-info" maxlength="1000" rows="5"
+            placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour."></textarea>
+          <div class="extra-actions">
+            <button type="button" class="pdf-btn" id="pdf-trigger">📄 Or upload a PDF instead</button>
+            <span class="char-count" id="su-extra-count">0 / 1000</span>
+          </div>
+          <input type="file" id="pdf-upload" accept="application/pdf" style="display:none;" />
+          <div class="pdf-status" id="pdf-status"></div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label>What's your business called?</label>
+            <input type="text" id="su-name" placeholder="e.g. Chiswick Family Dental" />
+          </div>
+          <div>
+            <label>What do you do?</label>
+            <select id="su-type">
+              <option value="appointments">Book appointments (clinics, salons, therapists)</option>
+              <option value="callouts">Call-outs / jobs (trades, home services)</option>
+              <option value="viewings">Viewings / valuations (estate agents)</option>
+              <option value="general">General enquiries</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <label>Phone number</label>
+            <input type="text" id="su-phone" placeholder="e.g. 020 8994 3088" />
+          </div>
+          <div style="flex: 0 0 auto; min-width: 0;">
+            <label>Accent color</label>
+            <input type="color" id="su-color" value="#2f8fe0" />
+          </div>
+        </div>
+
+        <button class="start-btn" id="start-trial-btn" type="button">Start your 7-day free trial &rarr;</button>
+        <div class="status-line" id="trial-status"></div>
+        <p class="terms">£45/mo after the trial - card required to start, cancel anytime before day 7 and you're
+        not charged. This exact setup, including your photo if you added one, goes live on your own site once you
+        install one line of code.</p>
+      </div>
+
+      <div class="preview-col">
+        <div class="browser-frame">
+          <div class="browser-chrome">
+            <div class="browser-dots"><span></span><span></span><span></span></div>
+            <div class="browser-url" id="mock-url">yourbusiness.co.uk</div>
+          </div>
+          <div class="mock-site" id="mock-site">
+            <div class="mock-nav">
+              <div class="mock-biz-name"><span class="mock-dot" id="mock-dot"></span><span id="mock-biz-name">Your Business</span></div>
+              <div class="mock-links"><span>Home</span><span>Services</span><span>Contact</span></div>
+            </div>
+            <div class="mock-hero">
+              <h2 id="mock-hero-h2">Welcome to Your Business</h2>
+              <p id="mock-hero-p">This is a live preview of your real website, with your AI receptionist mounted exactly where it'll sit once you install it.</p>
+              <button id="mock-hero-btn">Get in touch</button>
+            </div>
+            <div class="mock-sections">
+              <div class="mock-card"><span class="mock-card-dot" id="mock-dot-1"></span><h4>What we offer</h4><p>A placeholder for your real services.</p></div>
+              <div class="mock-card"><span class="mock-card-dot" id="mock-dot-2"></span><h4>Why choose us</h4><p>Your own trust-building copy goes here.</p></div>
+              <div class="mock-card"><span class="mock-card-dot" id="mock-dot-3"></span><h4>Get started</h4><p>Ask your AI receptionist, bottom-right.</p></div>
+            </div>
+          </div>
+        </div>
+        <p class="preview-caption">This is a generic mock page, not your real site - it's here so you can see your AI receptionist working in context.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="../shared/avatar-presets.js"></script>
+  <script src="../shared/build-config.js"></script>
+  <!-- No data-business/data-config-url here on purpose - this page never
+       auto-inits a widget instance, only mounts one manually below once
+       the visitor has typed something. -->
+  <script src="../widget/frontdesk-widget.js" defer></script>
+
+  <script>
+    (function () {
+      var selectedAvatarDataUri = null;
+      var selectedAvatarFile = null;
+      var uploadedAvatarId = null;
+      var uploadedExtraInfoId = null;
+      var lastUploadedExtraInfoText = null;
+      var trialInFlight = false;
+      var currentPreview = null;
+      var mockUpdateTimer = null;
+
+      var MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
+      // --- one-time hydration from a draft handed off by the homepage builder ---
+      (function hydrateFromHomepage() {
+        var raw;
+        try { raw = sessionStorage.getItem("frontdeskDraft"); } catch (e) { raw = null; }
+        if (!raw) return;
+        try { sessionStorage.removeItem("frontdeskDraft"); } catch (e) {}
+        var draft;
+        try { draft = JSON.parse(raw); } catch (e) { return; }
+        if (draft.businessName) document.getElementById("su-name").value = draft.businessName;
+        if (draft.agentName) document.getElementById("su-agent-name").value = draft.agentName;
+        if (draft.type) document.getElementById("su-type").value = draft.type;
+        if (draft.phone) document.getElementById("su-phone").value = draft.phone;
+        if (draft.color) document.getElementById("su-color").value = draft.color;
+        if (draft.extraInfo) document.getElementById("su-extra-info").value = draft.extraInfo;
+      })();
+
+      // --- avatar upload + local preview ---
+      var uploaderEl = document.getElementById("avatar-uploader");
+      var previewImgEl = document.getElementById("avatar-preview-img");
+
+      document.getElementById("su-avatar-upload").addEventListener("change", function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!/^image\//.test(file.type)) { alert("That doesn't look like an image - try a JPG, PNG, or WebP."); return; }
+        if (file.size > MAX_AVATAR_BYTES) { alert("That image is a bit large (max 2MB) - try a smaller file."); return; }
+
+        selectedAvatarFile = file;
+        uploadedAvatarId = null;
+
+        var reader = new FileReader();
+        reader.onload = function () {
+          selectedAvatarDataUri = reader.result;
+          previewImgEl.src = reader.result;
+          uploaderEl.classList.add("has-image");
+          scheduleMockUpdate();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      function ensureAvatarUploaded() {
+        if (!selectedAvatarFile) return Promise.resolve(null);
+        if (uploadedAvatarId) return Promise.resolve(uploadedAvatarId);
+        return fetch("/api/upload-avatar", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageDataUri: selectedAvatarDataUri })
+        })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) { uploadedAvatarId = data.avatarId; return uploadedAvatarId; });
+      }
+
+      function ensureExtraInfoUploaded() {
+        var text = document.getElementById("su-extra-info").value.trim();
+        if (!text) return Promise.resolve(null);
+        if (uploadedExtraInfoId && lastUploadedExtraInfoText === text) return Promise.resolve(uploadedExtraInfoId);
+        return fetch("/api/upload-draft-text", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text })
+        })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) { uploadedExtraInfoId = data.draftTextId; lastUploadedExtraInfoText = text; return uploadedExtraInfoId; });
+      }
+
+      // --- extra-info counter ---
+      document.getElementById("su-extra-info").addEventListener("input", function () {
+        var len = this.value.length;
+        var counter = document.getElementById("su-extra-count");
+        counter.textContent = len + " / 1000";
+        counter.classList.toggle("near-limit", len >= 900);
+        scheduleMockUpdate();
+      });
+
+      // --- PDF extraction, client-side only - the extracted text is the
+      // only thing that ever reaches our backend, never the PDF itself ---
+      var pdfJsLoading = null;
+      function loadPdfJs() {
+        if (window.pdfjsLib) return Promise.resolve();
+        if (pdfJsLoading) return pdfJsLoading;
+        pdfJsLoading = new Promise(function (resolve, reject) {
+          var script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js";
+          script.onload = function () {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
+            resolve();
+          };
+          script.onerror = function () { reject(new Error("Could not load PDF reader")); };
+          document.head.appendChild(script);
+        });
+        return pdfJsLoading;
+      }
+
+      document.getElementById("pdf-trigger").addEventListener("click", function () {
+        document.getElementById("pdf-upload").click();
+      });
+
+      document.getElementById("pdf-upload").addEventListener("change", function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        var statusEl = document.getElementById("pdf-status");
+        statusEl.textContent = "Reading your PDF...";
+
+        loadPdfJs()
+          .then(function () { return file.arrayBuffer(); })
+          .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
+          .then(function (pdf) {
+            var pagePromises = [];
+            for (var i = 1; i <= pdf.numPages; i++) {
+              pagePromises.push(pdf.getPage(i).then(function (page) {
+                return page.getTextContent().then(function (content) {
+                  return content.items.map(function (item) { return item.str; }).join(" ");
+                });
+              }));
+            }
+            return Promise.all(pagePromises);
+          })
+          .then(function (pagesText) {
+            var fullText = pagesText.join("\n").replace(/\s+/g, " ").trim();
+            if (!fullText) {
+              statusEl.textContent = "Couldn't find any text in that PDF - try pasting the info manually instead.";
+              return;
+            }
+            var textarea = document.getElementById("su-extra-info");
+            textarea.value = fullText.slice(0, 1000);
+            textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            statusEl.textContent = fullText.length > 1000
+              ? "Extracted and trimmed to fit the 1000-character limit - feel free to edit it above."
+              : "Extracted from your PDF - feel free to edit it above.";
+          })
+          .catch(function (err) {
+            console.error("[frontdesk signup] PDF extraction failed:", err);
+            statusEl.textContent = "Couldn't read that PDF - try a different file, or paste the info manually.";
+          });
+      });
+
+      // --- agent name -> label sync ---
+      document.getElementById("su-agent-name").addEventListener("input", function () {
+        var n = this.value.trim();
+        document.getElementById("su-extra-label").textContent = "Teach " + (n || "your AI receptionist") + " something about your business";
+        scheduleMockUpdate();
+      });
+
+      // --- email: capture early, best-effort, never blocks anything ---
+      document.getElementById("su-email").addEventListener("blur", function () {
+        var email = this.value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
+        fetch("/api/capture-lead-email", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, businessName: document.getElementById("su-name").value.trim() })
+        }).catch(function () {}); // best-effort - never surfaced to the visitor
+      });
+
+      // --- live mock website + real widget preview ---
+      var GREETINGS_PLACEHOLDER = {
+        appointments: "book appointments, treatments, or opening times",
+        callouts: "call-outs, pricing, or coverage area",
+        viewings: "viewings, valuations, or current listings",
+        general: "anything, or leave your details"
+      };
+
+      function updateMockSite() {
+        var name = (document.getElementById("su-name").value || "Your Business").trim();
+        var color = document.getElementById("su-color").value || "#2f8fe0";
+        var type = document.getElementById("su-type").value;
+
+        document.getElementById("mock-biz-name").textContent = name;
+        document.getElementById("mock-hero-h2").textContent = "Welcome to " + name;
+        document.getElementById("mock-url").textContent = (name || "yourbusiness").toLowerCase().replace(/[^a-z0-9]+/g, "") + ".co.uk";
+        document.getElementById("mock-hero-p").textContent = "Ask about " + (GREETINGS_PLACEHOLDER[type] || "anything") + " - your AI receptionist answers instantly, day or night.";
+
+        ["mock-dot", "mock-dot-1", "mock-dot-2", "mock-dot-3"].forEach(function (id) {
+          document.getElementById(id).style.background = color;
+        });
+        document.getElementById("mock-hero-btn").style.background = color;
+      }
+
+      function collectDraft() {
+        return {
+          businessName: document.getElementById("su-name").value,
+          agentName: document.getElementById("su-agent-name").value,
+          type: document.getElementById("su-type").value,
+          phone: document.getElementById("su-phone").value,
+          color: document.getElementById("su-color").value,
+          extraInfo: document.getElementById("su-extra-info").value
+        };
+      }
+
+      function remountPreviewWidget() {
+        if (currentPreview) { currentPreview.destroy(); currentPreview = null; }
+        var draft = collectDraft();
+        draft.avatarDataUri = selectedAvatarDataUri || undefined;
+        var config = window.FrontdeskBuildConfig.buildFrontdeskConfig(draft);
+
+        currentPreview = window.FrontdeskWidget.mount(config, {
+          businessKey: "live-preview",
+          apiUrl: "/api/chat",
+          leadApiUrl: null,
+          sendConfigInline: true,
+          container: document.getElementById("mock-site"),
+          autoOpen: false
+        });
+      }
+
+      // Debounced so a fast typist doesn't destroy/recreate the widget on
+      // every keystroke - the mock site's text/color updates instantly
+      // (cheap DOM writes), only the widget remount waits for a pause.
+      function scheduleMockUpdate() {
+        updateMockSite();
+        clearTimeout(mockUpdateTimer);
+        mockUpdateTimer = setTimeout(remountPreviewWidget, 500);
+      }
+
+      ["su-name", "su-type", "su-phone", "su-color"].forEach(function (id) {
+        document.getElementById(id).addEventListener("input", scheduleMockUpdate);
+      });
+
+      // Initial paint, once the widget script and shared modules are ready.
+      function initialMount() {
+        if (!window.FrontdeskWidget || !window.FrontdeskBuildConfig) { setTimeout(initialMount, 50); return; }
+        updateMockSite();
+        remountPreviewWidget();
+      }
+      initialMount();
+
+      // --- start trial ---
+      function validEmail(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); }
+
+      document.getElementById("start-trial-btn").addEventListener("click", function () {
+        if (trialInFlight) return;
+        var statusEl = document.getElementById("trial-status");
+        var email = document.getElementById("su-email").value.trim();
+        var businessName = document.getElementById("su-name").value.trim();
+
+        if (!validEmail(email)) { statusEl.style.color = "#f2837a"; statusEl.textContent = "Enter a valid email first."; return; }
+        if (!businessName) { statusEl.style.color = "#f2837a"; statusEl.textContent = "Enter your business name first."; return; }
+
+        statusEl.style.color = "var(--accent2)";
+        trialInFlight = true;
+        statusEl.textContent = selectedAvatarFile ? "Uploading your photo..." : "Setting up your checkout...";
+
+        Promise.all([ensureAvatarUploaded(), ensureExtraInfoUploaded()])
+          .then(function () {
+            statusEl.textContent = "Setting up your checkout...";
+            var draft = collectDraft();
+            delete draft.extraInfo;
+            draft.extraInfoId = uploadedExtraInfoId;
+            draft.avatarId = uploadedAvatarId;
+            draft.email = email;
+            return fetch("/api/create-checkout", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(draft)
+            });
+          })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) { window.location.href = data.url; })
+          .catch(function () {
+            trialInFlight = false;
+            statusEl.style.color = "#f2837a";
+            statusEl.textContent = "Something went wrong starting checkout - please try again in a moment.";
+          });
+      });
+    })();
+  </script>
+</body>
+</html>
