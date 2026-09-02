@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
     type: capStr(body.type, 20),
     phone: capStr(body.phone, 40).trim(),
     color: capStr(body.color, 10),
-    extraInfo: capStr(body.extraInfo, 100).trim(),
+    extraInfo: capStr(body.extraInfo, 1000).trim(),
     avatarId: /^[0-9a-f]{24}\.(png|jpg|webp|gif)$/i.test(rawAvatarId) ? rawAvatarId : ""
   };
   if (!draft.businessName) return res.status(400).json({ error: "Business name is required" });

@@ -52,6 +52,32 @@ least-privilege guidance for exactly this kind of access.
 **Timing:** not urgent - nothing to report on with zero paying clients.
 Worth doing once there's real subscription activity to actually watch.
 
+## Future idea: further AI cost-reduction levers (not built yet)
+
+The training-text cap was raised from 100 to 1000 characters and
+`api/chat.js`'s system prompt is now cached (see "What's built" below) -
+that's the big lever, already done. Logged here for later, once there's
+real volume to justify the extra complexity, not before:
+
+- **Model routing** - a lot of questions are simple lookups ("what are
+  your hours") that don't need a full Haiku call at all; a cheap keyword
+  pre-check that only calls the AI for genuinely open-ended questions
+  would cut volume further. Real complexity/accuracy trade-off - only
+  worth it once token cost is actually a line item that matters.
+- **Per-business usage visibility** - right now there's no per-client view
+  of how many messages/tokens a business is generating. Useful both for
+  cost tracking and for catching one client accidentally driving
+  disproportionate usage (or abuse) before it shows up as a surprise
+  bill.
+- **Batch processing** (Anthropic offers ~50% off for non-real-time
+  batched requests) - not applicable to live chat itself, but could apply
+  to something like a nightly "summarize missed questions" digest if that
+  ever gets built.
+- **Longer/tiered caching** - if Anthropic offers longer cache TTLs than
+  the default ephemeral window, worth revisiting once a business's
+  traffic pattern is well understood (bursty during business hours vs.
+  spread evenly changes what a longer cache window is actually worth).
+
 ## Bug fixes from real usage feedback
 
 - **Bot replies invisible on some host pages - a real gap in the isolation
@@ -116,6 +142,21 @@ own blue accent color untouched.
 
 ## What's built
 
+- **Training text raised from 100 to 1000 characters, with prompt caching
+  so it doesn't just multiply the AI bill.** The system prompt (business
+  name, rules, all FAQs including this text) gets rebuilt and resent on
+  *every* chat message, not once per conversation - so a longer training
+  text was a real per-message cost increase, not a one-off. Fixed the
+  right way: `api/chat.js` now marks the system prompt `cache_control:
+  {type: "ephemeral"}`, so repeat requests to the same business within the
+  cache window get Anthropic's ~90% cache-read discount ($0.10/M tokens
+  vs. $1.00/M fresh, current Haiku 4.5 pricing) instead of paying full
+  price every time. A lightweight log line (`cache usage: ...`) reports
+  read/created/fresh token counts per request so this is actually
+  verifiable in production, not just assumed. Verified the 1000-char cap
+  survives the full pipeline end-to-end (free preview, paid signup draft,
+  both sanitizers) without silently truncating back down to the old FAQ-
+  answer cap that used to sit at 300.
 - `widget/frontdesk-widget.js` — the embeddable widget. Shadow-DOM
   isolated, mobile-responsive, XSS-safe, single `<script>` tag integration.
   Verified in browser preview at both desktop and mobile widths, and the

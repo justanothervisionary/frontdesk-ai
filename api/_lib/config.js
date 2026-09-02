@@ -25,7 +25,11 @@ function sanitizePreviewConfig(raw) {
 
   var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
   faqs = faqs.map(function (f) {
-    return { answer: ((f && f.answer) || "").toString().slice(0, 300) };
+    // 1000, not 300 - the "teach it something about your business" box now
+    // allows up to 1000 characters (see shared/build-config.js), and that
+    // text travels through here as an FAQ entry - this cap must not
+    // silently truncate it back down.
+    return { answer: ((f && f.answer) || "").toString().slice(0, 1000) };
   }).filter(function (f) { return f.answer.trim(); });
 
   return {
@@ -78,7 +82,8 @@ function sanitizeCommittedConfig(raw) {
   faqs = faqs.map(function (f) {
     return {
       keywords: Array.isArray(f && f.keywords) ? f.keywords.slice(0, 10).map(function (k) { return String(k).slice(0, 30); }) : [],
-      answer: ((f && f.answer) || "").toString().slice(0, 300)
+      // 1000, not 300 - see the matching comment in sanitizePreviewConfig above.
+      answer: ((f && f.answer) || "").toString().slice(0, 1000)
     };
   }).filter(function (f) { return f.answer.trim(); });
 

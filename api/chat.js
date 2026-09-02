@@ -77,13 +77,29 @@ module.exports = async function handler(req, res) {
     var completion = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 200,
-      system: buildSystemPrompt(config),
+      // Cached: the system prompt is identical for every visitor to the
+      // same business within the cache window, so this is the single
+      // biggest lever on cost once a business's training text gets long -
+      // cache reads run at a 90% discount vs. a fresh input token. Safe to
+      // mark cacheable even for a one-off preview config: it still pays off
+      // across turns within that same conversation.
+      system: [
+        { type: "text", text: buildSystemPrompt(config), cache_control: { type: "ephemeral" } }
+      ],
       messages: history.concat([{ role: "user", content: message }])
     });
 
     var reply = completion.content && completion.content[0] && completion.content[0].text
       ? completion.content[0].text.trim()
       : config.fallbackAnswer;
+
+    // Cheap visibility into whether caching is actually paying off, without
+    // a whole analytics pipeline - cache_read_input_tokens > 0 means this
+    // request got the 90%-off rate on the system prompt.
+    var usage = completion.usage || {};
+    if (usage.cache_read_input_tokens || usage.cache_creation_input_tokens) {
+      console.log("[frontdesk chat] cache usage:", businessKey, "read:", usage.cache_read_input_tokens || 0, "created:", usage.cache_creation_input_tokens || 0, "fresh:", usage.input_tokens || 0);
+    }
 
     return res.status(200).json({ reply: reply });
   } catch (err) {

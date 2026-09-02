@@ -238,9 +238,9 @@
         <p class="avatar-hint">Optional - if you skip it, your AI receptionist gets a friendly default face instead.</p>
 
         <label for="pv-extra-info" id="pv-extra-label">Teach your AI receptionist something about your business</label>
-        <textarea id="pv-extra-info" maxlength="100" rows="2"
-          placeholder="e.g. We're a 24/7 emergency locksmith covering North London"></textarea>
-        <div class="char-count" id="pv-extra-count">0 / 100</div>
+        <textarea id="pv-extra-info" maxlength="1000" rows="5"
+          placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour. We accept card and bank transfer, not cash."></textarea>
+        <div class="char-count" id="pv-extra-count">0 / 1000</div>
 
         <div class="field-row">
           <div>
@@ -439,8 +439,8 @@
       document.getElementById("pv-extra-info").addEventListener("input", function () {
         var len = this.value.length;
         var counter = document.getElementById("pv-extra-count");
-        counter.textContent = len + " / 100";
-        counter.classList.toggle("near-limit", len >= 90);
+        counter.textContent = len + " / 1000";
+        counter.classList.toggle("near-limit", len >= 900);
       });
 
       document.getElementById("preview-btn").addEventListener("click", function () {

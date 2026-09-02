@@ -45,7 +45,7 @@
     var type = GREETINGS[input.type] ? input.type : "general";
     var phone = (input.phone || "your number").toString().trim().slice(0, 40) || "your number";
     var color = (input.color || "#2f8fe0").toString().slice(0, 10);
-    var extraInfo = (input.extraInfo || "").toString().trim().slice(0, 100);
+    var extraInfo = (input.extraInfo || "").toString().trim().slice(0, 1000);
 
     var avatarUrl;
     if (input.avatarDataUri) {
