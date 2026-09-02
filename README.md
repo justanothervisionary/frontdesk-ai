@@ -54,11 +54,18 @@ Worth doing once there's real subscription activity to actually watch.
 
 ## Future idea: further AI cost-reduction levers (not built yet)
 
-The training-text cap was raised from 100 to 1000 characters and
-`api/chat.js`'s system prompt is now cached (see "What's built" below) -
-that's the big lever, already done. Logged here for later, once there's
-real volume to justify the extra complexity, not before:
+`api/chat.js`'s system prompt is cache_control-marked and confirmed
+working (see "What's built" below), but testing found Haiku's minimum
+cacheable prompt size sits above what a typical business's config
+actually reaches even with the new 1000-char training text - so this is
+correctly wired for the businesses with the largest configs, not a
+general win yet. Real levers still on the table, logged here for later
+once there's volume to justify the complexity:
 
+- **A business with an unusually large config is exactly who caching
+  already helps today** - worth knowing which real clients are on the
+  bigger end of FAQ/training-text usage, since they're the ones actually
+  seeing the discount right now without any further work.
 - **Model routing** - a lot of questions are simple lookups ("what are
   your hours") that don't need a full Haiku call at all; a cheap keyword
   pre-check that only calls the AI for genuinely open-ended questions
@@ -142,21 +149,32 @@ own blue accent color untouched.
 
 ## What's built
 
-- **Training text raised from 100 to 1000 characters, with prompt caching
-  so it doesn't just multiply the AI bill.** The system prompt (business
-  name, rules, all FAQs including this text) gets rebuilt and resent on
-  *every* chat message, not once per conversation - so a longer training
-  text was a real per-message cost increase, not a one-off. Fixed the
-  right way: `api/chat.js` now marks the system prompt `cache_control:
-  {type: "ephemeral"}`, so repeat requests to the same business within the
-  cache window get Anthropic's ~90% cache-read discount ($0.10/M tokens
-  vs. $1.00/M fresh, current Haiku 4.5 pricing) instead of paying full
-  price every time. A lightweight log line (`cache usage: ...`) reports
-  read/created/fresh token counts per request so this is actually
-  verifiable in production, not just assumed. Verified the 1000-char cap
-  survives the full pipeline end-to-end (free preview, paid signup draft,
-  both sanitizers) without silently truncating back down to the old FAQ-
-  answer cap that used to sit at 300.
+- **Training text raised from 100 to 1000 characters.** The system prompt
+  (business name, rules, all FAQs including this text) gets rebuilt and
+  resent on *every* chat message, not once per conversation - so a longer
+  training text is a real per-message cost increase, not a one-off.
+  `api/chat.js` marks the system prompt `cache_control: {type:
+  "ephemeral"}` so it's *ready* to benefit from Anthropic's ~90%
+  cache-read discount ($0.10/M tokens vs. $1.00/M fresh, current Haiku 4.5
+  pricing) - implemented and verified working (a deliberately oversized
+  test prompt showed a clean cache write on the first call and a cache
+  read on the second, confirming the mechanism itself is correct). **Real
+  finding from that test, worth knowing:** Haiku's minimum cacheable
+  prompt size sits well above ~2,200 tokens (confirmed via testing - exact
+  published number is inconsistent across sources), and a typical business's
+  full system prompt, even maxed out at 1000 characters of training text
+  plus several FAQs, usually won't reach that floor. So caching is
+  correctly wired and will kick in for unusually large configs, but isn't
+  actually saving most businesses money today - the honest takeaway is
+  that the 1000-char increase itself is a small enough cost bump in
+  absolute terms (a few hundred extra input tokens per message) that it
+  didn't need the caching win to justify it. A lightweight log line
+  (`cache usage: ...`) in `api/chat.js` reports real read/created token
+  counts per request whenever caching *does* engage, so this stays
+  verifiable rather than assumed as usage grows. Verified the 1000-char
+  cap survives the full pipeline end-to-end (free preview, paid signup
+  draft, both sanitizers) without silently truncating back down to the
+  old FAQ-answer cap that used to sit at 300.
 - `widget/frontdesk-widget.js` — the embeddable widget. Shadow-DOM
   isolated, mobile-responsive, XSS-safe, single `<script>` tag integration.
   Verified in browser preview at both desktop and mobile widths, and the

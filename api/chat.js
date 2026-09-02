@@ -101,9 +101,7 @@ module.exports = async function handler(req, res) {
       console.log("[frontdesk chat] cache usage:", businessKey, "read:", usage.cache_read_input_tokens || 0, "created:", usage.cache_creation_input_tokens || 0, "fresh:", usage.input_tokens || 0);
     }
 
-    // TEMP-DEBUG: verifying caching actually engages in production - revert
-    // before this is exposed to real visitors.
-    return res.status(200).json({ reply: reply, debugUsage: usage });
+    return res.status(200).json({ reply: reply });
   } catch (err) {
     console.error("[frontdesk chat] provider error:", err.message);
     // A non-2xx here (not the generic fallback text with a 200) is

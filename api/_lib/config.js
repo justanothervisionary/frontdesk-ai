@@ -25,9 +25,11 @@ function sanitizePreviewConfig(raw) {
 
   var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
   faqs = faqs.map(function (f) {
-    // TEMP-DEBUG: bumped to 9000 to test the real prompt-caching token
-    // threshold - revert to 1000 after.
-    return { answer: ((f && f.answer) || "").toString().slice(0, 9000) };
+    // 1000, not 300 - the "teach it something about your business" box now
+    // allows up to 1000 characters (see shared/build-config.js), and that
+    // text travels through here as an FAQ entry - this cap must not
+    // silently truncate it back down.
+    return { answer: ((f && f.answer) || "").toString().slice(0, 1000) };
   }).filter(function (f) { return f.answer.trim(); });
 
   return {
