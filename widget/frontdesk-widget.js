@@ -128,10 +128,31 @@
       "  background: var(--fd-accent, #ff7a59); clip-path: polygon(0 0, 100% 0, 15% 100%);" +
       "}" +
       ".fd-panel.fd-open { display: flex; }" +
+      // Flat base color first (this is what most visitors register at a
+      // glance), then one deliberate "alive" touch layered on top: a
+      // slow, soft, multi-hue sheen derived entirely from the business's
+      // own accent color (never a fixed rainbow) - reads as quietly
+      // intelligent rather than a loud gradient background. Confined to
+      // this one spot on purpose - the rest of the panel stays flat.
       ".fd-header {" +
-      "  background: linear-gradient(135deg, var(--fd-accent, #ff7a59), color-mix(in srgb, var(--fd-accent, #ff7a59) 70%, #000));" +
-      "  color: var(--fd-on-accent, #fff); padding: 18px 18px 20px; display: flex; align-items: center; gap: 12px; position: relative;" +
+      "  background: var(--fd-accent, #ff7a59);" +
+      "  color: var(--fd-on-accent, #fff); padding: 18px 18px 20px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden;" +
       "}" +
+      ".fd-header::before {" +
+      "  content: ''; position: absolute; inset: -40%; z-index: 0; opacity: .55; mix-blend-mode: soft-light;" +
+      "  background: linear-gradient(120deg," +
+      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #7c5cff)," +
+      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #00d4c6)," +
+      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #ffb020)," +
+      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #7c5cff));" +
+      "  background-size: 300% 300%; animation: fd-sheen 14s ease-in-out infinite;" +
+      "}" +
+      "@keyframes fd-sheen {" +
+      "  0%, 100% { background-position: 0% 50%; }" +
+      "  50% { background-position: 100% 50%; }" +
+      "}" +
+      "@media (prefers-reduced-motion: reduce) { .fd-header::before { animation: none; } }" +
+      ".fd-header > * { position: relative; z-index: 1; }" +
       ".fd-header img, .fd-face-sm { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.2); }" +
       ".fd-face-sm svg { width: 100%; height: 100%; display: block; }" +
       ".fd-bubble { overflow: hidden; }" +
