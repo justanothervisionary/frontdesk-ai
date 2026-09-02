@@ -164,31 +164,19 @@
       "  display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;" +
       "}" +
       ".fd-close:hover { background: rgba(255,255,255,.34); }" +
-      ".fd-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; }" +
-      ".fd-chip {" +
-      "  border: 1px solid #e5e7eb; background: #fff; color: #333; font-size: 12px; padding: 6px 14px;" +
-      "  border-radius: 999px; cursor: pointer; transition: background .12s, border-color .12s;" +
-      "  display: inline-flex; align-items: center; gap: 6px;" +
-      "}" +
-      ".fd-chip:hover { background: #f7f8fa; border-color: var(--fd-accent, #ff7a59); }" +
       ".fd-leave-link { display: inline-flex; align-items: center; gap: 6px; }" +
       // A small face next to each bot reply reads as a real conversation
       // rather than a wall of unattributed text - the same avatar used in
-      // the header/hero, just small. User's own messages don't get one,
+      // the header, just small. User's own messages don't get one,
       // matching how most chat UIs only attribute the OTHER party.
       ".fd-msg-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 8px; }" +
       ".fd-msg-row .fd-msg { margin-bottom: 0; }" +
       ".fd-msg-avatar { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }" +
       ".fd-msg-avatar svg, .fd-msg-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }" +
-      // The opening moment, styled as a real greeting rather than a small
-      // chat bubble - a big centered avatar + bold heading text, not
-      // buried at bubble scale. This is the one idea worth adapting from
-      // full-screen chat apps: the first thing a visitor sees should read
-      // like a genuine hello, not another line of tiny text.
-      ".fd-hero { text-align: center; padding: 22px 22px 6px; background: linear-gradient(180deg, color-mix(in srgb, var(--fd-accent, #ff7a59) 10%, #fff), #fff 70%); }" +
-      ".fd-hero-avatar { width: 52px; height: 52px; margin: 0 auto; border-radius: 50%; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.12); }" +
-      ".fd-hero-avatar img, .fd-hero-avatar svg { width: 100%; height: 100%; display: block; }" +
-      ".fd-hero-text { font-size: 16px; font-weight: 700; line-height: 1.35; color: #1a1a1a; margin-top: 14px; }" +
+      // The opening moment - just the name, no large avatar graphic taking
+      // up space above it (that's what the small header avatar is for).
+      ".fd-hero { text-align: center; padding: 18px 22px 4px; background: linear-gradient(180deg, color-mix(in srgb, var(--fd-accent, #ff7a59) 10%, #fff), #fff 70%); }" +
+      ".fd-hero-text { font-size: 16px; font-weight: 700; line-height: 1.35; color: #1a1a1a; }" +
       ".fd-messages { flex: 1; overflow-y: auto; padding: 12px; background: #f7f8fa; }" +
       ".fd-msg { max-width: 85%; margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; animation: fd-msg-in .18s ease-out; }" +
       "@keyframes fd-msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }" +
@@ -337,7 +325,6 @@
       '<div class="fd-header">' + headerAvatar + '<div><div class="fd-name"></div><div class="fd-sub"></div></div>' +
       '<button class="fd-close" type="button" aria-label="Close chat">&#10005;</button></div>' +
       '<div class="fd-messages"></div>' +
-      '<div class="fd-chips"></div>' +
       '<button class="fd-leave-link" type="button">&#128197; Leave your details for a callback</button>' +
       '<div class="fd-lead-form">' +
       '<input class="fd-lead-name" type="text" placeholder="Your name" />' +
@@ -359,7 +346,6 @@
     var bubble = root.querySelector(".fd-bubble");
     var panel = root.querySelector(".fd-panel");
     var closeBtn = root.querySelector(".fd-close");
-    var chipsEl = root.querySelector(".fd-chips");
     var messages = root.querySelector(".fd-messages");
     var input = root.querySelector(".fd-input");
     var sendBtn = root.querySelector(".fd-send");
@@ -554,62 +540,13 @@
       clearInterval(blinkTimer);
     }
 
-    function chipLabelFor(faq) {
-      if (faq.chipLabel) return faq.chipLabel;
-      var kw = (faq.keywords && faq.keywords[0]) || "";
-      var titled = kw.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-      return titled + (/[?.!]$/.test(titled) ? "" : "?");
-    }
-
-    // A small, fixed keyword->icon map - purely decorative, never affects
-    // matching/routing. Falls back to a generic speech-bubble glyph for
-    // anything unrecognized rather than guessing.
-    var CHIP_ICONS = [
-      [/phone|call|number|telephone|emergency|urgent|pain|hurt|broken/, "\u{1F4DE}"], // 📞
-      [/where|location|address|postcode|find/, "\u{1F4CD}"], // 📍
-      [/price|cost|fee|quote|how much/, "\u{1F4B7}"], // 💷 (closest generic currency glyph)
-      [/book|appointment|callout|viewing|available|availability/, "\u{1F4C5}"], // 📅
-      [/hour|open|close|time/, "\u{1F550}"] // 🕐
-    ];
-    function chipIconFor(faq) {
-      var kws = ((faq.keywords && faq.keywords.join(" ")) || "").toLowerCase();
-      for (var i = 0; i < CHIP_ICONS.length; i++) {
-        if (CHIP_ICONS[i][0].test(kws)) return CHIP_ICONS[i][1];
-      }
-      return "\u{1F4AC}"; // 💬 generic fallback
-    }
-
-    // Quick-reply suggestion chips so a first-time visitor doesn't have to
-    // think of what to type - one tap sends a real question straight
-    // through the normal send() path (real AI or local matching, same as
-    // typing it by hand).
-    function renderChips() {
-      var faqs = (config.faqs || []).slice(0, 3);
-      faqs.forEach(function (faq) {
-        var chip = document.createElement("button");
-        chip.className = "fd-chip";
-        chip.type = "button";
-        var label = chipLabelFor(faq);
-        var iconEl = document.createElement("span");
-        iconEl.setAttribute("aria-hidden", "true");
-        iconEl.textContent = chipIconFor(faq); // fixed glyph from our own map, not user/AI text
-        var labelEl = document.createElement("span");
-        labelEl.textContent = label; // textContent only - keyword-derived, still not raw user/AI text, but same rule regardless
-        chip.appendChild(iconEl);
-        chip.appendChild(labelEl);
-        chip.addEventListener("click", function () {
-          chipsEl.innerHTML = ""; // one-shot - keeps the panel tidy after first use
-          input.value = label.replace(/\?$/, "");
-          send();
-        });
-        chipsEl.appendChild(chip);
-      });
-    }
-
+    // Just the name, deliberately - no large avatar graphic here (that's
+    // what the small header avatar is for; a second big one ate up too
+    // much space for what it added).
     function renderHeroGreeting(text) {
       var el = document.createElement("div");
       el.className = "fd-hero";
-      el.innerHTML = '<div class="fd-hero-avatar">' + bubbleInner + '</div><div class="fd-hero-text"></div>';
+      el.innerHTML = '<div class="fd-hero-text"></div>';
       el.querySelector(".fd-hero-text").textContent = text; // textContent only, same rule as addMessage
       messages.appendChild(el);
       messages.scrollTop = messages.scrollHeight;
@@ -639,7 +576,6 @@
       if (openNow === false) {
         root.querySelector(".fd-sub").textContent = "Currently closed - I can still help";
       }
-      renderChips();
     }
 
     bubble.addEventListener("click", function () {
