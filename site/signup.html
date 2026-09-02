@@ -313,21 +313,23 @@
       });
 
       // --- PDF extraction, client-side only - the extracted text is the
-      // only thing that ever reaches our backend, never the PDF itself ---
+      // only thing that ever reaches our backend, never the PDF itself.
+      // pdf.js 6.x ships as an ES module only (no classic UMD global
+      // build), so this uses dynamic import() rather than a <script src>
+      // tag - confirmed the exact version/filenames against cdnjs's own
+      // API rather than guessing, since a stale hardcoded version 404s
+      // silently otherwise. ---
       var pdfJsLoading = null;
+      var PDFJS_VERSION = "6.3.289";
       function loadPdfJs() {
-        if (window.pdfjsLib) return Promise.resolve();
+        if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
         if (pdfJsLoading) return pdfJsLoading;
-        pdfJsLoading = new Promise(function (resolve, reject) {
-          var script = document.createElement("script");
-          script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js";
-          script.onload = function () {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
-            resolve();
-          };
-          script.onerror = function () { reject(new Error("Could not load PDF reader")); };
-          document.head.appendChild(script);
-        });
+        pdfJsLoading = import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VERSION + "/pdf.min.mjs")
+          .then(function (mod) {
+            mod.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VERSION + "/pdf.worker.min.mjs";
+            window.pdfjsLib = mod;
+            return mod;
+          });
         return pdfJsLoading;
       }
 
