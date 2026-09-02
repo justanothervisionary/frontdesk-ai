@@ -166,10 +166,20 @@
       ".fd-close:hover { background: rgba(255,255,255,.34); }" +
       ".fd-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; }" +
       ".fd-chip {" +
-      "  border: 1px solid #e5e7eb; background: #fff; color: #333; font-size: 12px; padding: 6px 12px;" +
+      "  border: 1px solid #e5e7eb; background: #fff; color: #333; font-size: 12px; padding: 6px 14px;" +
       "  border-radius: 999px; cursor: pointer; transition: background .12s, border-color .12s;" +
+      "  display: inline-flex; align-items: center; gap: 6px;" +
       "}" +
       ".fd-chip:hover { background: #f7f8fa; border-color: var(--fd-accent, #ff7a59); }" +
+      ".fd-leave-link { display: inline-flex; align-items: center; gap: 6px; }" +
+      // A small face next to each bot reply reads as a real conversation
+      // rather than a wall of unattributed text - the same avatar used in
+      // the header/hero, just small. User's own messages don't get one,
+      // matching how most chat UIs only attribute the OTHER party.
+      ".fd-msg-row { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 8px; }" +
+      ".fd-msg-row .fd-msg { margin-bottom: 0; }" +
+      ".fd-msg-avatar { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }" +
+      ".fd-msg-avatar svg, .fd-msg-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }" +
       // The opening moment, styled as a real greeting rather than a small
       // chat bubble - a big centered avatar + bold heading text, not
       // buried at bubble scale. This is the one idea worth adapting from
@@ -328,7 +338,7 @@
       '<button class="fd-close" type="button" aria-label="Close chat">&#10005;</button></div>' +
       '<div class="fd-messages"></div>' +
       '<div class="fd-chips"></div>' +
-      '<button class="fd-leave-link" type="button">Leave your details for a callback</button>' +
+      '<button class="fd-leave-link" type="button">&#128197; Leave your details for a callback</button>' +
       '<div class="fd-lead-form">' +
       '<input class="fd-lead-name" type="text" placeholder="Your name" />' +
       '<input class="fd-lead-contact" type="text" placeholder="Phone or email" />' +
@@ -362,6 +372,25 @@
     var leadStatus = root.querySelector(".fd-lead-status");
 
     function addMessage(text, who) {
+      // Bot replies get a small avatar alongside them, the way a real
+      // conversation reads (you see who's talking) - user messages don't,
+      // matching the reference: only the other party gets a face.
+      if (who === "bot") {
+        var row = document.createElement("div");
+        row.className = "fd-msg-row";
+        var av = document.createElement("span");
+        av.className = "fd-msg-avatar";
+        av.innerHTML = bubbleInner; // our own fixed avatar markup, not user/AI text
+        var bubbleEl = document.createElement("div");
+        bubbleEl.className = "fd-msg fd-bot";
+        bubbleEl.textContent = text; // textContent only - never innerHTML with user/AI text
+        row.appendChild(av);
+        row.appendChild(bubbleEl);
+        messages.appendChild(row);
+        messages.scrollTop = messages.scrollHeight;
+        return bubbleEl;
+      }
+
       var el = document.createElement("div");
       el.className = "fd-msg fd-" + who;
       el.textContent = text; // textContent only - never innerHTML with user/AI text
@@ -532,6 +561,24 @@
       return titled + (/[?.!]$/.test(titled) ? "" : "?");
     }
 
+    // A small, fixed keyword->icon map - purely decorative, never affects
+    // matching/routing. Falls back to a generic speech-bubble glyph for
+    // anything unrecognized rather than guessing.
+    var CHIP_ICONS = [
+      [/phone|call|number|telephone|emergency|urgent|pain|hurt|broken/, "\u{1F4DE}"], // 📞
+      [/where|location|address|postcode|find/, "\u{1F4CD}"], // 📍
+      [/price|cost|fee|quote|how much/, "\u{1F4B7}"], // 💷 (closest generic currency glyph)
+      [/book|appointment|callout|viewing|available|availability/, "\u{1F4C5}"], // 📅
+      [/hour|open|close|time/, "\u{1F550}"] // 🕐
+    ];
+    function chipIconFor(faq) {
+      var kws = ((faq.keywords && faq.keywords.join(" ")) || "").toLowerCase();
+      for (var i = 0; i < CHIP_ICONS.length; i++) {
+        if (CHIP_ICONS[i][0].test(kws)) return CHIP_ICONS[i][1];
+      }
+      return "\u{1F4AC}"; // 💬 generic fallback
+    }
+
     // Quick-reply suggestion chips so a first-time visitor doesn't have to
     // think of what to type - one tap sends a real question straight
     // through the normal send() path (real AI or local matching, same as
@@ -542,10 +589,17 @@
         var chip = document.createElement("button");
         chip.className = "fd-chip";
         chip.type = "button";
-        chip.textContent = chipLabelFor(faq);
+        var label = chipLabelFor(faq);
+        var iconEl = document.createElement("span");
+        iconEl.setAttribute("aria-hidden", "true");
+        iconEl.textContent = chipIconFor(faq); // fixed glyph from our own map, not user/AI text
+        var labelEl = document.createElement("span");
+        labelEl.textContent = label; // textContent only - keyword-derived, still not raw user/AI text, but same rule regardless
+        chip.appendChild(iconEl);
+        chip.appendChild(labelEl);
         chip.addEventListener("click", function () {
           chipsEl.innerHTML = ""; // one-shot - keeps the panel tidy after first use
-          input.value = chip.textContent.replace(/\?$/, "");
+          input.value = label.replace(/\?$/, "");
           send();
         });
         chipsEl.appendChild(chip);
