@@ -153,10 +153,22 @@
   .about-block { max-width: 640px; }
   .about-block p { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
 
-  footer { padding: 34px 0 60px; text-align: center; color: var(--muted2); font-size: 12px; }
-  footer a { color: var(--muted2); }
-  footer p { margin: 0 0 8px; }
-  .footer-company { line-height: 1.6; }
+  footer { padding: 54px 0 40px; color: var(--muted2); font-size: 13px; border-top: 1px solid var(--border); margin-top: 20px; }
+  .footer-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 28px; margin-bottom: 40px; }
+  @media (max-width: 640px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+  .footer-col a { display: block; color: var(--muted); text-decoration: none; font-size: 13px; margin-bottom: 10px; }
+  .footer-col a:hover { color: var(--text); }
+  .footer-col h4 { font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 14px; font-weight: 700; }
+  .footer-brand .logo { margin-bottom: 10px; }
+  .footer-brand p { font-size: 13px; color: var(--muted); margin: 0 0 12px; max-width: 220px; }
+  .footer-address { font-size: 12px; color: var(--muted2); line-height: 1.6; }
+  .footer-bottom {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    padding-top: 24px; border-top: 1px solid var(--border); font-size: 12px;
+  }
+  .footer-payments { display: flex; align-items: center; gap: 10px; }
+  .payment-icons { display: flex; gap: 6px; }
+  .payment-icons img { border-radius: 3px; border: 1px solid var(--border); display: block; }
 </style>
 </head>
 <body>
@@ -327,8 +339,41 @@
     </section>
 
     <footer>
-      <p class="footer-company"><strong>Frontdesk</strong><br>44 Brentvale Avenue, Southall, Ealing, London, UB1 3ER</p>
-      <p>&copy; 2026 Frontdesk. Payments securely processed by Stripe.</p>
+      <div class="footer-grid">
+        <div class="footer-col footer-brand">
+          <div class="logo"><span class="dot"></span>Frontdesk</div>
+          <p>AI receptionists for local businesses. Never miss a lead again.</p>
+          <p class="footer-address">44 Brentvale Avenue<br>Southall, Ealing<br>London, UB1 3ER</p>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#pricing">Pricing</a>
+          <a href="#preview">Preview yours</a>
+          <a href="signup.html">Start free trial</a>
+        </div>
+        <div class="footer-col">
+          <h4>Company</h4>
+          <a href="#about">About</a>
+          <a href="#trust">Security</a>
+          <a href="mailto:danielbodell@outlook.com">Contact</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="terms.html">Terms of Service</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 Frontdesk. All rights reserved.</p>
+        <div class="footer-payments">
+          <span>Payments securely processed by Stripe</span>
+          <span class="payment-icons">
+            <img src="assets/payment-icons/visa.svg" alt="Visa" width="30" height="20" />
+            <img src="assets/payment-icons/mastercard.svg" alt="Mastercard" width="30" height="20" />
+            <img src="assets/payment-icons/amex.svg" alt="American Express" width="30" height="20" />
+          </span>
+        </div>
+      </div>
     </footer>
   </div>
 

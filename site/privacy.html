@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk — Privacy Policy</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --bg2: #0d0f12; --card: #14161a; --text: #f3f4f6;
+    --muted: #9aa1ac; --muted2: #6b7280; --accent2: #35d68f; --border: #22262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 0 20px 70px; }
+  nav { display: flex; justify-content: space-between; max-width: 680px; margin: 0 auto; padding: 22px 20px; }
+  .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  nav a.back { color: var(--muted); text-decoration: none; font-size: 13px; }
+  h1 { font-size: 26px; margin: 10px 0 6px; letter-spacing: -0.02em; }
+  .updated { color: var(--muted2); font-size: 13px; margin: 0 0 34px; }
+  h2 { font-size: 16px; margin: 34px 0 10px; }
+  p, li { color: var(--muted); font-size: 14px; }
+  ul { padding-left: 20px; }
+  a { color: var(--accent2); }
+  .callout {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; font-size: 13px; color: var(--muted); margin: 24px 0;
+  }
+  footer { padding: 40px 0 20px; text-align: center; color: var(--muted2); font-size: 12px; border-top: 1px solid var(--border); margin-top: 50px; }
+</style>
+</head>
+<body>
+  <nav>
+    <a class="logo" href="index.html"><span class="dot"></span>Frontdesk</a>
+    <a class="back" href="index.html">&larr; Back to home</a>
+  </nav>
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: 1 September 2026</p>
+
+    <p>This describes how Frontdesk ("we," "us") handles data when you use our website, our
+    self-serve tools, and the AI receptionist widget installed on a client's website. We've
+    written this in plain language on purpose - the full technical detail lives in our
+    <a href="../SECURITY.md">security overview</a>, written for whoever handles IT on your side.</p>
+
+    <h2>Who this covers</h2>
+    <p>Two different groups of people interact with Frontdesk, and this policy covers both:</p>
+    <ul>
+      <li><strong>Businesses</strong> who sign up for Frontdesk to add an AI receptionist to their own website.</li>
+      <li><strong>Visitors</strong> who chat with a Frontdesk widget installed on one of our clients' websites.</li>
+    </ul>
+
+    <h2>What we collect from businesses signing up</h2>
+    <ul>
+      <li>Your email address, business name, and the details you choose to give your AI
+      receptionist (services, hours, phone number, an optional photo or business description).</li>
+      <li>Payment is handled entirely by Stripe - we never see or store your card details.
+      Stripe's own <a href="https://stripe.com/privacy" target="_blank" rel="noopener">privacy policy</a>
+      covers what they hold.</li>
+    </ul>
+
+    <h2>What we collect from a visitor chatting with a client's widget</h2>
+    <ul>
+      <li>Whatever the visitor types into the chat, sent to our AI provider (Anthropic) to
+      generate a reply. Only the current conversation is sent - never anything else on the
+      page, never browsing history.</li>
+      <li>If a visitor chooses to leave their name and contact details (always their own
+      choice, never collected automatically), that's emailed directly to the business - not
+      stored in a database on our side.</li>
+      <li>No cookies, no tracking scripts, no analytics on the widget itself.</li>
+    </ul>
+
+    <h2>How long we keep things</h2>
+    <p>Business configs (what your AI receptionist knows) are kept for as long as your
+    subscription is active, in a version-controlled repository. Chat conversations aren't
+    stored beyond what's needed to generate a reply in the moment. Cancelling your
+    subscription takes your AI receptionist offline immediately.</p>
+
+    <h2>Who we share data with</h2>
+    <ul>
+      <li><strong>Stripe</strong> - payment processing.</li>
+      <li><strong>Anthropic</strong> - powers the AI that answers chat messages.</li>
+      <li><strong>Resend</strong> - delivers lead-notification emails to businesses.</li>
+      <li><strong>Vercel</strong> and <strong>GitHub</strong> - host the site and store configs.</li>
+    </ul>
+    <p>We don't sell data, and we don't share it with anyone beyond what's needed to actually
+    run the service.</p>
+
+    <h2>Your rights</h2>
+    <p>You can ask us to see, correct, or delete the data we hold about you at any time -
+    email <a href="mailto:danielbodell@outlook.com">danielbodell@outlook.com</a>.</p>
+
+    <div class="callout">
+      We're a small, early-stage business. If anything here is unclear, just ask - email us
+      and a real person will answer.
+    </div>
+  </div>
+  <footer>&copy; 2026 Frontdesk, 44 Brentvale Avenue, Southall, Ealing, London, UB1 3ER</footer>
+</body>
+</html>
