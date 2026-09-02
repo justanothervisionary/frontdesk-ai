@@ -149,6 +149,32 @@ own blue accent color untouched.
 
 ## What's built
 
+- **Dedicated signup page (`site/signup.html`)** replacing the old
+  "build inline on the homepage, then a second confusing button appears"
+  flow. Both the homepage builder and the pricing section's trial button
+  now lead to this one page - homepage hands its draft off via
+  `sessionStorage` (read once on load, then cleared, so a later refresh
+  doesn't clobber edits), the pricing button is now a plain link, no JS.
+  New on this page: an email field captured early via
+  `api/capture-lead-email.js` (before Stripe, so an abandoned signup
+  leaves a trace instead of none - log-only for now, no automated
+  follow-up yet), PDF upload for training text (parsed entirely
+  client-side via pdf.js, dynamic-`import()`-loaded from cdnjs since 6.x
+  ships as an ES module with no UMD global build - extracted text drops
+  into the same 1000-char textarea the manual-typing path already fully
+  handles, so this needed zero new backend surface), and a live
+  mock-website preview - a generic site layout that updates as fields
+  change, with the real widget mounted inside it via `sendConfigInline`
+  and kept visually contained in the mock browser frame via a CSS
+  `transform` trick (`position: fixed` descendants otherwise escape to
+  the real viewport instead of looking "inside" the mockup). Widget
+  remount is debounced (500ms) so typing doesn't destroy/recreate it
+  every keystroke. `api/create-checkout.js` now forwards the captured
+  email as the Checkout Session's `customer_email` - verified live that
+  it actually shows up pre-filled on Stripe's own page. Found and fixed a
+  real bug while building this: the initial pdf.js version/URL was
+  guessed rather than checked and 404'd outright - re-verified against
+  cdnjs's own API instead of guessing twice.
 - **Training text raised from 100 to 1000 characters.** The system prompt
   (business name, rules, all FAQs including this text) gets rebuilt and
   resent on *every* chat message, not once per conversation - so a longer
