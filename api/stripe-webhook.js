@@ -46,7 +46,19 @@ async function handleCheckoutCompleted(session) {
     return;
   }
 
-  var config = buildConfigFromDraft(session.metadata);
+  // extraInfo travels as a short reference (extraInfoId), not raw text -
+  // see api/upload-draft-text.js for why (Stripe metadata's 500-char
+  // value limit). Resolve it back to the real text here, before handing
+  // off to the same buildFrontdeskConfig() the free preview uses.
+  var draft = Object.assign({}, session.metadata);
+  var extraInfoId = draft.extraInfoId;
+  delete draft.extraInfoId;
+  if (extraInfoId && /^[0-9a-f]{24}\.txt$/i.test(extraInfoId)) {
+    var draftTextFile = await getFile("configs/drafts/" + extraInfoId);
+    if (draftTextFile) draft.extraInfo = draftTextFile.content;
+  }
+
+  var config = buildConfigFromDraft(draft);
   if (!config) {
     console.error("[frontdesk webhook] could not build a valid config for", businessKey, "from session", session.id);
     return;

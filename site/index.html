@@ -406,10 +406,36 @@
           .then(function (data) { uploadedAvatarId = data.avatarId; return uploadedAvatarId; });
       }
 
-      // Raw form values, not the assembled widget config - sent to
-      // /api/create-checkout, which re-runs them through the exact same
-      // buildFrontdeskConfig() (shared/build-config.js) server-side once
-      // payment succeeds. One source of truth for both paths.
+      var uploadedExtraInfoId = null;
+      var lastUploadedExtraInfoText = null;
+
+      // Same reasoning as ensureAvatarUploaded(): the training-text box
+      // allows up to 1000 characters, which can exceed Stripe Checkout
+      // metadata's hard 500-char-per-value limit - sending it raw would
+      // fail checkout creation outright above that. Uploaded lazily, only
+      // once a trial actually starts, and re-uploaded if the text changed
+      // since the last upload.
+      function ensureExtraInfoUploaded() {
+        var text = document.getElementById("pv-extra-info").value.trim();
+        if (!text) return Promise.resolve(null);
+        if (uploadedExtraInfoId && lastUploadedExtraInfoText === text) return Promise.resolve(uploadedExtraInfoId);
+
+        return fetch("/api/upload-draft-text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text })
+        })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) {
+            uploadedExtraInfoId = data.draftTextId;
+            lastUploadedExtraInfoText = text;
+            return uploadedExtraInfoId;
+          });
+      }
+
+      // Raw form values for the FREE live preview - stays entirely
+      // client-side, so extraInfo travels as plain text here (no Stripe
+      // metadata size limit applies to this path).
       function collectDraftFields() {
         return {
           businessName: document.getElementById("pv-name").value,
@@ -417,8 +443,7 @@
           type: document.getElementById("pv-type").value,
           phone: document.getElementById("pv-phone").value,
           color: document.getElementById("pv-color").value,
-          extraInfo: document.getElementById("pv-extra-info").value,
-          avatarId: uploadedAvatarId // null until ensureAvatarUploaded() has actually run
+          extraInfo: document.getElementById("pv-extra-info").value
         };
       }
 
@@ -426,6 +451,20 @@
         var draft = collectDraftFields();
         draft.avatarDataUri = selectedAvatarDataUri || undefined; // the real uploaded photo - free preview only, stays local
         return window.FrontdeskBuildConfig.buildFrontdeskConfig(draft);
+      }
+
+      // Same fields, but for /api/create-checkout: extraInfo and the
+      // avatar both travel as short upload references instead of raw
+      // values - see ensureAvatarUploaded()/ensureExtraInfoUploaded() and
+      // api/upload-draft-text.js for why (Stripe metadata's 500-char
+      // per-value limit). Only call this after both of those have
+      // resolved.
+      function collectCheckoutDraftFields() {
+        var draft = collectDraftFields();
+        delete draft.extraInfo;
+        draft.extraInfoId = uploadedExtraInfoId;
+        draft.avatarId = uploadedAvatarId;
+        return draft;
       }
 
       // Button text follows the name as it's typed - a small touch, but it's
@@ -488,13 +527,13 @@
         trialInFlight = true;
         if (statusEl) statusEl.textContent = selectedAvatarFile ? "Uploading your photo..." : "Setting up your checkout...";
 
-        ensureAvatarUploaded()
+        Promise.all([ensureAvatarUploaded(), ensureExtraInfoUploaded()])
           .then(function () {
             if (statusEl) statusEl.textContent = "Setting up your checkout...";
             return fetch("/api/create-checkout", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(collectDraftFields())
+              body: JSON.stringify(collectCheckoutDraftFields())
             });
           })
           .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
