@@ -106,8 +106,6 @@
       ".fd-bubble.fd-settled { animation: none; }" +
       ".fd-bubble svg, .fd-bubble img { width: 26px; height: 26px; }" +
       ".fd-bubble img { border-radius: 50%; object-fit: cover; }" +
-      ".fd-eye { transition: transform .08s; transform-origin: center; }" +
-      ".fd-blinking .fd-eye { transform: scaleY(.12); }" +
       ".fd-panel {" +
       "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); width: 368px; max-width: calc(100vw - 32px);" +
       "  height: 500px; max-height: calc(100vh - 140px); border-radius: 22px;" +
@@ -236,21 +234,27 @@
     return brightness >= 150 ? "#1a1a1a" : "#ffffff";
   }
 
-  // Warm default face used whenever a business hasn't supplied their own
-  // logo/avatar - a simple, honestly-not-a-real-person mark rather than a
-  // generic chat-bubble icon or (worse) a fake stock-photo human. Alive and
-  // friendly, not uncanny.
+  // No longer the default active-state face (that's now a real photo, see
+  // DEFAULT_AVATAR_URL below) - kept only for the inactive/trial-ended
+  // state, where a generic neutral mark reads better than showing a real
+  // person's photo next to an "offline" notice.
   function defaultAvatarSvg() {
     return '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">' +
       '<defs><linearGradient id="fd-face-grad" x1="0" y1="0" x2="1" y2="1">' +
       '<stop offset="0%" stop-color="#ffb37a"/><stop offset="100%" stop-color="#ff7a59"/>' +
       '</linearGradient></defs>' +
       '<circle cx="20" cy="20" r="19" fill="url(#fd-face-grad)"/>' +
-      '<circle class="fd-eye" cx="14" cy="19" r="2.3" fill="#3a1f14"/>' +
-      '<circle class="fd-eye" cx="26" cy="19" r="2.3" fill="#3a1f14"/>' +
+      '<circle cx="14" cy="19" r="2.3" fill="#3a1f14"/>' +
+      '<circle cx="26" cy="19" r="2.3" fill="#3a1f14"/>' +
       '<path d="M13 25 Q20 30.5 27 25" stroke="#3a1f14" stroke-width="2.3" fill="none" stroke-linecap="round"/>' +
       '</svg>';
   }
+
+  // The default face for any business that hasn't uploaded their own -
+  // hosted on our own domain since the widget itself gets embedded on
+  // arbitrary third-party sites via a single script tag, so this needs to
+  // be a real absolute URL, not a relative path.
+  var DEFAULT_AVATAR_URL = "https://frontdesk-ai-chi-ten.vercel.app/site/assets/images/ivy-avatar.jpg";
 
   // Back-compat: older configs set accentColor at the top level. Newer
   // configs use a theme object so more than just color is customizable
@@ -261,7 +265,7 @@
       accentColor: t.accentColor || config.accentColor || "#ff7a59",
       position: t.position || "right",
       offset: t.offset,
-      avatarUrl: t.avatarUrl || null,
+      avatarUrl: t.avatarUrl || DEFAULT_AVATAR_URL,
       assistantName: t.assistantName || config.assistantName || "Ivy",
       fontFamily: t.fontFamily || null
     };
@@ -537,7 +541,6 @@
     function settle() {
       dismissed = true;
       bubble.classList.add("fd-settled");
-      clearInterval(blinkTimer);
     }
 
     // Just the name, deliberately - no large avatar graphic here (that's
@@ -595,17 +598,6 @@
       if (e.key === "Enter") send();
     });
 
-    // Blink, on the floating bubble's own face only (not the header's small
-    // copy - one blinking face on screen reads as alive, two reads as
-    // glitchy). Only applies to the drawn default face - never animates a
-    // business's own uploaded logo.
-    var blinkTimer = null;
-    if (!theme.avatarUrl) {
-      blinkTimer = setInterval(function () {
-        bubble.classList.add("fd-blinking");
-        setTimeout(function () { bubble.classList.remove("fd-blinking"); }, 140);
-      }, 3200 + Math.random() * 2600); // irregular timing reads as a real blink, not a machine tick
-    }
 
     // Proactively open with the real greeting after a short delay, instead
     // of relying on the bubble alone or a small teaser tooltip to catch the
@@ -631,7 +623,6 @@
 
     return {
       destroy: function () {
-        clearInterval(blinkTimer);
         clearTimeout(autoOpenTimer);
         host.remove();
       }
