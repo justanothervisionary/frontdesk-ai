@@ -106,9 +106,14 @@
       ".fd-bubble.fd-settled { animation: none; }" +
       // Fill the full bubble circle, not a small icon floating inside it -
       // fine for the old icon's own internal padding, but left a real
-      // photo looking tiny with empty space around it.
+      // photo looking tiny with empty space around it. No border-radius
+      // on the img itself - .fd-bubble already clips to a circle via its
+      // own border-radius + overflow:hidden, and applying it twice (once
+      // here, once on the parent) left a thin sliver of the accent-color
+      // background visible where the two independently-rounded edges
+      // didn't perfectly align.
       ".fd-bubble svg, .fd-bubble img { width: 100%; height: 100%; display: block; }" +
-      ".fd-bubble img { border-radius: 50%; object-fit: cover; }" +
+      ".fd-bubble img { object-fit: cover; }" +
       ".fd-panel {" +
       "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); width: 368px; max-width: calc(100vw - 32px);" +
       "  height: 500px; max-height: calc(100vh - 140px); border-radius: 22px;" +
