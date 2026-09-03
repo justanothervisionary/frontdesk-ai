@@ -89,7 +89,15 @@
       "  position: fixed; " + side + ": " + offset + "; bottom: " + offset + "; width: 58px; height: 58px;" +
       "  border-radius: 50%; background: var(--fd-accent, #ff7a59); color: #fff;" +
       "  display: flex; align-items: center; justify-content: center;" +
-      "  box-shadow: 0 4px 16px rgba(0,0,0,.2); cursor: pointer; z-index: 999999; border: none;" +
+      // This is a <button>, so it inherits the browser's own default
+      // padding unless reset here - that leftover padding was the actual
+      // cause of the accent-color ring around the avatar (the image was
+      // correctly filling 100% of the button's content box, just that
+      // content box was smaller than the full circle because of the
+      // unreset padding around it), not the border-radius double-clip
+      // fixed in the previous pass - that fix was real but wasn't the
+      // whole story.
+      "  padding: 0; box-shadow: 0 4px 16px rgba(0,0,0,.2); cursor: pointer; z-index: 999999; border: none;" +
       "  animation: fd-pop-in .5s cubic-bezier(.34,1.56,.64,1), fd-idle-pulse 2.8s ease-in-out 1.2s infinite;" +
       "}" +
       // Entrance: arrives with a little life in it rather than just being
