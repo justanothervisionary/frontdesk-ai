@@ -104,7 +104,10 @@
       "  50% { box-shadow: 0 4px 16px rgba(0,0,0,.2), 0 0 0 8px color-mix(in srgb, var(--fd-accent, #ff7a59) 18%, transparent); }" +
       "}" +
       ".fd-bubble.fd-settled { animation: none; }" +
-      ".fd-bubble svg, .fd-bubble img { width: 26px; height: 26px; }" +
+      // Fill the full bubble circle, not a small icon floating inside it -
+      // fine for the old icon's own internal padding, but left a real
+      // photo looking tiny with empty space around it.
+      ".fd-bubble svg, .fd-bubble img { width: 100%; height: 100%; display: block; }" +
       ".fd-bubble img { border-radius: 50%; object-fit: cover; }" +
       ".fd-panel {" +
       "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); width: 368px; max-width: calc(100vw - 32px);" +
