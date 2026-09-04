@@ -57,6 +57,14 @@ If email delivery fails for a live client, the visitor is told honestly to
 call instead, rather than being shown a false "success" message that could
 leave a real inquiry lost with nobody aware of it.
 
+That notification address itself is stored in `configs/private/{key}.json`,
+a separate file from the main `configs/{key}.json` the widget fetches
+directly from a visitor's browser. Only the server reads the private file
+(directly off disk, no HTTP request involved); a Vercel rewrite returns 404
+for any direct request to `/configs/private/*` so a business's real contact
+email is never reachable over the public internet the way the rest of its
+config necessarily is.
+
 ## How the live AI backend stays safe
 
 A public, unauthenticated AI endpoint is a genuine cost and abuse surface

@@ -1,6 +1,5 @@
 {
   "businessName": "West London Dental Centres",
-  "notifyEmail": "TODO-add-real-contact-email@example.com",
   "accentColor": "#0a6ecb",
   "greeting": "Hi, welcome to West London Dental Centres! Ask me about appointments, treatments, or opening times - or leave your details and the team will call you back.",
   "fallbackAnswer": "I'll pass that on to the reception team and someone will get back to you shortly. Would you like to leave your name and number, or you can call us directly on 020 8994 3088?",

@@ -12,6 +12,14 @@ const Stripe = require("stripe");
 const { getFile, putFile } = require("./_lib/github");
 const { buildConfigFromDraft } = require("./_lib/config");
 
+// Where a business's real contact email is stored - deliberately NOT in
+// configs/{key}.json, which is served to the public internet as-is. See
+// the matching comment in api/_lib/config.js and vercel.json's rewrite of
+// /configs/private/*.
+function privateFilePath(businessKey) {
+  return "configs/private/" + businessKey + ".json";
+}
+
 // See api/create-checkout.js for why this is lazy rather than constructed
 // eagerly at module load.
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -64,13 +72,17 @@ async function handleCheckoutCompleted(session) {
     return;
   }
 
-  config.notifyEmail = (session.customer_details && session.customer_details.email) || config.notifyEmail;
+  var notifyEmail = (session.customer_details && session.customer_details.email) || config.notifyEmail;
+  delete config.notifyEmail; // never written to the public config file - see privateFilePath()
   config.active = true;
   config.stripeCustomerId = session.customer;
   config.stripeSubscriptionId = session.subscription;
   config.stripeCheckoutSessionId = session.id;
 
   await putFile(filePath, config, "Publish config for " + businessKey + " (auto-published via Stripe trial signup)");
+  if (notifyEmail) {
+    await putFile(privateFilePath(businessKey), { notifyEmail: notifyEmail }, "Set contact email for " + businessKey);
+  }
   console.log("[frontdesk webhook] published new config for", businessKey);
 }
 
