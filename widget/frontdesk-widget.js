@@ -122,6 +122,28 @@
       // didn't perfectly align.
       ".fd-bubble svg, .fd-bubble img { width: 100%; height: 100%; display: block; }" +
       ".fd-bubble img { object-fit: cover; }" +
+      // The proactive moment "hangs back" instead of springing the full
+      // panel open on every visitor: a small card near the launcher with
+      // just a short greeting, not the whole conversation UI. Clicking it
+      // opens the real panel; the small close button dismisses it on its
+      // own without forcing that.
+      ".fd-teaser {" +
+      "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 74px); max-width: 220px;" +
+      "  background: #fff; border-radius: 16px; padding: 12px 30px 12px 12px;" +
+      "  box-shadow: 0 12px 32px rgba(0,0,0,.2); cursor: pointer; z-index: 999999; display: none;" +
+      "  animation: fd-pop-in .35s cubic-bezier(.34,1.56,.64,1);" +
+      "}" +
+      ".fd-teaser.fd-show { display: block; }" +
+      ".fd-teaser-inner { display: flex; align-items: center; gap: 9px; }" +
+      ".fd-teaser-avatar { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }" +
+      ".fd-teaser-avatar svg, .fd-teaser-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }" +
+      ".fd-teaser-text { font-size: 13px; font-weight: 600; line-height: 1.35; color: #1a1a1a; }" +
+      ".fd-teaser-close {" +
+      "  position: absolute; top: 8px; " + other + ": 8px; width: 18px; height: 18px; border-radius: 50%;" +
+      "  border: none; background: #f0f1f3; color: #8a8f99; cursor: pointer; font-size: 10px;" +
+      "  display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;" +
+      "}" +
+      ".fd-teaser-close:hover { background: #e5e7eb; }" +
       ".fd-panel {" +
       "  position: fixed; " + side + ": " + offset + "; bottom: calc(" + offset + " + 70px); width: 368px; max-width: calc(100vw - 32px);" +
       "  height: 500px; max-height: calc(100vh - 140px); border-radius: 22px;" +
@@ -130,17 +152,6 @@
       "  animation: fd-pop-in .32s cubic-bezier(.34,1.56,.64,1);" +
       "}" +
       ".fd-panel-inner { display: flex; flex-direction: column; height: 100%; border-radius: 22px; overflow: hidden; background: #fff; }" +
-      // A small rounded tail connecting the panel back down to the bubble it
-      // came from - the visual grammar of a speech bubble, not a floating
-      // corporate card that happens to appear near the icon. Sits behind
-      // .fd-panel-inner in paint order (comes first in the DOM/CSS here,
-      // and .fd-panel itself has no background of its own to cover it),
-      // so no z-index trickery needed - the top half is naturally hidden
-      // under the white inner panel, leaving just the pointed tip visible.
-      ".fd-panel::before {" +
-      "  content: ''; position: absolute; bottom: -9px; " + side + ": 26px; width: 22px; height: 22px;" +
-      "  background: var(--fd-accent, #ff7a59); clip-path: polygon(0 0, 100% 0, 15% 100%);" +
-      "}" +
       ".fd-panel.fd-open { display: flex; }" +
       // Flat base color first (this is what most visitors register at a
       // glance), then one deliberate "alive" touch layered on top: a
@@ -170,8 +181,13 @@
       ".fd-header img, .fd-face-sm { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.2); }" +
       ".fd-face-sm svg { width: 100%; height: 100%; display: block; }" +
       ".fd-bubble { overflow: hidden; }" +
-      ".fd-header .fd-name { font-weight: 700; font-size: 15px; }" +
-      ".fd-header .fd-sub { font-size: 12px; opacity: .9; margin-top: 3px; }" +
+      // min-width: 0 is what actually lets a flex child shrink below its
+      // content size - without it, text-overflow:ellipsis on the children
+      // below has no effect and a long business name just wraps to a
+      // second line instead, eating into the panel's already-tight height.
+      ".fd-header-text { flex: 1; min-width: 0; }" +
+      ".fd-header .fd-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
+      ".fd-header .fd-sub { font-size: 12px; opacity: .9; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
       ".fd-close {" +
       "  position: absolute; top: 12px; right: 12px; width: 24px; height: 24px; border-radius: 50%;" +
       "  border: none; background: rgba(255,255,255,.22); color: inherit; cursor: pointer; font-size: 15px;" +
@@ -215,7 +231,6 @@
       ".fd-lead-status { font-size: 11px; margin-top: 6px; min-height: 14px; }" +
       ".fd-lead-status.fd-err { color: #c00; }" +
       ".fd-lead-status.fd-ok { color: #1a7f37; }" +
-      ".fd-disclaimer { font-size: 10px; color: #999; padding: 6px 12px; text-align: center; }" +
       ".fd-typing { display: flex; gap: 3px; padding: 10px 12px; }" +
       ".fd-typing span { width: 6px; height: 6px; border-radius: 50%; background: #bbb; animation: fd-bounce 1.2s infinite; }" +
       ".fd-typing span:nth-child(2) { animation-delay: .15s; }" +
@@ -224,6 +239,7 @@
       "@media (max-width: 480px) {" +
       "  .fd-panel { right: 8px; left: 8px; width: auto; bottom: 84px; height: 70vh; max-height: 70vh; }" +
       "  .fd-bubble { " + side + ": 14px; bottom: 14px; }" +
+      "  .fd-teaser { " + side + ": 14px; bottom: 82px; max-width: calc(100vw - 100px); }" +
       "}" +
       // Trial ended / subscription cancelled - a muted, non-interactive
       // bubble instead of the full chat. No click handler is ever attached
@@ -341,8 +357,12 @@
 
     root.innerHTML =
       '<button class="fd-bubble" aria-label="Chat with us" type="button">' + bubbleInner + "</button>" +
+      '<div class="fd-teaser" role="button" tabindex="0">' +
+      '<button class="fd-teaser-close" type="button" aria-label="Dismiss">&#10005;</button>' +
+      '<div class="fd-teaser-inner"><span class="fd-teaser-avatar">' + bubbleInner + '</span><span class="fd-teaser-text"></span></div>' +
+      "</div>" +
       '<div class="fd-panel"><div class="fd-panel-inner">' +
-      '<div class="fd-header">' + headerAvatar + '<div><div class="fd-name"></div><div class="fd-sub"></div></div>' +
+      '<div class="fd-header">' + headerAvatar + '<div class="fd-header-text"><div class="fd-name"></div><div class="fd-sub"></div></div>' +
       '<button class="fd-close" type="button" aria-label="Close chat">&#10005;</button></div>' +
       '<div class="fd-messages"></div>' +
       '<button class="fd-leave-link" type="button">&#128197; Leave your details for a callback</button>' +
@@ -356,7 +376,6 @@
       '<div class="fd-lead-status"></div>' +
       "</div>" +
       '<div class="fd-inputrow"><input class="fd-input" type="text" placeholder="Type a question..." /><button class="fd-send" type="button">Send</button></div>' +
-      '<div class="fd-disclaimer">' + escapeHtml(theme.assistantName) + " is an AI assistant - honest about that, always. For medical or urgent concerns, please call or book directly.</div>" +
       "</div></div>";
     shadow.appendChild(root);
 
@@ -366,6 +385,9 @@
     var bubble = root.querySelector(".fd-bubble");
     var panel = root.querySelector(".fd-panel");
     var closeBtn = root.querySelector(".fd-close");
+    var teaser = root.querySelector(".fd-teaser");
+    var teaserText = root.querySelector(".fd-teaser-text");
+    var teaserClose = root.querySelector(".fd-teaser-close");
     var messages = root.querySelector(".fd-messages");
     var input = root.querySelector(".fd-input");
     var sendBtn = root.querySelector(".fd-send");
@@ -592,12 +614,14 @@
       // this opening moment instead; normal back-and-forth after this
       // still scrolls to bottom as expected.
       messages.scrollTop = 0;
-      if (openNow === false) {
-        root.querySelector(".fd-sub").textContent = "Currently closed - I can still help";
-      }
+    }
+
+    function hideTeaser() {
+      teaser.classList.remove("fd-show");
     }
 
     bubble.addEventListener("click", function () {
+      hideTeaser();
       settle();
       var open = panel.classList.toggle("fd-open");
       if (open) showGreeting();
@@ -609,24 +633,30 @@
       panel.classList.remove("fd-open");
     });
 
+    // Clicking the teaser itself opens the real panel, same as the bubble -
+    // it's an invitation into the same conversation, not a separate thing.
+    teaser.addEventListener("click", function () { bubble.click(); });
+    teaserClose.addEventListener("click", function (e) {
+      e.stopPropagation();
+      hideTeaser();
+      settle(); // an explicit dismissal - stop the idle pulse too, same as any other real engagement
+    });
+
     sendBtn.addEventListener("click", send);
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") send();
     });
 
-
-    // Proactively open with the real greeting after a short delay, instead
-    // of relying on the bubble alone or a small teaser tooltip to catch the
-    // eye. Checked how Intercom's own site behaves for this: their launcher
-    // icon is actually smaller than ours (48px), but they auto-open the
-    // full greeting card within ~2 seconds of page load - the invitation
-    // itself is what gets noticed, not bubble motion. Never fires if the
-    // visitor's already engaged (opened or explicitly closed it first).
+    // Proactively catch the eye after a short delay, but "hang back" rather
+    // than springing the full conversation panel open on every visitor -
+    // just a small card near the launcher with a short greeting. Clicking
+    // it (or the launcher itself) opens the real panel with the full
+    // greeting; dismissing it just stops there instead of forcing the
+    // whole widget into view. Never fires if the visitor's already engaged.
     var autoOpenTimer = setTimeout(function () {
       if (dismissed || panel.classList.contains("fd-open")) return;
-      settle();
-      panel.classList.add("fd-open");
-      showGreeting();
+      teaserText.textContent = "Hi! I'm " + theme.assistantName + " 👋 How can I help?";
+      teaser.classList.add("fd-show");
     }, 2500);
 
     // Auto-open and greet immediately when explicitly asked to (used by the

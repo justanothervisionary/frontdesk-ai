@@ -148,8 +148,14 @@
     width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
     background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; resize: none;
   }
-  .char-count { font-size: 11px; color: var(--muted2); text-align: right; margin: 4px 0 14px; }
+  .extra-actions { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 0; }
+  .char-count { font-size: 11px; color: var(--muted2); }
   .char-count.near-limit { color: var(--accent2); }
+  .pdf-btn {
+    font-size: 11px; color: var(--accent2); background: none; border: none; cursor: pointer;
+    font-family: inherit; padding: 0; text-decoration: underline;
+  }
+  .pdf-status { font-size: 11px; color: var(--muted2); margin: 4px 0 14px; min-height: 14px; }
 
   .about-block { max-width: 640px; }
   .about-block p { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
@@ -177,6 +183,7 @@
     <div class="logo"><span class="dot"></span>Frontdesk</div>
     <div>
       <a href="#pricing">Pricing</a>
+      <a href="#install">Getting live</a>
       <a href="#preview">Preview yours</a>
       <a href="#about">About</a>
       <a href="#trust">Security</a>
@@ -231,6 +238,30 @@
       <p class="price-note">Card required to start the trial - we don't charge anything until the 7 days are up, and you can cancel anytime before then with no charge. Checkout is real, secure Stripe. The done-for-you setup fee is quoted first, so that button opens an email instead.</p>
     </section>
 
+    <section id="install">
+      <p class="eyebrow">Getting live</p>
+      <h2>Two ways to get it on your site</h2>
+      <div class="pricing">
+        <div class="plan">
+          <h3>Install it yourself</h3>
+          <div class="note">About 5 minutes, no developer needed</div>
+          <ol class="steps" style="margin-top:18px;">
+            <li><strong>Copy your snippet.</strong> One line of code, generated automatically the moment you sign up.</li>
+            <li><strong>Paste it into your site.</strong> Just before the closing &lt;/body&gt; tag - works on any website, any platform, any CMS.</li>
+            <li><strong>Refresh and you're live.</strong> Your AI receptionist appears bottom-right, ready to answer.</li>
+          </ol>
+        </div>
+        <div class="plan">
+          <h3>Let us install it for you</h3>
+          <div class="note">For anyone who'd rather not touch any code</div>
+          <p style="color:var(--muted); font-size:13px; line-height:1.7; margin:20px 0 22px;">Send us a link to your site and
+          we'll take it from there - installed, tested live, and confirmed working before we call it done.
+          One-off fee, quoted after a quick look at your site.</p>
+          <a class="plan-cta secondary" href="mailto:danielbodell@outlook.com?subject=Frontdesk%20-%20Done-for-you%20setup&body=Hi%2C%20I%27d%20like%20a%20quote%20for%20the%20done-for-you%20install.">Ask about setup</a>
+        </div>
+      </div>
+    </section>
+
     <section id="preview">
       <p class="eyebrow">Try it yourself</p>
       <h2>Make your AI receptionist</h2>
@@ -254,7 +285,12 @@
         <label for="pv-extra-info" id="pv-extra-label">Teach your AI receptionist something about your business</label>
         <textarea id="pv-extra-info" maxlength="1000" rows="5"
           placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour. We accept card and bank transfer, not cash."></textarea>
-        <div class="char-count" id="pv-extra-count">0 / 1000</div>
+        <div class="extra-actions">
+          <button type="button" class="pdf-btn" id="pv-pdf-trigger">📄 Or upload a PDF instead</button>
+          <span class="char-count" id="pv-extra-count">0 / 1000</span>
+        </div>
+        <input type="file" id="pv-pdf-upload" accept="application/pdf" style="display:none;" />
+        <div class="pdf-status" id="pv-pdf-status"></div>
 
         <div class="field-row">
           <div>
@@ -351,6 +387,7 @@
         <div class="footer-col">
           <h4>Product</h4>
           <a href="#pricing">Pricing</a>
+          <a href="#install">Getting live</a>
           <a href="#preview">Preview yours</a>
           <a href="signup.html">Start free trial</a>
         </div>
@@ -433,6 +470,68 @@
         var counter = document.getElementById("pv-extra-count");
         counter.textContent = len + " / 1000";
         counter.classList.toggle("near-limit", len >= 900);
+      });
+
+      // --- PDF extraction, client-side only - the extracted text is the
+      // only thing that ever reaches our backend, never the PDF itself.
+      // Same mechanism as site/signup.html - see that file's comment for
+      // why this is a dynamic import() rather than a <script src> tag
+      // (pdf.js 6.x ships as an ES module only, no UMD global build). ---
+      var pdfJsLoading = null;
+      var PDFJS_VERSION = "6.3.289";
+      function loadPdfJs() {
+        if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+        if (pdfJsLoading) return pdfJsLoading;
+        pdfJsLoading = import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VERSION + "/pdf.min.mjs")
+          .then(function (mod) {
+            mod.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VERSION + "/pdf.worker.min.mjs";
+            window.pdfjsLib = mod;
+            return mod;
+          });
+        return pdfJsLoading;
+      }
+
+      document.getElementById("pv-pdf-trigger").addEventListener("click", function () {
+        document.getElementById("pv-pdf-upload").click();
+      });
+
+      document.getElementById("pv-pdf-upload").addEventListener("change", function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        var statusEl = document.getElementById("pv-pdf-status");
+        statusEl.textContent = "Reading your PDF...";
+
+        loadPdfJs()
+          .then(function () { return file.arrayBuffer(); })
+          .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
+          .then(function (pdf) {
+            var pagePromises = [];
+            for (var i = 1; i <= pdf.numPages; i++) {
+              pagePromises.push(pdf.getPage(i).then(function (page) {
+                return page.getTextContent().then(function (content) {
+                  return content.items.map(function (item) { return item.str; }).join(" ");
+                });
+              }));
+            }
+            return Promise.all(pagePromises);
+          })
+          .then(function (pagesText) {
+            var fullText = pagesText.join("\n").replace(/\s+/g, " ").trim();
+            if (!fullText) {
+              statusEl.textContent = "Couldn't find any text in that PDF - try pasting the info manually instead.";
+              return;
+            }
+            var textarea = document.getElementById("pv-extra-info");
+            textarea.value = fullText.slice(0, 1000);
+            textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            statusEl.textContent = fullText.length > 1000
+              ? "Extracted and trimmed to fit the 1000-character limit - feel free to edit it above."
+              : "Extracted from your PDF - feel free to edit it above.";
+          })
+          .catch(function (err) {
+            console.error("[frontdesk homepage] PDF extraction failed:", err);
+            statusEl.textContent = "Couldn't read that PDF - try a different file, or paste the info manually.";
+          });
       });
 
       // Hands the draft off to site/signup.html via sessionStorage (small
