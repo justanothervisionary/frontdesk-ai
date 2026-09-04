@@ -1,5 +1,6 @@
 {
   "businessName": "Riverside Plumbing & Heating (example)",
+  "notifyEmail": "rchdawk@gmail.com",
   "type": "callouts",
   "theme": {
     "accentColor": "#0a6ecb",
