@@ -1,8 +1,17 @@
 // Shared by api/chat.js and api/lead.js (previously copy-pasted in both).
 const fs = require("fs");
 const path = require("path");
-const { buildFrontdeskConfig } = require("../../shared/build-config");
+const { buildFrontdeskConfig, GREETINGS } = require("../../shared/build-config");
 const avatarPresets = require("../../shared/avatar-presets");
+
+// The same 4 "what do you do?" options the onboarding dropdown offers -
+// reused here (rather than a second hardcoded list) so this can never drift
+// from shared/build-config.js. See api/chat.js's CONVERSION_GOALS for how
+// this steers the core system prompt's conversion guidance.
+var KNOWN_TYPES = Object.keys(GREETINGS);
+function isKnownType(v) {
+  return KNOWN_TYPES.indexOf(v) !== -1;
+}
 
 // businessKey is validated against a strict allowlist pattern before ever
 // touching the filesystem, so this can't be used to read arbitrary paths.
@@ -51,6 +60,7 @@ function sanitizePreviewConfig(raw) {
 
   return {
     businessName: businessName,
+    type: isKnownType(raw.type) ? raw.type : "general",
     faqs: faqs,
     fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||
       "I'll pass that on to the team and someone will get back to you shortly."
@@ -116,6 +126,7 @@ function sanitizeCommittedConfig(raw) {
   return {
     businessName: businessName,
     domain: isDomain(raw.domain) ? raw.domain.toLowerCase() : undefined,
+    type: isKnownType(raw.type) ? raw.type : "general",
     theme: { accentColor: accentColor, position: "right", assistantName: assistantName, avatarUrl: avatarUrl },
     greeting: ((raw.greeting || "").toString().slice(0, 300)) || ("Hi! Welcome to " + businessName + "."),
     fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||

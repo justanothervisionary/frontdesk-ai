@@ -79,6 +79,11 @@
     return {
       businessName: name,
       domain: normalizeDomain(input.domain) || undefined,
+      // The onboarding "what do you do?" selection - kept on the config (not
+      // just baked into the greeting text) so the core system prompt in
+      // api/chat.js can name the right conversion action (booking, a
+      // call-out, a viewing...) instead of a generic "leave your details".
+      type: type,
       theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: avatarUrl },
       greeting: GREETINGS[type].replace("{name}", name),
       fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",

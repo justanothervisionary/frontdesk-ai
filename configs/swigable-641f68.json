@@ -1,5 +1,6 @@
 {
   "businessName": "Swigable",
+  "type": "general",
   "theme": {
     "accentColor": "#12d6c5",
     "position": "right",
