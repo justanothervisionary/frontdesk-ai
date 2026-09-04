@@ -84,6 +84,19 @@
     h1 { font-size: 40px; line-height: 1.12; }
   }
   h1 span { background: linear-gradient(90deg, #7cc4ff, var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* Slot-machine-style headline reveal, driven by JS below - a few quick
+     flickers through related statements before landing on the real one.
+     Each swap gets a short flash-in; the final landing gets a slightly
+     bouncier settle so it reads as distinct from the flicker itself. */
+  @keyframes fd-hero-flicker { 0% { opacity: 0; } 55% { opacity: 1; } 100% { opacity: .92; } }
+  .hero-flicker { animation: fd-hero-flicker .11s ease-out; }
+  @keyframes fd-hero-settle {
+    0% { opacity: 0; transform: translateY(6px) scale(.97); }
+    60% { opacity: 1; transform: translateY(-2px) scale(1.015); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .hero-settle { animation: fd-hero-settle .38s cubic-bezier(.34,1.56,.64,1); }
+  @media (prefers-reduced-motion: reduce) { .hero-flicker, .hero-settle { animation: none; } }
   .sub { color: var(--muted); font-size: 17px; max-width: 540px; margin: 0 auto 30px; }
   .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .explainer-img { width: 100%; max-width: 900px; height: auto; margin: 40px auto 0; display: block; }
@@ -234,7 +247,7 @@
   <div class="wrap">
     <header class="hero">
       <div class="badge">● Live demo below — this page is running it right now</div>
-      <h1>Never miss <span>a lead</span> again.</h1>
+      <h1 id="hero-headline">Never miss <span>a lead</span> again.</h1>
       <p class="sub">Our AI receptionist talks to your website visitors, answers their questions
       and captures their details, 24/7.</p>
       <div class="cta-row">
@@ -469,6 +482,76 @@
 
   <script>
     (function () {
+      // Hero headline "slot machine" reveal - flickers through a few
+      // related statements before landing on the real one, a different
+      // random few each page load. The visual always plays; the tick sound
+      // is best-effort only. Browsers block audio until the visitor has
+      // interacted with the page at least once (autoplay policy), so on a
+      // cold load the ticks may be silent even though the animation runs -
+      // that's a real browser constraint, not a bug, and never blocks the
+      // animation itself.
+      var headlineEl = document.getElementById("hero-headline");
+      if (headlineEl && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        var ALTERNATE_HEADLINES = [
+          "Answer every visitor instantly.",
+          "Never lose a customer again.",
+          "Stop missing calls after hours.",
+          "Turn visitors into real leads.",
+          "Your AI receptionist never sleeps.",
+          "Capture every enquiry, day or night."
+        ];
+        var FINAL_HEADLINE_HTML = "Never miss <span>a lead</span> again.";
+
+        function pickRandom(arr, n) {
+          var copy = arr.slice();
+          for (var i = copy.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = copy[i]; copy[i] = copy[j]; copy[j] = tmp;
+          }
+          return copy.slice(0, n);
+        }
+
+        // Synthesized, not a sound file - a short square-wave blip is
+        // enough for a "tick" and needs no audio asset to host or license.
+        var audioCtx = null;
+        function tick(freq) {
+          try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = "square";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+          } catch (e) { /* Web Audio unavailable or blocked - visual is unaffected */ }
+        }
+
+        var sequence = pickRandom(ALTERNATE_HEADLINES, 3);
+        var i = 0;
+        var delay = 110; // gently decelerates below, like a slot machine settling
+
+        function step() {
+          headlineEl.classList.remove("hero-flicker", "hero-settle");
+          void headlineEl.offsetWidth; // force reflow so the animation replays each swap
+          if (i < sequence.length) {
+            headlineEl.textContent = sequence[i];
+            headlineEl.classList.add("hero-flicker");
+            tick(760 + i * 40);
+            i++;
+            delay += 15;
+            setTimeout(step, delay);
+          } else {
+            headlineEl.innerHTML = FINAL_HEADLINE_HTML;
+            headlineEl.classList.add("hero-settle");
+            tick(520);
+          }
+        }
+        setTimeout(step, 200);
+      }
+
       // Mobile nav dropdown - toggle open/closed, close on link click or a
       // click/tap outside it. The animation itself is pure CSS (max-height
       // + opacity + transform transitions on .nav-links); this just flips
