@@ -19,16 +19,11 @@ const fs = require("fs");
 const path = require("path");
 const { loadConfig } = require("./_lib/config");
 const { readLeads, writePrunedLeads } = require("./_lib/leadLog");
+const { buildDigestEmail } = require("./_lib/digestEmail");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
 const CONFIGS_DIR = path.join(__dirname, "..", "configs");
-
-function escapeHtml(str) {
-  return String(str || "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 // configs/ also holds avatars/ and drafts/ subdirectories, not just
 // business config files - only the top-level *.json files are real
@@ -40,11 +35,7 @@ function listBusinessKeys() {
 }
 
 async function sendDigest(config, thisWeek) {
-  var body = thisWeek.length
-    ? "<p>Your AI receptionist captured " + thisWeek.length + " new " + (thisWeek.length === 1 ? "lead" : "leads") + " this week:</p><ul>" +
-      thisWeek.map(function (l) { return "<li><strong>" + escapeHtml(l.name) + "</strong> - " + escapeHtml(l.contact) + "</li>"; }).join("") +
-      "</ul>"
-    : "<p>Your AI receptionist didn't capture any new leads this week. It's still live and answering questions on your site - worth checking it's still installed correctly if that seems off.</p>";
+  var email = buildDigestEmail(config, thisWeek);
 
   var res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -53,8 +44,8 @@ async function sendDigest(config, thisWeek) {
       from: FROM_ADDRESS,
       to: config.notifyEmail,
       bcc: process.env.LEAD_BCC_ADDRESS || undefined,
-      subject: "Your weekly Frontdesk summary - " + config.businessName,
-      html: body
+      subject: email.subject,
+      html: email.html
     })
   });
 
