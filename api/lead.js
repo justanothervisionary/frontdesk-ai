@@ -4,6 +4,7 @@
 const { loadConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
+const { appendLead } = require("./_lib/leadLog");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
@@ -85,7 +86,17 @@ module.exports = async function handler(req, res) {
   }
   if (!name || !contact) return res.status(400).json({ error: "Name and contact are required" });
 
-  var result = await sendNotification(config, { name: name, contact: contact, transcript: transcript });
+  // Run in parallel, not sequentially - the digest log write is pure
+  // bookkeeping for api/weekly-digest.js and must never slow down or break
+  // the actual notification the visitor is relying on, so its result (and
+  // any failure) is deliberately ignored here.
+  var results = await Promise.all([
+    sendNotification(config, { name: name, contact: contact, transcript: transcript }),
+    appendLead(businessKey, { name: name, contact: contact }).catch(function (err) {
+      console.error("[frontdesk lead] failed to log lead for digest:", businessKey, err.message);
+    })
+  ]);
+  var result = results[0];
 
   // Only surface a failure to the visitor when this business is actually
   // configured for live leads and delivery genuinely failed - in that case

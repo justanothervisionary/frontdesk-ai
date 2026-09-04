@@ -149,6 +149,64 @@ own blue accent color untouched.
 
 ## What's built
 
+- **Core receptionist behaviour separated from business-specific
+  knowledge.** `api/chat.js`'s `buildSystemPrompt()` - the single function
+  used for every business, preview and committed alike - was purely
+  reactive: answer if the fact was in the business's own "teach your AI"
+  text, otherwise punt to a human. Restructured into two explicit blocks: a
+  CORE behaviour section (answer first, then keep the conversation moving;
+  ask one relevant follow-up at a time rather than interrogating; build up
+  intent gradually; once there's a real opportunity, naturally offer the
+  business's actual conversion action - booking, a call-out, a viewing, an
+  enquiry - instead of a generic "leave your details"; never ask for
+  contact info prematurely or more than once) that's identical for every
+  business and can't be overridden by their own supplied text, and a
+  BUSINESS-SPECIFIC KNOWLEDGE section (unchanged in spirit) for facts only.
+  Added a `type` field (the existing onboarding "what do you do?"
+  selection, previously only baked into greeting text and then discarded)
+  through `shared/build-config.js` and both config sanitizers so the core
+  behaviour knows which conversion action to name per business. Verified
+  live against the demo config with the exact "leaking taps" scenario this
+  was designed around - it answered first, asked one relevant follow-up
+  about urgency, and only asked for a callback number once the visitor
+  confirmed they wanted it fixed that day.
+- **Weekly digest email (`api/weekly-digest.js`).** A Vercel Cron job
+  (`vercel.json`'s `crons`, Mondays 9am UTC) emails every active business a
+  summary of leads their receptionist captured that week, so the value
+  stays visible after the sale instead of going quiet - a real churn risk
+  otherwise. Scoped deliberately to lead *counts*, not raw chat-message
+  volume: leads are rare enough that logging one commit per lead
+  (`api/_lib/leadLog.js`, reusing the existing GitHub-Contents-API pattern
+  under `api/_private-configs/leads/{key}.json` - never publicly reachable,
+  same reasoning as `notifyEmail`) is a reasonable fit, but tracking every
+  chat message is not; that would need a real counter store (Vercel KV /
+  Upstash) rather than a commit per event. `api/lead.js` now logs alongside
+  (in parallel with, never blocking) the real Resend notification. The cron
+  endpoint itself is protected by `CRON_SECRET`, which Vercel automatically
+  sends as a Bearer token on scheduled invocations.
+- **Config privacy fix: business contact emails were publicly readable.**
+  `configs/{key}.json` is served to the public internet as-is (the widget
+  fetches it client-side), so `notifyEmail` had no business living there -
+  proved it live with a plain `curl` against a real (test) client's config.
+  First fix attempt (a `vercel.json` rewrite to 404 a `configs/private/`
+  path) silently didn't work - Vercel serves an existing static file at a
+  matching path before ever consulting rewrites. Fixed properly by moving
+  private data under `api/` instead (`api/_private-configs/{key}.json`) -
+  anything there is never served as a static file at all, a real guarantee
+  rather than a routing rule a file can shadow. Re-verified live after the
+  correction.
+- **CORS tightened on the widget-facing endpoints.** `api/chat.js` and
+  `api/lead.js` were hardcoded to `Access-Control-Allow-Origin: *`, unlike
+  the signup-flow endpoints which already locked to `ALLOWED_ORIGIN` - they
+  couldn't use a single fixed origin since a client's widget calls them
+  from *that client's own website*, not from ours. Added a `domain` field
+  (new, optional, flows through signup's new "Your website's address"
+  field → Stripe metadata → committed config) checked per-request against
+  the incoming `Origin` header (`api/_lib/cors.js`) once the businessKey
+  resolves to a config. A business with no domain set yet only works from
+  our own site - correct, since that matches anywhere it's actually
+  installed. Verified live: our own site works, a client's real domain
+  works, an unrelated site pretending to be that client gets a 403.
 - **Dedicated signup page (`site/signup.html`)** replacing the old
   "build inline on the homepage, then a second confusing button appears"
   flow. Both the homepage builder and the pricing section's trial button

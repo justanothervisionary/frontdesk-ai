@@ -1,5 +1,8 @@
 {
   "redirects": [
     { "source": "/", "destination": "/site/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/weekly-digest", "schedule": "0 9 * * 1" }
   ]
 }

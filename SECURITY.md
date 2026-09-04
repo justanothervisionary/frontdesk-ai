@@ -50,12 +50,20 @@ dependency on your CMS or hosting platform.
 When a visitor chooses to leave their name and contact details (always
 opt-in — never collected automatically or without them clicking "leave
 your details"), that information is emailed directly to the business's
-own configured notification address and is not stored in any database on
-our side. The last few messages of that conversation are included in the
-notification so the business has context on what the visitor was asking.
-If email delivery fails for a live client, the visitor is told honestly to
-call instead, rather than being shown a false "success" message that could
-leave a real inquiry lost with nobody aware of it.
+own configured notification address. The last few messages of that
+conversation are included in the notification so the business has context
+on what the visitor was asking. If email delivery fails for a live client,
+the visitor is told honestly to call instead, rather than being shown a
+false "success" message that could leave a real inquiry lost with nobody
+aware of it.
+
+A lead's name and contact details are also logged to a small per-business
+file under `api/_private-configs/leads/{key}.json` - never publicly
+reachable, same as the notification address above - purely so
+`api/weekly-digest.js` can summarize the last 7 days back to the business
+each week. Entries older than 35 days are pruned automatically. No
+conversation transcripts are stored anywhere beyond what's needed to
+generate a reply in the moment - only the name/contact of an opted-in lead.
 
 That notification address itself is stored in `api/_private-configs/{key}.json`,
 a separate file from the main `configs/{key}.json` the widget fetches
