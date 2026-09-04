@@ -7,21 +7,22 @@ const avatarPresets = require("../../shared/avatar-presets");
 // businessKey is validated against a strict allowlist pattern before ever
 // touching the filesystem, so this can't be used to read arbitrary paths.
 //
-// notifyEmail lives in a SEPARATE file under configs/private/ rather than
-// in the main configs/{key}.json - that main file is served to the public
-// internet as-is (the widget fetches it directly from the browser), so
-// anything in it is effectively public. A business's real contact email
-// has no reason to be in that file at all; only this server-side loader
-// (used by api/chat.js and api/lead.js, never the browser) needs it, so
-// it's merged in here from a file that's blocked from public access - see
-// vercel.json's rewrite of /configs/private/*.
+// notifyEmail lives in a SEPARATE file under api/_private-configs/ rather
+// than in the main configs/{key}.json - that main file is served to the
+// public internet as-is (the widget fetches it directly from the browser),
+// so anything in it is effectively public. A business's real contact email
+// has no reason to be in that file at all. It's merged in here from disk,
+// server-side only (api/chat.js and api/lead.js, never the browser).
+// Anything under api/ is never served as a static file by Vercel - only
+// reachable via an actual function invocation - so this is genuinely
+// unreachable from the public internet, unlike configs/ itself.
 function loadConfig(businessKey) {
   if (!/^[a-z0-9-]+$/.test(businessKey || "")) return null;
   const configPath = path.join(__dirname, "..", "..", "configs", `${businessKey}.json`);
   if (!fs.existsSync(configPath)) return null;
   const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
-  const privatePath = path.join(__dirname, "..", "..", "configs", "private", `${businessKey}.json`);
+  const privatePath = path.join(__dirname, "..", "_private-configs", `${businessKey}.json`);
   if (fs.existsSync(privatePath)) {
     const priv = JSON.parse(fs.readFileSync(privatePath, "utf8"));
     if (priv.notifyEmail) config.notifyEmail = priv.notifyEmail;

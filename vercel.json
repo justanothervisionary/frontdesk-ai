@@ -1,8 +1,5 @@
 {
   "redirects": [
     { "source": "/", "destination": "/site/index.html" }
-  ],
-  "rewrites": [
-    { "source": "/configs/private/:path*", "destination": "/api/blocked" }
   ]
 }

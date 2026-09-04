@@ -14,10 +14,11 @@ const { buildConfigFromDraft } = require("./_lib/config");
 
 // Where a business's real contact email is stored - deliberately NOT in
 // configs/{key}.json, which is served to the public internet as-is. See
-// the matching comment in api/_lib/config.js and vercel.json's rewrite of
-// /configs/private/*.
+// the matching comment in api/_lib/config.js: anything under api/ is never
+// served as a static file by Vercel, so this path is unreachable from the
+// public internet.
 function privateFilePath(businessKey) {
-  return "configs/private/" + businessKey + ".json";
+  return "api/_private-configs/" + businessKey + ".json";
 }
 
 // See api/create-checkout.js for why this is lazy rather than constructed
