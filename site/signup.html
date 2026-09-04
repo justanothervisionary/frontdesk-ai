@@ -185,6 +185,12 @@
             <input type="color" id="su-color" value="#2f8fe0" />
           </div>
         </div>
+        <div class="field-row">
+          <div>
+            <label>Your website's address</label>
+            <input type="text" id="su-domain" placeholder="e.g. yourbusiness.co.uk" />
+          </div>
+        </div>
 
         <button class="start-btn" id="start-trial-btn" type="button">Start your 7-day free trial &rarr;</button>
         <div class="status-line" id="trial-status"></div>
@@ -426,6 +432,7 @@
           type: document.getElementById("su-type").value,
           phone: document.getElementById("su-phone").value,
           color: document.getElementById("su-color").value,
+          domain: document.getElementById("su-domain").value,
           extraInfo: document.getElementById("su-extra-info").value
         };
       }

@@ -60,6 +60,7 @@ module.exports = async function handler(req, res) {
     type: capStr(body.type, 20),
     phone: capStr(body.phone, 40).trim(),
     color: capStr(body.color, 10),
+    domain: capStr(body.domain, 253).trim(),
     avatarId: /^[0-9a-f]{24}\.(png|jpg|webp|gif)$/i.test(rawAvatarId) ? rawAvatarId : "",
     extraInfoId: /^[0-9a-f]{24}\.txt$/i.test(rawExtraInfoId) ? rawExtraInfoId : ""
   };

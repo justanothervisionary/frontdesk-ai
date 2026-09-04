@@ -4,6 +4,7 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const { loadConfig, sanitizePreviewConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
+const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -38,9 +39,7 @@ function buildSystemPrompt(config) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*"); // demo stage - restrict to registered client domains before onboarding real paying clients
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  applyWidgetCors(req, res);
 
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -62,6 +61,9 @@ module.exports = async function handler(req, res) {
   // client's own settings.
   var config = loadConfig(businessKey) || sanitizePreviewConfig(body.previewConfig);
   if (!config) return res.status(400).json({ error: "Unknown business" });
+  if (!isOriginAllowed(req.headers.origin, config)) {
+    return res.status(403).json({ error: "This origin is not authorized for this business." });
+  }
   // Deliberately not the 503 path below - that's what tells the widget to
   // fall back to local keyword matching, which would keep a cancelled
   // client's bot quietly answering forever off stale data. This is a

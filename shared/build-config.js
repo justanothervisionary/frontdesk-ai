@@ -29,8 +29,19 @@
     return "https://frontdesk-ai-chi-ten.vercel.app";
   }
 
+  // A business's own domain, once they've told us (or we already know it,
+  // e.g. an outreach prospect's public site). Used server-side only, to
+  // decide which origins api/chat.js and api/lead.js accept requests from -
+  // never trust arbitrary formatting from a form, so this normalizes
+  // "https://www.example.com/" down to "example.com".
+  function normalizeDomain(raw) {
+    var v = (raw || "").toString().trim().toLowerCase().slice(0, 253);
+    v = v.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+    return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(v) ? v : "";
+  }
+
   // input: { businessName, agentName, type, phone, color, extraInfo,
-  //          avatarDataUri?, avatarId?, avatarPresetId? }
+  //          domain?, avatarDataUri?, avatarId?, avatarPresetId? }
   // avatarDataUri (a full data URI, possibly a large custom-uploaded photo)
   // is only ever safe to trust from the free, client-side-only preview path.
   // avatarId is a short reference to an image already uploaded via
@@ -67,6 +78,7 @@
 
     return {
       businessName: name,
+      domain: normalizeDomain(input.domain) || undefined,
       theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: avatarUrl },
       greeting: GREETINGS[type].replace("{name}", name),
       fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",
@@ -74,5 +86,5 @@
     };
   }
 
-  return { buildFrontdeskConfig: buildFrontdeskConfig, GREETINGS: GREETINGS };
+  return { buildFrontdeskConfig: buildFrontdeskConfig, GREETINGS: GREETINGS, normalizeDomain: normalizeDomain };
 });

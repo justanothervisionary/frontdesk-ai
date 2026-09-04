@@ -65,6 +65,15 @@ function isEmailShaped(v) {
   return typeof v === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) && v.length <= 200;
 }
 
+// A bare hostname, e.g. "dentistw4.co.uk" - no protocol, no path. This is
+// what api/_lib/cors.js checks an incoming request's Origin header against,
+// so it controls which website(s) this business's widget will actually
+// work on once installed.
+function isDomain(v) {
+  return typeof v === "string" && v.length <= 253 &&
+    /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(v);
+}
+
 var KNOWN_AVATAR_URLS = avatarPresets.PRESETS.map(function (p) { return avatarPresets.svgToDataUri(p.svg); });
 
 // An uploaded-avatar URL is only ever trusted if it matches our own
@@ -106,6 +115,7 @@ function sanitizeCommittedConfig(raw) {
 
   return {
     businessName: businessName,
+    domain: isDomain(raw.domain) ? raw.domain.toLowerCase() : undefined,
     theme: { accentColor: accentColor, position: "right", assistantName: assistantName, avatarUrl: avatarUrl },
     greeting: ((raw.greeting || "").toString().slice(0, 300)) || ("Hi! Welcome to " + businessName + "."),
     fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||

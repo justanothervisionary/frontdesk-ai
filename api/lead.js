@@ -3,6 +3,7 @@
 // env var, never reachable from the browser.
 const { loadConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
+const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
@@ -58,9 +59,7 @@ async function sendNotification(config, lead) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*"); // demo stage - restrict to registered client domains before onboarding real paying clients
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  applyWidgetCors(req, res);
 
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -78,6 +77,9 @@ module.exports = async function handler(req, res) {
 
   var config = loadConfig(businessKey);
   if (!config) return res.status(400).json({ error: "Unknown business" });
+  if (!isOriginAllowed(req.headers.origin, config)) {
+    return res.status(403).json({ error: "This origin is not authorized for this business." });
+  }
   if (config.active === false) {
     return res.status(403).json({ error: "This assistant is no longer active." });
   }
