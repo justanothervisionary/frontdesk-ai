@@ -84,18 +84,18 @@
     h1 { font-size: 40px; line-height: 1.12; }
   }
   h1 span { background: linear-gradient(90deg, #7cc4ff, var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  /* Slot-machine-style headline reveal, driven by JS below - a few quick
+  /* Slot-machine-style headline reveal, driven by JS below - a few
      flickers through related statements before landing on the real one.
-     Each swap gets a short flash-in; the final landing gets a slightly
-     bouncier settle so it reads as distinct from the flicker itself. */
+     Each swap gets a short flash-in; the final landing gets a plain
+     (no scale/zoom) settle, just a gentle upward drift, on a smooth
+     decelerating easing rather than a springy bounce. */
   @keyframes fd-hero-flicker { 0% { opacity: 0; } 55% { opacity: 1; } 100% { opacity: .92; } }
   .hero-flicker { animation: fd-hero-flicker .11s ease-out; }
   @keyframes fd-hero-settle {
-    0% { opacity: 0; transform: translateY(6px) scale(.97); }
-    60% { opacity: 1; transform: translateY(-2px) scale(1.015); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
-  .hero-settle { animation: fd-hero-settle .38s cubic-bezier(.34,1.56,.64,1); }
+  .hero-settle { animation: fd-hero-settle .45s cubic-bezier(.22,1,.36,1); }
   @media (prefers-reduced-motion: reduce) { .hero-flicker, .hero-settle { animation: none; } }
   .sub { color: var(--muted); font-size: 17px; max-width: 540px; margin: 0 auto 30px; }
   .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
@@ -498,7 +498,9 @@
           "Stop missing calls after hours.",
           "Turn visitors into real leads.",
           "Your AI receptionist never sleeps.",
-          "Capture every enquiry, day or night."
+          "Capture every enquiry, day or night.",
+          "Every enquiry gets a reply.",
+          "No more missed opportunities."
         ];
         var FINAL_HEADLINE_HTML = "Never miss <span>a lead</span> again.";
 
@@ -511,45 +513,48 @@
           return copy.slice(0, n);
         }
 
-        // Synthesized, not a sound file - a short square-wave blip is
-        // enough for a "tick" and needs no audio asset to host or license.
-        var audioCtx = null;
-        function tick(freq) {
-          try {
-            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-            var osc = audioCtx.createOscillator();
-            var gain = audioCtx.createGain();
-            osc.type = "square";
-            osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-            osc.connect(gain).connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.05);
-          } catch (e) { /* Web Audio unavailable or blocked - visual is unaffected */ }
+        // Real ticking SFX (site/assets/audio), played once for the whole
+        // reveal rather than a per-swap beep - the flickers below are timed
+        // to roughly track its build-up instead of firing their own sound
+        // each time. Same browser constraint as before: autoplay is
+        // blocked without a prior user gesture, so this may be silent on a
+        // cold load even though the visual always plays regardless.
+        var tickAudio = new Audio("assets/audio/MA_MotionAudio_ClockTimerSuspense_01.wav");
+        tickAudio.volume = 0.5;
+        function playTickAudio() {
+          var p = tickAudio.play();
+          if (p && p.catch) p.catch(function () { /* autoplay blocked - silent, visual unaffected */ });
         }
 
-        var sequence = pickRandom(ALTERNATE_HEADLINES, 3);
-        var i = 0;
-        var delay = 110; // gently decelerates below, like a slot machine settling
+        // Ease-in (starts fast, slows toward the end) so the gaps between
+        // reveals grow over time - reads as physically settling to a stop,
+        // like a slot machine wheel, rather than firing at a flat,
+        // mechanical interval.
+        function easeInQuad(u) { return u * u; }
 
-        function step() {
+        var sequence = pickRandom(ALTERNATE_HEADLINES, 4);
+        var START_DELAY = 200;
+        var TOTAL_MS = 1900; // slower than the original ~700ms; leaves the SFX's own tail to ring out just past the final settle
+        var totalSteps = sequence.length; // the final settle is its own last point in this same curve, at u = 1
+
+        function showFrame(isFinal, text) {
           headlineEl.classList.remove("hero-flicker", "hero-settle");
           void headlineEl.offsetWidth; // force reflow so the animation replays each swap
-          if (i < sequence.length) {
-            headlineEl.textContent = sequence[i];
-            headlineEl.classList.add("hero-flicker");
-            tick(760 + i * 40);
-            i++;
-            delay += 15;
-            setTimeout(step, delay);
-          } else {
+          if (isFinal) {
             headlineEl.innerHTML = FINAL_HEADLINE_HTML;
             headlineEl.classList.add("hero-settle");
-            tick(520);
+          } else {
+            headlineEl.textContent = text;
+            headlineEl.classList.add("hero-flicker");
           }
         }
-        setTimeout(step, 200);
+
+        playTickAudio();
+        sequence.forEach(function (text, i) {
+          var u = i / totalSteps; // 0 up to (N-1)/N - deliberately short of 1, since the final settle owns that last beat
+          setTimeout(function () { showFrame(false, text); }, START_DELAY + easeInQuad(u) * TOTAL_MS);
+        });
+        setTimeout(function () { showFrame(true, null); }, START_DELAY + TOTAL_MS);
       }
 
       // Mobile nav dropdown - toggle open/closed, close on link click or a
