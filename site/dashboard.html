@@ -180,7 +180,7 @@
         document.getElementById("snippet-out").textContent = snippet;
       }
 
-      fetch("/api/dashboard-data", { credentials: "same-origin" })
+      fetch("/api/dashboard", { credentials: "same-origin" })
         .then(function (r) {
           if (r.status === 401) { window.location.href = "login.html"; return null; }
           if (!r.ok) throw new Error("bad status " + r.status);
@@ -213,7 +213,7 @@
         statusEl.className = "save-status";
         statusEl.textContent = "Saving...";
 
-        fetch("/api/dashboard-save", {
+        fetch("/api/dashboard?action=save", {
           method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             assistantName: document.getElementById("d-assistant-name").value,
@@ -252,7 +252,7 @@
       document.getElementById("portal-btn").addEventListener("click", function () {
         var btn = this;
         btn.disabled = true;
-        fetch("/api/billing-portal", { method: "POST", credentials: "same-origin" })
+        fetch("/api/dashboard?action=billing-portal", { method: "POST", credentials: "same-origin" })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             btn.disabled = false;
@@ -262,7 +262,7 @@
       });
 
       document.getElementById("logout-btn").addEventListener("click", function () {
-        fetch("/api/logout", { method: "POST", credentials: "same-origin" })
+        fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" })
           .then(function () { window.location.href = "login.html"; });
       });
     })();

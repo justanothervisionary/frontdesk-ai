@@ -66,7 +66,7 @@
         statusEl.className = "status";
         statusEl.textContent = "";
 
-        fetch("/api/request-login", {
+        fetch("/api/auth?action=request", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email })
         })

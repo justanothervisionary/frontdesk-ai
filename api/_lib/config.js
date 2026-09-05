@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { buildFrontdeskConfig, GREETINGS } = require("../../shared/build-config");
 const avatarPresets = require("../../shared/avatar-presets");
+const { getFile } = require("./github");
 
 // The same 4 "what do you do?" options the onboarding dropdown offers -
 // reused here (rather than a second hardcoded list) so this can never drift
@@ -50,7 +51,6 @@ function loadConfig(businessKey) {
 // leads), and returns the sha the caller needs to write back safely.
 async function loadConfigLive(businessKey) {
   if (!/^[a-z0-9-]+$/.test(businessKey || "")) return null;
-  const { getFile } = require("./github");
   const file = await getFile(`configs/${businessKey}.json`);
   if (!file) return null;
   const config = JSON.parse(file.content);
