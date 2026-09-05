@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk — dashboard</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --bg2: #0d0f12; --card: #14161a; --text: #f3f4f6;
+    --muted: #9aa1ac; --muted2: #6b7280; --accent2: #35d68f; --border: #22262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 70px; }
+  nav { display: flex; align-items: center; justify-content: space-between; max-width: 720px; margin: 0 auto; padding: 22px 20px; }
+  .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  #logout-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  #logout-btn:hover { color: var(--text); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  .inactive-banner {
+    display: none; background: rgba(242,131,122,.1); border: 1px solid rgba(242,131,122,.3); color: #f2837a;
+    border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px;
+  }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+  .card h2 { font-size: 15px; margin: 0 0 16px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 5px; }
+  input[type=text], input[type=email], textarea {
+    width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; margin-bottom: 14px;
+  }
+  textarea { resize: vertical; }
+  .faq-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; background: var(--bg2); }
+  .faq-row input, .faq-row textarea { margin-bottom: 8px; }
+  .faq-row button.remove {
+    position: absolute; top: 10px; right: 10px; background: none; border: none;
+    color: #f2837a; font-size: 11px; cursor: pointer;
+  }
+  #add-faq {
+    background: none; border: 1px dashed var(--border); color: var(--muted); border-radius: 8px;
+    padding: 9px; width: 100%; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  #add-faq:hover { color: var(--text); border-color: var(--muted); }
+  .save-btn, .portal-btn {
+    background: var(--accent2); color: #04160c; border: none; border-radius: 9px; padding: 11px 20px;
+    font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .save-btn:disabled, .portal-btn:disabled { opacity: .6; cursor: default; }
+  .save-status { font-size: 12px; margin-top: 10px; min-height: 16px; color: var(--muted); }
+  .save-status.ok { color: var(--accent2); }
+  .save-status.err { color: #f2837a; }
+  .lead-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .lead-row:last-child { border-bottom: none; }
+  .lead-row .name { font-weight: 600; }
+  .lead-row .contact { color: var(--muted); }
+  .lead-row .when { color: var(--muted2); font-size: 12px; }
+  .empty { color: var(--muted2); font-size: 13px; text-align: center; padding: 10px 0; }
+  pre { background: #0d0f12; border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 12px; overflow-x: auto; color: #cbd5e1; margin: 0 0 10px; }
+  .copy-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 7px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .loading { text-align: center; color: var(--muted); padding: 60px 0; }
+</style>
+</head>
+<body>
+  <nav>
+    <a class="logo" href="index.html"><span class="dot"></span>Frontdesk</a>
+    <button id="logout-btn" type="button">Log out</button>
+  </nav>
+
+  <div class="wrap" id="loading-state">
+    <p class="loading">Loading your dashboard...</p>
+  </div>
+
+  <div class="wrap" id="dashboard" style="display:none;">
+    <h1 id="business-name">Your dashboard</h1>
+    <p class="sub">Manage your AI receptionist.</p>
+    <div class="inactive-banner" id="inactive-banner">Your AI receptionist is currently inactive - it won't respond on your site. Check your billing to reactivate.</div>
+
+    <div class="card">
+      <h2>How it talks</h2>
+      <label for="d-assistant-name">Assistant name</label>
+      <input type="text" id="d-assistant-name" />
+      <label for="d-greeting">Greeting</label>
+      <textarea id="d-greeting" rows="2"></textarea>
+      <label for="d-fallback">Fallback answer (used when it doesn't know something)</label>
+      <textarea id="d-fallback" rows="2"></textarea>
+      <label for="d-notify-email">Lead notification email</label>
+      <input type="email" id="d-notify-email" />
+    </div>
+
+    <div class="card">
+      <h2>What it knows</h2>
+      <div id="faq-list"></div>
+      <button id="add-faq" type="button">+ Add another</button>
+    </div>
+
+    <button class="save-btn" id="save-btn" type="button">Save changes</button>
+    <div class="save-status" id="save-status"></div>
+
+    <div class="card" style="margin-top:24px;">
+      <h2>Recent leads</h2>
+      <div id="leads-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Install snippet</h2>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 10px;">Paste this one line into your site if you ever need to reinstall it.</p>
+      <pre id="snippet-out"></pre>
+      <button class="copy-btn" id="copy-snippet-btn" type="button">Copy</button>
+    </div>
+
+    <div class="card">
+      <h2>Billing</h2>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 14px;">Update your card, view invoices, or cancel your subscription.</p>
+      <button class="portal-btn" id="portal-btn" type="button">Manage billing</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var faqListEl = document.getElementById("faq-list");
+      var businessKey = null;
+
+      function addFaqRow(keywords, answer) {
+        var row = document.createElement("div");
+        row.className = "faq-row";
+        row.innerHTML =
+          '<button class="remove" type="button">Remove</button>' +
+          '<label>Keywords (comma separated, optional)</label>' +
+          '<input type="text" class="faq-keywords" placeholder="e.g. nhs, national health" />' +
+          '<label>Answer</label>' +
+          '<textarea class="faq-answer" rows="2" placeholder="Yes, we offer..."></textarea>';
+        row.querySelector(".faq-keywords").value = (keywords || []).join(", ");
+        row.querySelector(".faq-answer").value = answer || "";
+        row.querySelector(".remove").addEventListener("click", function () { row.remove(); });
+        faqListEl.appendChild(row);
+      }
+      document.getElementById("add-faq").addEventListener("click", function () { addFaqRow([], ""); });
+
+      function collectFaqs() {
+        return Array.prototype.map.call(document.querySelectorAll(".faq-row"), function (row) {
+          var kw = row.querySelector(".faq-keywords").value.split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
+          return { keywords: kw, answer: row.querySelector(".faq-answer").value.trim() };
+        }).filter(function (f) { return f.answer; });
+      }
+
+      function renderLeads(leads) {
+        var el = document.getElementById("leads-list");
+        el.innerHTML = "";
+        if (!leads.length) {
+          el.innerHTML = '<p class="empty">No leads in the last 35 days.</p>';
+          return;
+        }
+        leads.forEach(function (lead) {
+          var row = document.createElement("div");
+          row.className = "lead-row";
+          var when = "";
+          try { when = new Date(lead.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (e) {}
+          row.innerHTML =
+            '<div><span class="name"></span> <span class="contact"></span></div><span class="when"></span>';
+          row.querySelector(".name").textContent = lead.name;
+          row.querySelector(".contact").textContent = lead.contact;
+          row.querySelector(".when").textContent = when;
+          el.appendChild(row);
+        });
+      }
+
+      function renderSnippet(key) {
+        var origin = window.location.origin;
+        var snippet =
+          '<script src="' + origin + '/widget/frontdesk-widget.js"\n' +
+          '        data-business="' + key + '"\n' +
+          '        data-config-url="' + origin + '/configs/' + key + '.json"\n' +
+          '        data-api-url="' + origin + '/api/chat"\n' +
+          '        defer><' + '/script>';
+        document.getElementById("snippet-out").textContent = snippet;
+      }
+
+      fetch("/api/dashboard-data", { credentials: "same-origin" })
+        .then(function (r) {
+          if (r.status === 401) { window.location.href = "login.html"; return null; }
+          if (!r.ok) throw new Error("bad status " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          businessKey = data.businessKey;
+          document.getElementById("loading-state").style.display = "none";
+          document.getElementById("dashboard").style.display = "block";
+          document.getElementById("business-name").textContent = data.businessName;
+          document.getElementById("inactive-banner").style.display = data.active ? "none" : "block";
+          document.getElementById("d-assistant-name").value = data.assistantName || "";
+          document.getElementById("d-greeting").value = data.greeting || "";
+          document.getElementById("d-fallback").value = data.fallbackAnswer || "";
+          document.getElementById("d-notify-email").value = data.notifyEmail || "";
+          (data.faqs || []).forEach(function (f) { addFaqRow(f.keywords, f.answer); });
+          if (!data.faqs || !data.faqs.length) addFaqRow([], "");
+          renderLeads(data.leads || []);
+          renderSnippet(businessKey);
+        })
+        .catch(function () {
+          document.getElementById("loading-state").innerHTML = '<p class="loading">Couldn\'t load your dashboard - please refresh.</p>';
+        });
+
+      document.getElementById("save-btn").addEventListener("click", function () {
+        var btn = this;
+        var statusEl = document.getElementById("save-status");
+        btn.disabled = true;
+        statusEl.className = "save-status";
+        statusEl.textContent = "Saving...";
+
+        fetch("/api/dashboard-save", {
+          method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assistantName: document.getElementById("d-assistant-name").value,
+            greeting: document.getElementById("d-greeting").value,
+            fallbackAnswer: document.getElementById("d-fallback").value,
+            notifyEmail: document.getElementById("d-notify-email").value,
+            faqs: collectFaqs()
+          })
+        })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            btn.disabled = false;
+            if (!result.ok) {
+              statusEl.className = "save-status err";
+              statusEl.textContent = result.data.error || "Something went wrong saving that.";
+              return;
+            }
+            statusEl.className = "save-status ok";
+            statusEl.textContent = "Saved - this can take a minute to go live on your site.";
+          })
+          .catch(function () {
+            btn.disabled = false;
+            statusEl.className = "save-status err";
+            statusEl.textContent = "Something went wrong - please try again.";
+          });
+      });
+
+      document.getElementById("copy-snippet-btn").addEventListener("click", function () {
+        var btn = this;
+        navigator.clipboard.writeText(document.getElementById("snippet-out").textContent).then(function () {
+          btn.textContent = "Copied!";
+          setTimeout(function () { btn.textContent = "Copy"; }, 1800);
+        });
+      });
+
+      document.getElementById("portal-btn").addEventListener("click", function () {
+        var btn = this;
+        btn.disabled = true;
+        fetch("/api/billing-portal", { method: "POST", credentials: "same-origin" })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            btn.disabled = false;
+            if (data.url) window.location.href = data.url;
+          })
+          .catch(function () { btn.disabled = false; });
+      });
+
+      document.getElementById("logout-btn").addEventListener("click", function () {
+        fetch("/api/logout", { method: "POST", credentials: "same-origin" })
+          .then(function () { window.location.href = "login.html"; });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -39,6 +39,30 @@ function loadConfig(businessKey) {
   return config;
 }
 
+// loadConfig() above reads off local disk - i.e. whatever's baked into
+// the CURRENT deployment, not what's actually on GitHub right now. Fine
+// for api/chat.js/api/lead.js (high volume, a minute of post-webhook
+// latency doesn't matter), wrong for the dashboard: a business saving an
+// edit would see their OLD config reflected back for up to the ~1-2
+// minutes a fresh deploy takes - the same window site/success.html
+// already polls through after signup. This reads live via the GitHub
+// Contents API instead (same as api/_lib/leadLog.js already does for
+// leads), and returns the sha the caller needs to write back safely.
+async function loadConfigLive(businessKey) {
+  if (!/^[a-z0-9-]+$/.test(businessKey || "")) return null;
+  const { getFile } = require("./github");
+  const file = await getFile(`configs/${businessKey}.json`);
+  if (!file) return null;
+  const config = JSON.parse(file.content);
+
+  const privFile = await getFile(`api/_private-configs/${businessKey}.json`);
+  if (privFile) {
+    const priv = JSON.parse(privFile.content);
+    if (priv.notifyEmail) config.notifyEmail = priv.notifyEmail;
+  }
+  return { config, sha: file.sha };
+}
+
 // The "Make Your AI Receptionist" self-serve tool builds a config live from
 // whatever a stranger types in, with no file behind it - this validates and
 // hard-caps that input before it's ever allowed near a prompt. Never trust
@@ -155,4 +179,4 @@ function buildConfigFromDraft(draft) {
   return sanitizeCommittedConfig(built);
 }
 
-module.exports = { loadConfig, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft };
+module.exports = { loadConfig, loadConfigLive, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft, isEmailShaped };

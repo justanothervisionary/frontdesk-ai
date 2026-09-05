@@ -36,4 +36,19 @@ function isOriginAllowed(origin, config) {
   return false;
 }
 
-module.exports = { applyWidgetCors, isOriginAllowed };
+// For cookie-authenticated endpoints only (the dashboard) - SameSite=Lax
+// on the session cookie already blocks the classic cross-site POST CSRF
+// vector, but browsers' "Lax+POST" grace period treats a freshly-set
+// cookie as SameSite=None for ~2 minutes after login. This closes that
+// window cheaply: reject anything whose Origin (or Referer, since some
+// same-site navigations omit Origin on GET but always send Referer)
+// doesn't match our own site. No CSRF-token machinery needed on top.
+function isTrustedOrigin(req) {
+  if (!SITE_BASE_URL) return false;
+  var origin = req.headers.origin;
+  if (origin) return origin === SITE_BASE_URL;
+  var referer = req.headers.referer || req.headers.referrer;
+  return !!referer && referer.indexOf(SITE_BASE_URL + "/") === 0;
+}
+
+module.exports = { applyWidgetCors, isOriginAllowed, isTrustedOrigin };

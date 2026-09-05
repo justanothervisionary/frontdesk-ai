@@ -37,7 +37,12 @@ dependency on your CMS or hosting platform.
   server-side environment variable, never in the widget code a visitor's
   browser can see.
 - No cookies, no localStorage, no visitor tracking, no third-party
-  analytics or ad scripts of any kind.
+  analytics or ad scripts of any kind — in the embeddable widget itself.
+  The separate client dashboard (`site/dashboard.html`, a business logging
+  in to manage their own account) does set one cookie for that purpose —
+  see "Client dashboard login" below. A visitor chatting with the widget
+  on a client's site is never affected by this; the two run on entirely
+  separate pages.
 - The widget explicitly avoids soliciting or storing symptom/health
   information — questions that sound medical (pain, emergency, "hurts")
   are redirected to "please call the practice," not answered by the bot.
@@ -73,6 +78,39 @@ never served as a static file by Vercel - only reachable via an actual
 function invocation - so a business's real contact email is never
 reachable over the public internet the way the rest of its config
 necessarily is.
+
+## Client dashboard login
+
+A business can log into `site/dashboard.html` to view their leads, edit
+their assistant's FAQs/greeting, retrieve their install snippet, and
+manage billing. There's no password anywhere in this system — logging in
+sends a one-time link to the business's own registered email (magic-link
+login), which is what sets a session cookie once clicked.
+
+- The login link is single-use and expires after 15 minutes.
+- Clicking it lands on a plain "confirm it's you" page rather than logging
+  in immediately on load — this is deliberate: many business email
+  providers (Microsoft 365's Safe Links, among others) automatically visit
+  every link in an incoming email to scan it before a human ever opens it.
+  If the link logged in on that automatic visit, the real click afterward
+  would fail. Requiring an actual click closes that gap.
+- The session cookie (`__Host-session`) is `HttpOnly` (invisible to
+  JavaScript, including any injected via XSS elsewhere), `Secure`
+  (HTTPS-only), and `SameSite=Lax`. Every request that changes account
+  data (saving an edit, opening billing) additionally checks that it
+  genuinely came from our own site before doing anything, independent of
+  the cookie — a standard defense-in-depth pairing against cross-site
+  request forgery.
+- A business can only ever request a login link for an email tied to a
+  business that's actually completed a real paid signup. Requesting a
+  login link always returns the same generic response either way, so the
+  system never confirms or denies whether a given email is a Frontdesk
+  customer.
+- Editing your own assistant's settings is limited to what a business
+  should reasonably self-serve (greeting, fallback answer, FAQs, assistant
+  name, notification email) — billing status and subscription identifiers
+  are never editable from the dashboard; those are only ever set by
+  Stripe's own webhook confirming a real payment event.
 
 ## How the live AI backend stays safe
 
