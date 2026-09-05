@@ -674,6 +674,25 @@
       if (e.key === "Enter") send();
     });
 
+    // The chime can only actually play once the browser considers the
+    // visitor to have interacted with the page at all (autoplay policy) -
+    // there's no way around that in any browser. If the teaser appears
+    // before any interaction has happened, this defers the tone to
+    // whatever the visitor's first click/tap/keypress on the page turns
+    // out to be, rather than leaving it permanently silent for that visit.
+    var greetingToneState = { played: false, teaserShown: false };
+    function maybePlayGreetingTone() {
+      if (greetingToneState.played || !greetingToneState.teaserShown) return;
+      greetingToneState.played = true;
+      playGreetingTone();
+      ["click", "touchstart", "keydown"].forEach(function (evt) {
+        document.removeEventListener(evt, maybePlayGreetingTone, true);
+      });
+    }
+    ["click", "touchstart", "keydown"].forEach(function (evt) {
+      document.addEventListener(evt, maybePlayGreetingTone, true);
+    });
+
     // Proactively catch the eye after a short delay, but "hang back" rather
     // than springing the full conversation panel open on every visitor -
     // just a small card near the launcher with a short greeting. Clicking
@@ -684,7 +703,8 @@
       if (dismissed || panel.classList.contains("fd-open")) return;
       teaserText.textContent = "Hi! I'm " + theme.assistantName + " 👋 How can I help?";
       teaser.classList.add("fd-show");
-      playGreetingTone();
+      greetingToneState.teaserShown = true;
+      maybePlayGreetingTone(); // plays immediately if the page already had an interaction before now
     }, 2500);
 
     // Auto-open and greet immediately when explicitly asked to (used by the
