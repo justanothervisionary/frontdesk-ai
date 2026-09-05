@@ -266,6 +266,33 @@
     return brightness >= 150 ? "#1a1a1a" : "#ffffff";
   }
 
+  // A soft two-note chime for the teaser's first appearance - synthesized
+  // (Web Audio, no audio file to host) rather than a per-message ding, so
+  // it only ever plays once, the moment a visitor is first proactively
+  // greeted, not on every open. Best-effort only: browsers block audio
+  // until the visitor has interacted with the page at least once
+  // (autoplay policy), so on a cold landing this may play silently - the
+  // teaser card itself still always appears regardless.
+  function playGreetingTone() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      var ctx = new Ctx();
+      [880, 1318.5].forEach(function (freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        var start = ctx.currentTime + i * 0.09;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.05, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.4);
+      });
+    } catch (e) { /* Web Audio unavailable or blocked - the teaser card itself is unaffected */ }
+  }
+
   // No longer the default active-state face (that's now a real photo, see
   // DEFAULT_AVATAR_URL below) - kept only for the inactive/trial-ended
   // state, where a generic neutral mark reads better than showing a real
@@ -657,6 +684,7 @@
       if (dismissed || panel.classList.contains("fd-open")) return;
       teaserText.textContent = "Hi! I'm " + theme.assistantName + " 👋 How can I help?";
       teaser.classList.add("fd-show");
+      playGreetingTone();
     }, 2500);
 
     // Auto-open and greet immediately when explicitly asked to (used by the
