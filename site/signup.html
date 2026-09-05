@@ -66,6 +66,14 @@
     font-family: inherit; padding: 0; text-decoration: underline;
   }
   .pdf-status { font-size: 11px; color: var(--muted2); margin-top: 4px; min-height: 14px; }
+  .url-reader-row { display: none; gap: 8px; margin-top: 8px; }
+  .url-reader-row.open { display: flex; }
+  .url-reader-row input { flex: 1; margin: 0; }
+  .url-reader-row button {
+    background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
+    padding: 0 16px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .url-reader-row button:disabled { opacity: .6; cursor: default; }
 
   .start-btn {
     width: 100%; background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
@@ -153,10 +161,17 @@
           <textarea id="su-extra-info" maxlength="1000" rows="5"
             placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour."></textarea>
           <div class="extra-actions">
-            <button type="button" class="pdf-btn" id="pdf-trigger">📄 Or upload a PDF instead</button>
+            <span>
+              <button type="button" class="pdf-btn" id="pdf-trigger">📄 Or upload a PDF</button>
+              <button type="button" class="pdf-btn" id="url-trigger" style="margin-left:14px;">🌐 Or read my website</button>
+            </span>
             <span class="char-count" id="su-extra-count">0 / 1000</span>
           </div>
           <input type="file" id="pdf-upload" accept="application/pdf" style="display:none;" />
+          <div class="url-reader-row" id="url-reader-row">
+            <input type="text" id="url-input" placeholder="yourbusiness.co.uk" />
+            <button type="button" id="url-go-btn">Read it</button>
+          </div>
           <div class="pdf-status" id="pdf-status"></div>
         </div>
 
@@ -382,6 +397,55 @@
             console.error("[frontdesk signup] PDF extraction failed:", err);
             statusEl.textContent = "Couldn't read that PDF - try a different file, or paste the info manually.";
           });
+      });
+
+      // --- "read my website" onboarding shortcut - fetches the URL
+      // server-side (api/scrape-website.js) and drops an AI-summarized
+      // version into the same textarea, same review/edit pattern as PDF
+      // extraction above. ---
+      document.getElementById("url-trigger").addEventListener("click", function () {
+        var row = document.getElementById("url-reader-row");
+        var opening = !row.classList.contains("open");
+        row.classList.toggle("open", opening);
+        if (opening) document.getElementById("url-input").focus();
+      });
+
+      function readWebsite() {
+        var urlInput = document.getElementById("url-input");
+        var url = urlInput.value.trim();
+        var statusEl = document.getElementById("pdf-status");
+        var goBtn = document.getElementById("url-go-btn");
+        if (!url) { statusEl.textContent = "Enter your website's address first."; return; }
+
+        goBtn.disabled = true;
+        statusEl.textContent = "Reading your website...";
+
+        fetch("/api/scrape-website", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: url })
+        })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            goBtn.disabled = false;
+            if (!result.ok) {
+              statusEl.textContent = result.data.error || "Couldn't read that site - try pasting the info manually instead.";
+              return;
+            }
+            var textarea = document.getElementById("su-extra-info");
+            textarea.value = result.data.text;
+            textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            statusEl.textContent = "Read from your website - feel free to edit it above.";
+            document.getElementById("url-reader-row").classList.remove("open");
+          })
+          .catch(function (err) {
+            goBtn.disabled = false;
+            console.error("[frontdesk signup] website read failed:", err);
+            statusEl.textContent = "Something went wrong reading that site - please try again.";
+          });
+      }
+      document.getElementById("url-go-btn").addEventListener("click", readWebsite);
+      document.getElementById("url-input").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); readWebsite(); }
       });
 
       // --- agent name -> label sync ---
