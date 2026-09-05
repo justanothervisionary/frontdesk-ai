@@ -73,9 +73,14 @@ module.exports = async function handler(req, res) {
   for (var key of listBusinessKeys()) {
     try {
       var config = loadConfig(key);
-      // Skip anything cancelled, or with no real contact email yet (demo/
-      // outreach configs, or a business mid-setup) - nobody real to email.
-      if (!config || config.active === false || !config.notifyEmail) {
+      // Skip anything cancelled, with no real contact email yet, or that
+      // never actually went through a real Stripe signup (stripeCustomerId
+      // only gets set by api/stripe-webhook.js on a genuine paid checkout -
+      // a hand-built outreach/demo config like dentistw4 has a real
+      // notifyEmail once we've found it, but was never actually offered
+      // this product, so it has no business getting an unsolicited "your
+      // weekly summary" email).
+      if (!config || config.active === false || !config.notifyEmail || !config.stripeCustomerId) {
         results.skipped++;
         continue;
       }
