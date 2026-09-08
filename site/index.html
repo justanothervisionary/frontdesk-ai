@@ -5,24 +5,69 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Frontdesk — never miss a lead again</title>
 <meta name="description" content="Our AI receptionist talks to your website visitors, answers their questions, and captures their details, 24/7. Preview it for your own business in under a minute." />
+<script>
+  // Applied synchronously, before first paint, so a returning visitor who
+  // picked light or robot mode doesn't see a flash of the dark default
+  // first. Deliberately not deferred/async for exactly that reason.
+  (function () {
+    try {
+      var saved = localStorage.getItem("frontdeskTheme");
+      if (saved === "light" || saved === "robot") {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+    } catch (e) { /* localStorage unavailable (private browsing etc.) - falls back to the default dark theme */ }
+  })();
+</script>
 <style>
+  /* Three themes, one token set - dark (default, unchanged from before),
+     light, and a just-for-fun "robot" mode. Every color/background below
+     that used to be a hardcoded value now reads from these variables
+     specifically so all three themes actually reach it - see .badge,
+     h1 span, and body's background-image further down for the ones that
+     needed converting. */
   :root {
     --bg: #0a0b0d; --bg2: #0d0f12; --card: #14161a; --card-hover: #191c21;
     --text: #f3f4f6; --muted: #9aa1ac; --muted2: #6b7280;
     --accent: #2f8fe0; --accent2: #35d68f; --border: #22262d;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --bg-image:
+      radial-gradient(900px 480px at 15% -10%, rgba(47,143,224,.16), transparent 60%),
+      radial-gradient(700px 420px at 100% 0%, rgba(53,214,143,.10), transparent 55%);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7f9; --bg2: #ffffff; --card: #ffffff; --card-hover: #eef0f3;
+    --text: #14161a; --muted: #5b6169; --muted2: #7a808a;
+    --accent: #1c7dd6; --accent2: #0ca678; --border: #e3e6ea;
+    --bg-image:
+      radial-gradient(900px 480px at 15% -10%, rgba(28,125,214,.08), transparent 60%),
+      radial-gradient(700px 420px at 100% 0%, rgba(12,166,120,.06), transparent 55%);
+  }
+  /* Terminal/CRT pastiche - a real repeating scanline texture, not just a
+     green palette swap, plus a blanket border-radius: 0 and uppercase
+     buttons further down. This is the one theme allowed to have a little
+     personality beyond a straight token swap. */
+  :root[data-theme="robot"] {
+    --bg: #030a06; --bg2: #020604; --card: #061a0f; --card-hover: #0a2617;
+    --text: #baffd8; --muted: #6fae86; --muted2: #47775c;
+    --accent: #00ff9d; --accent2: #00ff9d; --border: #12432b;
+    --font: "Courier New", Courier, monospace;
+    --bg-image: repeating-linear-gradient(0deg, rgba(0,255,157,.045) 0px, rgba(0,255,157,.045) 1px, transparent 1px, transparent 3px);
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    background:
-      radial-gradient(900px 480px at 15% -10%, rgba(47,143,224,.16), transparent 60%),
-      radial-gradient(700px 420px at 100% 0%, rgba(53,214,143,.10), transparent 55%),
-      var(--bg);
+    background: var(--bg-image), var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    transition: background-color .2s ease, color .2s ease;
+  }
+  [data-theme="robot"] * { border-radius: 0 !important; }
+  [data-theme="robot"] .cta, [data-theme="robot"] .plan-cta, [data-theme="robot"] #preview-btn,
+  [data-theme="robot"] .start-btn, [data-theme="robot"] button {
+    text-transform: uppercase; letter-spacing: .04em;
   }
   .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
   nav {
@@ -30,9 +75,15 @@
     max-width: 880px; margin: 0 auto; padding: 22px 20px; position: relative;
   }
   .logo { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
-  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px color-mix(in srgb, var(--accent2) 80%, transparent); }
   nav a { color: var(--muted); text-decoration: none; font-size: 13px; margin-left: 22px; }
   nav a:hover { color: var(--text); }
+  @media (min-width: 641px) {
+    .nav-portal-link {
+      border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; color: var(--text);
+    }
+    .nav-portal-link:hover { border-color: var(--muted2); color: var(--text); }
+  }
 
   /* Mobile nav - hidden entirely above the breakpoint, so it never
      interferes with the normal inline-links layout on desktop. */
@@ -74,8 +125,10 @@
 
   header.hero { padding: 46px 0 30px; text-align: center; }
   .badge {
-    display: inline-flex; align-items: center; gap: 7px; background: rgba(47,143,224,.12);
-    border: 1px solid rgba(47,143,224,.35); color: #a9d3f7; padding: 7px 14px;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--accent); padding: 7px 14px;
     border-radius: 999px; font-size: 12px; margin-bottom: 22px;
   }
   h1 { font-size: 52px; line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 16px; }
@@ -83,14 +136,14 @@
     /* Keep mobile at the original size - only the larger screens get bigger */
     h1 { font-size: 40px; line-height: 1.12; }
   }
-  h1 span { background: linear-gradient(90deg, #7cc4ff, var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .sub { color: var(--muted); font-size: 17px; max-width: 540px; margin: 0 auto 30px; }
   .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   .explainer-img { width: 100%; max-width: 900px; height: auto; margin: 40px auto 0; display: block; }
   .cta {
     display: inline-flex; align-items: center; gap: 6px; background: var(--accent2); color: #04160c;
     padding: 12px 22px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 700;
-    box-shadow: 0 8px 24px rgba(53,214,143,.25); border: none; cursor: pointer;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--accent2) 25%, transparent); border: none; cursor: pointer;
     transition: transform .1s ease, box-shadow .1s ease, filter .1s ease;
   }
   .cta.secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); box-shadow: none; }
@@ -119,7 +172,7 @@
     flex: 1; min-width: 230px; background: var(--card); border: 1px solid var(--border);
     border-radius: 16px; padding: 24px; position: relative;
   }
-  .plan.highlight { border-color: rgba(53,214,143,.4); box-shadow: 0 0 0 1px rgba(53,214,143,.15) inset; }
+  .plan.highlight { border-color: color-mix(in srgb, var(--accent2) 40%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent2) 15%, transparent) inset; }
   .plan .tag {
     position: absolute; top: -11px; right: 20px; background: var(--accent2); color: #04160c;
     font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; letter-spacing: .03em;
@@ -222,20 +275,38 @@
   .footer-payments { display: flex; align-items: center; gap: 10px; }
   .payment-icons { display: flex; gap: 6px; }
   .payment-icons img { border-radius: 3px; border: 1px solid var(--border); display: block; }
+
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .theme-toggle { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+  .theme-toggle button {
+    width: 28px; height: 28px; border-radius: 50%; border: none; background: none; cursor: pointer;
+    font-size: 13px; display: flex; align-items: center; justify-content: center; line-height: 1;
+    color: var(--muted); transition: background .15s ease, color .15s ease;
+  }
+  .theme-toggle button:hover { color: var(--text); }
+  .theme-toggle button.active { background: var(--accent2); color: #04160c; }
 </style>
 </head>
 <body>
   <nav>
     <div class="logo"><span class="dot"></span>Frontdesk</div>
-    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-links">
-      <span></span><span></span><span></span>
-    </button>
-    <div class="nav-links" id="nav-links">
-      <a href="#pricing">Pricing</a>
-      <a href="#install">Getting live</a>
-      <a href="#preview">Preview yours</a>
-      <a href="#about">About</a>
-      <a href="#trust">Security</a>
+    <div class="nav-right">
+      <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="dark" aria-label="Dark mode" title="Dark mode">🌙</button>
+        <button type="button" data-theme-choice="light" aria-label="Light mode" title="Light mode">☀️</button>
+        <button type="button" data-theme-choice="robot" aria-label="Robot mode" title="Robot mode">🤖</button>
+      </div>
+      <button class="nav-toggle" id="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav-links">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-links" id="nav-links">
+        <a href="#pricing">Pricing</a>
+        <a href="#install">Getting live</a>
+        <a href="#preview">Preview yours</a>
+        <a href="#about">About</a>
+        <a href="#trust">Security</a>
+        <a href="login.html" class="nav-portal-link">Customer Portal</a>
+      </div>
     </div>
   </nav>
 
@@ -449,6 +520,7 @@
           <a href="#install">Getting live</a>
           <a href="#preview">Preview yours</a>
           <a href="signup.html">Start free trial</a>
+          <a href="login.html">Customer Portal</a>
         </div>
         <div class="footer-col">
           <h4>Company</h4>
@@ -506,6 +578,57 @@
       document.addEventListener("click", function (e) {
         if (!navToggle.classList.contains("open")) return;
         if (!navToggle.contains(e.target) && !navLinks.contains(e.target)) closeNav();
+      });
+
+      // Theme toggle - dark (default) / light / robot. The <head> script
+      // already applied any saved choice before first paint to avoid a
+      // flash; this just wires up the buttons and keeps localStorage and
+      // the .active highlight in sync with it.
+      var themeToggle = document.getElementById("theme-toggle");
+      var themeButtons = themeToggle.querySelectorAll("button");
+      function markActiveThemeButton(theme) {
+        themeButtons.forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-theme-choice") === theme);
+        });
+      }
+      function playRobotBeep() {
+        try {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          var ctx = new Ctx();
+          var now = ctx.currentTime;
+          // Three quick, deliberately robotic square-wave blips stepping up
+          // in pitch - a little "boot sequence" chirp for switching into
+          // robot mode specifically, not used anywhere else.
+          [440, 587, 880].forEach(function (freq, i) {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = "square";
+            osc.frequency.value = freq;
+            var start = now + i * 0.09;
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.05, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.08);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + 0.09);
+          });
+          setTimeout(function () { ctx.close(); }, 400);
+        } catch (e) { /* Web Audio unavailable - silently skip the beep */ }
+      }
+      markActiveThemeButton(document.documentElement.getAttribute("data-theme") || "dark");
+      themeButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var theme = btn.getAttribute("data-theme-choice");
+          if (theme === "dark") {
+            document.documentElement.removeAttribute("data-theme");
+          } else {
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+          try { localStorage.setItem("frontdeskTheme", theme); } catch (e) { /* private browsing etc. */ }
+          markActiveThemeButton(theme);
+          if (theme === "robot") playRobotBeep();
+        });
       });
 
       // This page no longer mounts a live AI preview or talks to any

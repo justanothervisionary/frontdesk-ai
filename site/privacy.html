@@ -58,6 +58,11 @@
     <ul>
       <li>Your email address, business name, and the details you choose to give your AI
       receptionist (services, hours, phone number, an optional photo or business description).</li>
+      <li>If you use the "read my website" option instead of typing this in yourself, we fetch
+      the text of the page you point us to and send it to Anthropic to summarize into your
+      AI receptionist's training information - the same provider used to power the chat itself.
+      We don't store a copy of your website; only the summary you review and can edit before
+      it goes live.</li>
       <li>Payment is handled entirely by Stripe - we never see or store your card details.
       Stripe's own <a href="https://stripe.com/privacy" target="_blank" rel="noopener">privacy policy</a>
       covers what they hold.</li>
@@ -69,9 +74,11 @@
       generate a reply. Only the current conversation is sent - never anything else on the
       page, never browsing history.</li>
       <li>If a visitor chooses to leave their name and contact details (always their own
-      choice, never collected automatically), that's emailed directly to the business, and
-      also kept in a short-lived log (name and contact only, no conversation content, deleted
-      automatically after 35 days) so the business can get a weekly summary of new leads.</li>
+      choice, never collected automatically), that's emailed directly to the business along
+      with the last few messages of the conversation, so the business has context on what was
+      asked. The name and contact (not the conversation) is also kept in a short-lived log,
+      deleted automatically after 35 days, so the business can get a weekly summary of new
+      leads and see recent ones in their dashboard.</li>
       <li>No cookies, no tracking scripts, no analytics on the widget itself.</li>
     </ul>
 
