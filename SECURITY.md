@@ -1,4 +1,4 @@
-# Frontdesk — security & data overview
+# Frontdesk - security & data overview
 
 Written to be handed directly to a prospect's IT contact or practice manager
 during evaluation. Plain language on purpose.
@@ -6,24 +6,24 @@ during evaluation. Plain language on purpose.
 ## What it is
 
 A single `<script>` tag that adds a chat widget to your website. Nothing
-else changes on your site — no plugin install, no admin access needed, no
+else changes on your site - no plugin install, no admin access needed, no
 dependency on your CMS or hosting platform.
 
 ## How it's isolated
 
-- The widget renders inside a **Shadow DOM** — a browser-native sandbox.
+- The widget renders inside a **Shadow DOM** - a browser-native sandbox.
   Your site's CSS cannot affect the widget, and the widget's CSS/JS cannot
   affect your site. No class-name collisions, no layout breakage.
 - It does not modify, read, or interact with any other element on your
   page. It only adds itself.
-- No inline scripts or styles are injected into *your* document — only
-  into its own isolated shadow root — so your site's own Content Security
+- No inline scripts or styles are injected into *your* document - only
+  into its own isolated shadow root - so your site's own Content Security
   Policy is unaffected.
 
 ## Data handling
 
 - All visitor-typed text is rendered using `textContent`, never
-  `innerHTML` with unescaped input — this closes the standard XSS vector
+  `innerHTML` with unescaped input - this closes the standard XSS vector
   for a chat-style widget that displays user-typed text.
 - The widget can run in two modes: local keyword-matching only (nothing
   ever leaves the browser), or backed by a real AI model via our own
@@ -37,14 +37,14 @@ dependency on your CMS or hosting platform.
   server-side environment variable, never in the widget code a visitor's
   browser can see.
 - No cookies, no localStorage, no visitor tracking, no third-party
-  analytics or ad scripts of any kind — in the embeddable widget itself.
+  analytics or ad scripts of any kind - in the embeddable widget itself.
   The separate client dashboard (`site/dashboard.html`, a business logging
-  in to manage their own account) does set one cookie for that purpose —
+  in to manage their own account) does set one cookie for that purpose -
   see "Client dashboard login" below. A visitor chatting with the widget
   on a client's site is never affected by this; the two run on entirely
   separate pages.
 - The widget explicitly avoids soliciting or storing symptom/health
-  information — questions that sound medical (pain, emergency, "hurts")
+  information - questions that sound medical (pain, emergency, "hurts")
   are redirected to "please call the practice," not answered by the bot.
   This is a deliberate scope boundary, not an oversight: a booking/FAQ
   assistant should not be doing anything that resembles triage or medical
@@ -53,7 +53,7 @@ dependency on your CMS or hosting platform.
 ## Lead capture
 
 When a visitor chooses to leave their name and contact details (always
-opt-in — never collected automatically or without them clicking "leave
+opt-in - never collected automatically or without them clicking "leave
 your details"), that information is emailed directly to the business's
 own configured notification address. The last few messages of that
 conversation are included in the notification so the business has context
@@ -83,13 +83,13 @@ necessarily is.
 
 A business can log into `site/dashboard.html` to view their leads, edit
 their assistant's FAQs/greeting, retrieve their install snippet, and
-manage billing. There's no password anywhere in this system — logging in
+manage billing. There's no password anywhere in this system - logging in
 sends a one-time link to the business's own registered email (magic-link
 login), which is what sets a session cookie once clicked.
 
 - The login link is single-use and expires after 15 minutes.
 - Clicking it lands on a plain "confirm it's you" page rather than logging
-  in immediately on load — this is deliberate: many business email
+  in immediately on load - this is deliberate: many business email
   providers (Microsoft 365's Safe Links, among others) automatically visit
   every link in an incoming email to scan it before a human ever opens it.
   If the link logged in on that automatic visit, the real click afterward
@@ -99,7 +99,7 @@ login), which is what sets a session cookie once clicked.
   (HTTPS-only), and `SameSite=Lax`. Every request that changes account
   data (saving an edit, opening billing) additionally checks that it
   genuinely came from our own site before doing anything, independent of
-  the cookie — a standard defense-in-depth pairing against cross-site
+  the cookie - a standard defense-in-depth pairing against cross-site
   request forgery.
 - A business can only ever request a login link for an email tied to a
   business that's actually completed a real paid signup. Requesting a
@@ -108,7 +108,7 @@ login), which is what sets a session cookie once clicked.
   customer.
 - Editing your own assistant's settings is limited to what a business
   should reasonably self-serve (greeting, fallback answer, FAQs, assistant
-  name, notification email) — billing status and subscription identifiers
+  name, notification email) - billing status and subscription identifiers
   are never editable from the dashboard; those are only ever set by
   Stripe's own webhook confirming a real payment event.
 

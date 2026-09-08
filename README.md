@@ -1,9 +1,9 @@
 # Frontdesk
 
-A single-script-tag AI chat widget for local business websites — answers
+A single-script-tag AI chat widget for local business websites - answers
 common patient/customer questions (hours, services, booking, location),
 captures leads it can't answer, hands off anything urgent to a phone call.
-Sold direct as a monthly subscription — no marketplace cut.
+Sold direct as a monthly subscription - no marketplace cut.
 
 First target: **West London Dental Centres** (dentistw4.co.uk), Chiswick.
 
@@ -131,7 +131,7 @@ lifecycle live: pop-in and pulse active on load, teaser appears on
 schedule, and clicking it opens the panel, stops all animation, and
 removes the teaser cleanly.
 
-## Visual identity — "Ivy"
+## Visual identity - "Ivy"
 
 The widget was competent but generic - looked like every other blue SaaS
 chat bubble (Intercom, Drift, Tawk.to). Redesigned around an actual
@@ -259,24 +259,24 @@ own blue accent color untouched.
   cap survives the full pipeline end-to-end (free preview, paid signup
   draft, both sanitizers) without silently truncating back down to the
   old FAQ-answer cap that used to sit at 300.
-- `widget/frontdesk-widget.js` — the embeddable widget. Shadow-DOM
+- `widget/frontdesk-widget.js` - the embeddable widget. Shadow-DOM
   isolated, mobile-responsive, XSS-safe, single `<script>` tag integration.
   Verified in browser preview at both desktop and mobile widths, and the
   FAQ-matching logic tested end-to-end (question in, correct answer out).
-- `configs/dentistw4.json` — real public info only (services, hours-page
+- `configs/dentistw4.json` - real public info only (services, hours-page
   content, location, phone, NHS/private, Invisalign, implants, whitening)
   scraped from their live site. No fabricated claims.
-- `demo/dentistw4.html` — working demo page, ready to deploy and link to
+- `demo/dentistw4.html` - working demo page, ready to deploy and link to
   in outreach.
-- `SECURITY.md` — plain-language data/security overview for whoever
+- `SECURITY.md` - plain-language data/security overview for whoever
   reviews this on the prospect's side.
-- `outreach/dentistw4-email-draft.md` — draft cold email, **not sent**.
-- `api/chat.js` — Vercel serverless function proxying to Claude Haiku,
+- `outreach/dentistw4-email-draft.md` - draft cold email, **not sent**.
+- `api/chat.js` - Vercel serverless function proxying to Claude Haiku,
   scoped system prompt, input/history/rate caps, graceful fallback to
   keyword matching on any failure. API key is a server-side env var only,
   never in client code. Not deployed yet - needs your Anthropic API key
   (see "What needs you" below).
-- `tools/config-generator.html` — fill in a form (business info, theme,
+- `tools/config-generator.html` - fill in a form (business info, theme,
   FAQs), get a valid config JSON + the exact install snippet back. This is
   what makes personalizing prospect #2, #3, #50 fast instead of hand-
   writing JSON each time. Tested end-to-end (form → generated JSON →
@@ -316,20 +316,20 @@ own blue accent color untouched.
   (no backend wired up for it yet - same honest "not built yet" treatment
   as everything else still pending an account).
 - Message entrance animation for a more premium feel.
-- Theming is now config-driven beyond just color — `theme.position`
+- Theming is now config-driven beyond just color - `theme.position`
   (left/right), `theme.avatarUrl` (business logo in the bubble/header),
   `theme.accentColor`. Each business's config controls its own look; the
   widget code never needs touching per-client.
-- `INSTALL.md` — copy-paste install steps for WordPress, Squarespace, Wix,
+- `INSTALL.md` - copy-paste install steps for WordPress, Squarespace, Wix,
   Shopify, and plain HTML. This is what makes genuine self-serve possible,
   and also the natural upsell: businesses that don't want to touch any of
   this are exactly who pays extra for the "we'll install it for you" tier.
-- `site/index.html` — the actual company site, with the widget live on it
+- `site/index.html` - the actual company site, with the widget live on it
   using a fictional example business. Tested end-to-end (asked it a real
   question, got the right answer). This is the better outreach destination
   going forward - answers "who is this and how does it work," not just
   "here's a mockup."
-- `api/lead.js` + the widget's "leave your details" form — real lead
+- `api/lead.js` + the widget's "leave your details" form - real lead
   capture. Visitor opts in, fills name + contact, it's emailed straight to
   the business's configured address (never stored in a database on our
   side) along with recent conversation context. Tested end-to-end: form
@@ -383,7 +383,7 @@ own blue accent color untouched.
   console as the real backstop. Full detail in `SECURITY.md`.
 - **No medical/triage behavior.** Anything that sounds like pain, an
   emergency, or a symptom is redirected to "please call" rather than
-  answered — both a liability and regulatory boundary, deliberately kept
+  answered - both a liability and regulatory boundary, deliberately kept
   out of scope for a healthcare client.
 - **Config-driven, not per-client-forked.** New prospects = a new JSON
   config, not a new copy of the widget code. Keep it that way as more
@@ -407,18 +407,18 @@ own blue accent color untouched.
 ## What needs you, next
 
 1. **Create an Anthropic API account** (console.anthropic.com), add
-   billing, and — importantly — set a hard monthly spending cap there
+   billing, and - importantly - set a hard monthly spending cap there
    before this goes live. Share the API key with me only as an env var
    (never in chat) so I can set it in Vercel.
 2. **Create a Resend account** (resend.com, free tier available) for lead
    notification emails, and verify a sending domain there. Share the API
    key the same way - env var, never in chat.
-3. **Fill in the dentist's real notification email** — `configs/
+3. **Fill in the dentist's real notification email** - `configs/
    dentistw4.json` currently has a placeholder (`TODO-add-real-contact-
    email@example.com`) since I don't have their real one from the public
    site. Needs a real address before this goes live for them.
 4. **Deploy to Vercel** (same GitHub → Vercel pattern as `rush-app` and
-   `miser-ai`) — `api/chat.js` and `api/lead.js` both need Vercel
+   `miser-ai`) - `api/chat.js` and `api/lead.js` both need Vercel
    specifically (or another Node serverless host), not a plain static
    host.
 5. **Set up Stripe** for Frontdesk specifically (separate from anything
@@ -426,29 +426,29 @@ own blue accent color untouched.
    start; automated trial signup (see below) now needs real API access
    instead.
 6. **Check for a named contact** (practice manager/owner) before sending
-   the outreach email — noted in the draft.
-7. **Review and send the email yourself** — I don't send messages on your
+   the outreach email - noted in the draft.
+7. **Review and send the email yourself** - I don't send messages on your
    behalf without you reviewing them first.
-8. **Find the Price ID behind the existing £45/mo product** — Stripe
+8. **Find the Price ID behind the existing £45/mo product** - Stripe
    Dashboard → that product → copy the `price_...` id (don't create a new
-   product) — into `STRIPE_PRICE_ID`.
+   product) - into `STRIPE_PRICE_ID`.
 9. **Add a Stripe webhook endpoint** at `https://<your-domain>/api/stripe-
    webhook`, subscribed to `checkout.session.completed`, `customer.
-   subscription.updated`, and `customer.subscription.deleted` — copy its
+   subscription.updated`, and `customer.subscription.deleted` - copy its
    signing secret into `STRIPE_WEBHOOK_SECRET`. Do this after the first
    deploy with the new code, since the endpoint needs to exist first.
 10. **Create a GitHub fine-grained personal access token**, scoped to only
-    this repo, **Contents: Read & Write** and nothing else — into
+    this repo, **Contents: Read & Write** and nothing else - into
     `GITHUB_TOKEN` (plus `GITHUB_OWNER`/`GITHUB_REPO`). Fine-grained tokens
-    expire (max 1 year) — worth a calendar reminder to rotate it.
-11. **Decide on Stripe's dunning/retry settings** (Billing settings) — how
+    expire (max 1 year) - worth a calendar reminder to rotate it.
+11. **Decide on Stripe's dunning/retry settings** (Billing settings) - how
     many times a failed renewal charge retries before the subscription is
     marked cancelled controls how fast a client's bot goes dark after a
     card fails. A business/legal call, not a coding one.
 12. **Decide whether to deactivate the old static Payment Link** once the
-    new trial flow is live — it currently bypasses the trial, the webhook,
+    new trial flow is live - it currently bypasses the trial, the webhook,
     and the automation entirely (immediate charge, no config auto-
     published). Your call, since the link may already be shared somewhere.
 13. **Sign off on the trial/auto-charge wording** on the pricing section
-    before this goes live to real prospects — it should read clearly as
+    before this goes live to real prospects - it should read clearly as
     "card required, charged automatically after 7 days" with no surprises.
