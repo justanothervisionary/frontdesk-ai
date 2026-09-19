@@ -344,6 +344,13 @@
 
     var host = document.createElement("div");
     host.setAttribute("data-frontdesk-widget", instanceKey);
+    // Some sites' CSS resets hide any element matching :empty (e.g.
+    // Shopify's base.css). The host has no light-DOM children - everything
+    // lives in its shadow root - so it matches :empty and gets display:none
+    // even though the shadow content itself renders fine. An inline style
+    // beats an external stylesheet rule without !important, so this holds
+    // regardless of what a given site's CSS does.
+    host.style.display = "block";
     if (opts.container) {
       opts.container.appendChild(host);
     } else {
