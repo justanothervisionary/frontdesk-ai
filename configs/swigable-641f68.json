@@ -1,6 +1,7 @@
 {
   "businessName": "Swigable",
   "type": "general",
+  "domain": "swigable.com",
   "theme": {
     "accentColor": "#12d6c5",
     "position": "right",
@@ -50,7 +51,7 @@
       "answer": "Give us a call on 07720497066 for directions and parking info."
     }
   ],
-  "active": false,
+  "active": true,
   "stripeCustomerId": "cus_VAx24mSNgLS0DQ",
   "stripeSubscriptionId": "sub_1UAb8L1PzE19HBxHSWMs0lJZ",
   "stripeCheckoutSessionId": "cs_live_a1waE3j6P40m4cdngAcjY6zDAOy13MCUuac4xGwi1IG6stkes6N8Kl9BI0"
