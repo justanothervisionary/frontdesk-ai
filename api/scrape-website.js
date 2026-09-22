@@ -1,16 +1,21 @@
-// Vercel serverless function - "point us at your website and we'll read it
-// for you" onboarding shortcut. Fetches a business's own site server-side
-// (never from the browser - their site almost certainly has no CORS header
-// allowing that anyway), strips it down to plain text, and asks Claude to
-// distill it into the same short factual reference the manual "teach your
-// AI" textarea and PDF-upload paths already produce. The result drops into
-// that same textarea for the visitor to review/edit - this never writes
-// anything on its own, same as the PDF extraction flow.
+// Vercel serverless function - two onboarding shortcuts that both end up
+// doing the same job: turn a pile of raw text into the same short factual
+// reference the manual "teach your AI" textarea expects.
+// - "read my website": fetches a business's own site server-side (never
+//   from the browser - their site almost certainly has no CORS header
+//   allowing that anyway) and strips it down to plain text.
+// - PDF upload: the browser already extracted the PDF's text (pdf.js) and
+//   sends it straight here as `text` - no fetch involved, so the SSRF
+//   checks below simply don't apply to that path.
+// Either way the raw text is handed to Claude to distill down, and the
+// result drops into the same textarea for the visitor to review/edit -
+// this never writes anything on its own.
 //
 // Fetching a visitor-supplied URL server-side is a classic SSRF vector, so
 // every request's hostname is resolved and checked against private/
 // reserved IP ranges first (api/_lib/ssrfGuard.js) - a public-looking
-// domain can still resolve to an internal address.
+// domain can still resolve to an internal address. Raw `text` requests
+// never touch fetch() at all, so no SSRF surface there.
 const Anthropic = require("@anthropic-ai/sdk");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { assertSafeToFetch } = require("./_lib/ssrfGuard");
@@ -65,34 +70,42 @@ module.exports = async function handler(req, res) {
   }
 
   var body = req.body || {};
-  var rawUrl = (body.url || "").toString().trim().slice(0, 500);
-  if (!rawUrl) return res.status(400).json({ error: "No URL provided" });
-  if (!/^https?:\/\//i.test(rawUrl)) rawUrl = "https://" + rawUrl;
-
-  try {
-    await assertSafeToFetch(rawUrl);
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
-  }
-
+  var rawText = (body.text || "").toString().trim();
   var pageText;
-  try {
-    pageText = await fetchPageText(rawUrl);
-  } catch (err) {
-    console.error("[frontdesk scrape-website] fetch failed:", err.message);
-    return res.status(502).json({ error: "Couldn't load that site - check the address and try again." });
+
+  if (rawText) {
+    // PDF-upload path - the text was already extracted client-side, so
+    // there's no URL to fetch or validate at all.
+    pageText = rawText;
+  } else {
+    var rawUrl = (body.url || "").toString().trim().slice(0, 500);
+    if (!rawUrl) return res.status(400).json({ error: "No URL or text provided" });
+    if (!/^https?:\/\//i.test(rawUrl)) rawUrl = "https://" + rawUrl;
+
+    try {
+      await assertSafeToFetch(rawUrl);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    try {
+      pageText = await fetchPageText(rawUrl);
+    } catch (err) {
+      console.error("[frontdesk scrape-website] fetch failed:", err.message);
+      return res.status(502).json({ error: "Couldn't load that site - check the address and try again." });
+    }
   }
 
   if (!pageText || pageText.length < 40) {
-    return res.status(422).json({ error: "Couldn't find enough text on that page - try pasting the info manually instead." });
+    return res.status(422).json({ error: "Couldn't find enough text there - try pasting the info manually instead." });
   }
 
   try {
     var completion = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 400,
-      system: "You turn raw text scraped from a small local business's website into a short, factual reference a customer-service AI will use to answer visitor questions. Only include real facts actually present in the text (services offered, hours, location, pricing, policies, specialties) - never invent or assume anything not stated. Write it as plain descriptive sentences, not a list or navigation menu. If the text doesn't contain enough real business information to work with (e.g. it's mostly navigation, cookie notices, or unrelated content), respond with exactly: NOT_ENOUGH_INFO. Keep the result under 900 characters.",
-      messages: [{ role: "user", content: "Website text:\n\n" + pageText.slice(0, 12000) }]
+      system: "You turn raw text about a small local business - scraped from their website, or extracted from a PDF they uploaded (a menu, brochure, service list, etc.) - into a short, factual reference a customer-service AI will use to answer visitor questions. Only include real facts actually present in the text (services offered, hours, location, pricing, policies, specialties) - never invent or assume anything not stated. Write it as plain descriptive sentences, not a list or navigation menu. If the text doesn't contain enough real business information to work with (e.g. it's mostly navigation, cookie notices, or unrelated content), respond with exactly: NOT_ENOUGH_INFO. Keep the result under 900 characters.",
+      messages: [{ role: "user", content: "Business text:\n\n" + pageText.slice(0, 12000) }]
     });
 
     var summary = completion.content && completion.content[0] && completion.content[0].text
@@ -100,12 +113,12 @@ module.exports = async function handler(req, res) {
       : "";
 
     if (!summary || summary.indexOf("NOT_ENOUGH_INFO") !== -1) {
-      return res.status(422).json({ error: "Couldn't find enough business detail on that page - try pasting the info manually instead." });
+      return res.status(422).json({ error: "Couldn't find enough business detail there - try pasting the info manually instead." });
     }
 
     return res.status(200).json({ text: summary.slice(0, 1000) });
   } catch (err) {
     console.error("[frontdesk scrape-website] AI summarization failed:", err.message);
-    return res.status(502).json({ error: "Something went wrong reading that site - please try again." });
+    return res.status(502).json({ error: "Something went wrong reading that - please try again." });
   }
 };

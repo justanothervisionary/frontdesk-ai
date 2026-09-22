@@ -727,12 +727,26 @@
               statusEl.textContent = "Couldn't find any text in that PDF - try pasting the info manually instead.";
               return;
             }
-            var textarea = document.getElementById("pv-extra-info");
-            textarea.value = fullText.slice(0, 1000);
-            textarea.dispatchEvent(new Event("input", { bubbles: true }));
-            statusEl.textContent = fullText.length > 1000
-              ? "Extracted and trimmed to fit the 1000-character limit - feel free to edit it above."
-              : "Extracted from your PDF - feel free to edit it above.";
+            // Same AI-summarization endpoint the "read my website" button
+            // uses - a long PDF (a full menu, brochure, etc.) gets distilled
+            // down to the actual useful facts instead of just being cut off
+            // wherever the 1000-character limit happens to land.
+            statusEl.textContent = "Reading your PDF...";
+            return fetch("/api/scrape-website", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: fullText })
+            })
+              .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+              .then(function (result) {
+                if (!result.ok) {
+                  statusEl.textContent = result.data.error || "Couldn't read that PDF - try pasting the info manually instead.";
+                  return;
+                }
+                var textarea = document.getElementById("pv-extra-info");
+                textarea.value = result.data.text;
+                textarea.dispatchEvent(new Event("input", { bubbles: true }));
+                statusEl.textContent = "Extracted from your PDF - feel free to edit it above.";
+              });
           })
           .catch(function (err) {
             console.error("[frontdesk homepage] PDF extraction failed:", err);
