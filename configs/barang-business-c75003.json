@@ -1,0 +1,59 @@
+{
+  "businessName": "Barang business",
+  "domain": "spearson.co.uk",
+  "type": "appointments",
+  "theme": {
+    "accentColor": "#2f8fe0",
+    "position": "right",
+    "assistantName": "George",
+    "avatarUrl": "https://frontdesk-ai-chi-ten.vercel.app/configs/avatars/a2a9b5143139f8be7ee3a7d4.jpg"
+  },
+  "greeting": "Hi! Welcome to Barang business. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
+  "fallbackAnswer": "I'll pass that on to the team - would you like to leave your name and number, or call 07593009486?",
+  "faqs": [
+    {
+      "keywords": [],
+      "answer": "Spearson's Group is a construction and home improvement company located at 31a Church Street, Gamlingay, Sandy SG19 3JH. They offer services including bathrooms, kitchen renovations, extensions, loft conversions, carpentry and joinery, plumbing and heating, and electrical work. The company provides bespoke CAD drawings and 3D visualizations for projects. Business hours are Monday to Friday 7:30am to 5:00pm, Saturday 7:30am to 2:00pm, and closed Sundays. Contact them at 07827445900 or info@spearsons.co.uk."
+    },
+    {
+      "keywords": [
+        "hour",
+        "open",
+        "close",
+        "time"
+      ],
+      "answer": "For exact hours it's best to call 07593009486 - the team can confirm and fit you in."
+    },
+    {
+      "keywords": [
+        "price",
+        "cost",
+        "how much",
+        "quote"
+      ],
+      "answer": "Pricing depends on what you need - call 07593009486 or leave your details for a quote."
+    },
+    {
+      "keywords": [
+        "book",
+        "appointment",
+        "callout",
+        "viewing",
+        "available"
+      ],
+      "answer": "You can book by calling 07593009486, or leave your details here and we'll be in touch."
+    },
+    {
+      "keywords": [
+        "where",
+        "location",
+        "address"
+      ],
+      "answer": "Give us a call on 07593009486 for directions and parking info."
+    }
+  ],
+  "active": true,
+  "stripeCustomerId": "cus_VLNaSrP7j7K8ec",
+  "stripeSubscriptionId": "sub_1UKgot1PzE19HBxHCk3v0i16",
+  "stripeCheckoutSessionId": "cs_live_a19UCdyK6NnIsYcfHRMwNM27yZRinRqyaTJ3ega8KSscLHThwyN5psT3bA"
+}
