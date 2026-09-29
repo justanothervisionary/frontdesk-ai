@@ -13,8 +13,15 @@
 // buckets yet. That's "basic info to begin with", not a permanent design
 // decision; a time-series view is a natural fast-follow once there's real
 // volume to make one worth looking at.
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+//
+// Var names come straight from what the Vercel Marketplace's "Upstash for
+// Redis" integration actually provisions with a custom prefix of
+// "UPSTASH_REDIS_REST" - it appends its own fixed "_KV_REST_API_URL"/
+// "_KV_REST_API_TOKEN" suffixes on top of that prefix, not a plain
+// "_URL"/"_TOKEN". Confirmed against the real values in the Vercel
+// dashboard rather than assumed.
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
 const FETCH_TIMEOUT_MS = 1500;
 
 function keysFor(businessKey) {
