@@ -5,34 +5,18 @@
 // flagged as a real churn risk before this existed - a client who can't
 // see it's still working has no reason not to cancel.
 //
-// Deliberately scoped to LEAD COUNTS only, not raw chat-message volume.
-// Leads are rare enough that logging one commit per lead (api/_lib/leadLog.js)
-// is a reasonable reuse of the git-based storage this project already uses
-// everywhere else. Every chat message is not - that volume needs a real
-// fast counter store (Vercel KV / Upstash, the same upgrade path already
-// noted in SECURITY.md for rate limiting), which is a genuinely new piece
-// of infrastructure, not a "use what's already there" change. Worth adding
-// later if chat-volume reporting turns out to matter; leads are the higher-
-// signal number anyway (a client cares more about "3 real enquiries" than
-// "40 messages answered").
-const fs = require("fs");
-const path = require("path");
-const { loadConfig } = require("./_lib/config");
+// Deliberately scoped to LEAD COUNTS only, not raw chat-message volume -
+// leads are the higher-signal number for a client anyway (they care more
+// about "3 real enquiries" than "40 messages answered"). Chat-message/token
+// volume is now tracked separately (api/_lib/usage.js, backed by Upstash -
+// see its own comments for why the git-commit pattern below isn't a fit for
+// that frequency) and surfaces on the admin dashboard instead, not here.
+const { loadConfig, listBusinessKeys } = require("./_lib/config");
 const { readLeads, writePrunedLeads } = require("./_lib/leadLog");
 const { buildDigestEmail } = require("./_lib/digestEmail");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
-const CONFIGS_DIR = path.join(__dirname, "..", "configs");
-
-// configs/ also holds avatars/ and drafts/ subdirectories, not just
-// business config files - only the top-level *.json files are real
-// businesses.
-function listBusinessKeys() {
-  return fs.readdirSync(CONFIGS_DIR)
-    .filter(function (f) { return f.endsWith(".json"); })
-    .map(function (f) { return f.slice(0, -".json".length); });
-}
 
 async function sendDigest(config, thisWeek) {
   var email = buildDigestEmail(config, thisWeek);

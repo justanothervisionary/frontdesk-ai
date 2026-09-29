@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Frontdesk - admin</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --bg2: #0d0f12; --card: #14161a; --text: #f3f4f6;
+    --muted: #9aa1ac; --muted2: #6b7280; --accent2: #35d68f; --border: #22262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 70px; }
+  nav { display: flex; align-items: center; justify-content: space-between; max-width: 920px; margin: 0 auto; padding: 22px 20px; }
+  .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  #logout-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  #logout-btn:hover { color: var(--text); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  .loading { text-align: center; color: var(--muted); padding: 60px 0; }
+  .empty { color: var(--muted2); font-size: 13px; text-align: center; padding: 30px 0; }
+
+  .totals { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; min-width: 120px; }
+  .stat .num { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .biz-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; }
+  .biz-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .biz-name { font-size: 15px; font-weight: 700; }
+  .biz-domain { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; }
+  .pill.active { background: rgba(53,214,143,.12); color: var(--accent2); }
+  .pill.inactive { background: rgba(242,131,122,.12); color: #f2837a; }
+  .pill.error { background: rgba(242,131,122,.12); color: #f2837a; }
+  .biz-stats { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
+  .biz-stats div span.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .biz-stats div span.lbl { color: var(--muted); margin-left: 4px; }
+  .biz-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .toggle-btn, .stripe-link {
+    background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px;
+    padding: 7px 14px; font-size: 12px; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-block;
+  }
+  .toggle-btn:hover, .stripe-link:hover { border-color: var(--muted); }
+  .toggle-btn:disabled { opacity: .5; cursor: default; }
+  .toggle-btn.deactivate { color: #f2837a; }
+</style>
+</head>
+<body>
+  <nav>
+    <a class="logo" href="index.html"><span class="dot"></span>Frontdesk admin</a>
+    <button id="logout-btn" type="button">Log out</button>
+  </nav>
+
+  <div class="wrap" id="loading-state">
+    <p class="loading">Loading businesses...</p>
+  </div>
+
+  <div class="wrap" id="admin-dashboard" style="display:none;">
+    <h1>All businesses</h1>
+    <p class="sub">Every business on the platform, at a glance.</p>
+
+    <div class="totals" id="totals"></div>
+    <div id="biz-list"></div>
+  </div>
+
+  <script>
+    (function () {
+      function fmt(n) { return (n || 0).toLocaleString("en-GB"); }
+
+      function renderTotals(rows) {
+        var totalBiz = rows.length;
+        var activeBiz = rows.filter(function (r) { return r.active; }).length;
+        var totalLeads = rows.reduce(function (s, r) { return s + (r.leadCount || 0); }, 0);
+        var totalMessages = rows.reduce(function (s, r) { return s + (r.messages || 0); }, 0);
+        var el = document.getElementById("totals");
+        el.innerHTML = "";
+        [
+          [totalBiz, "Businesses"],
+          [activeBiz, "Active"],
+          [totalLeads, "Leads (35d)"],
+          [totalMessages, "Messages (all-time)"]
+        ].forEach(function (pair) {
+          var s = document.createElement("div");
+          s.className = "stat";
+          s.innerHTML = '<div class="num"></div><div class="lbl"></div>';
+          s.querySelector(".num").textContent = fmt(pair[0]);
+          s.querySelector(".lbl").textContent = pair[1];
+          el.appendChild(s);
+        });
+      }
+
+      function renderBusinesses(rows) {
+        var el = document.getElementById("biz-list");
+        el.innerHTML = "";
+        if (!rows.length) {
+          el.innerHTML = '<p class="empty">No businesses yet.</p>';
+          return;
+        }
+        rows.forEach(function (row) {
+          var card = document.createElement("div");
+          card.className = "biz-card";
+
+          if (row.error) {
+            card.innerHTML =
+              '<div class="biz-top"><div><div class="biz-name"></div></div><span class="pill error">Error</span></div>' +
+              '<div class="biz-stats"><div></div></div>';
+            card.querySelector(".biz-name").textContent = row.businessName;
+            card.querySelector(".biz-stats div").textContent = row.error;
+            el.appendChild(card);
+            return;
+          }
+
+          card.innerHTML =
+            '<div class="biz-top">' +
+              '<div><div class="biz-name"></div><div class="biz-domain"></div></div>' +
+              '<span class="pill"></span>' +
+            '</div>' +
+            '<div class="biz-stats">' +
+              '<div><span class="num"></span><span class="lbl">leads (35d)</span></div>' +
+              '<div><span class="num"></span><span class="lbl">messages</span></div>' +
+              '<div><span class="num"></span><span class="lbl">input tokens</span></div>' +
+              '<div><span class="num"></span><span class="lbl">output tokens</span></div>' +
+            '</div>' +
+            '<div class="biz-actions">' +
+              '<button class="toggle-btn" type="button"></button>' +
+            '</div>';
+
+          card.querySelector(".biz-name").textContent = row.businessName + " (" + row.type + ")";
+          card.querySelector(".biz-domain").textContent = row.domain || "no domain set";
+          var pill = card.querySelector(".pill");
+          pill.classList.add(row.active ? "active" : "inactive");
+          pill.textContent = row.active ? "Active" : "Inactive";
+
+          var stats = card.querySelectorAll(".biz-stats .num");
+          stats[0].textContent = fmt(row.leadCount);
+          stats[1].textContent = fmt(row.messages);
+          stats[2].textContent = fmt(row.inputTokens);
+          stats[3].textContent = fmt(row.outputTokens);
+
+          var toggleBtn = card.querySelector(".toggle-btn");
+          toggleBtn.textContent = row.active ? "Deactivate" : "Activate";
+          toggleBtn.classList.toggle("deactivate", row.active);
+          toggleBtn.addEventListener("click", function () {
+            toggleBtn.disabled = true;
+            toggleBtn.textContent = "Saving...";
+            fetch("/api/dashboard?action=admin-toggle", {
+              method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ businessKey: row.businessKey, active: !row.active })
+            })
+              .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+              .then(function (result) {
+                if (!result.ok) {
+                  toggleBtn.disabled = false;
+                  toggleBtn.textContent = row.active ? "Deactivate" : "Activate";
+                  alert(result.data.error || "Something went wrong - please try again.");
+                  return;
+                }
+                loadBusinesses();
+              })
+              .catch(function () {
+                toggleBtn.disabled = false;
+                toggleBtn.textContent = row.active ? "Deactivate" : "Activate";
+                alert("Something went wrong - please try again.");
+              });
+          });
+
+          if (row.stripeCustomerId) {
+            var stripeLink = document.createElement("a");
+            stripeLink.className = "stripe-link";
+            stripeLink.href = "https://dashboard.stripe.com/customers/" + encodeURIComponent(row.stripeCustomerId);
+            stripeLink.target = "_blank";
+            stripeLink.rel = "noopener";
+            stripeLink.textContent = "View in Stripe ↗";
+            card.querySelector(".biz-actions").appendChild(stripeLink);
+          }
+
+          el.appendChild(card);
+        });
+      }
+
+      function loadBusinesses() {
+        fetch("/api/dashboard?action=admin-list", { credentials: "same-origin" })
+          .then(function (r) {
+            if (r.status === 401) { window.location.href = "admin-login.html"; return null; }
+            if (!r.ok) throw new Error("bad status " + r.status);
+            return r.json();
+          })
+          .then(function (data) {
+            if (!data) return;
+            document.getElementById("loading-state").style.display = "none";
+            document.getElementById("admin-dashboard").style.display = "block";
+            renderTotals(data.businesses || []);
+            renderBusinesses(data.businesses || []);
+          })
+          .catch(function () {
+            document.getElementById("loading-state").innerHTML = '<p class="loading">Couldn\'t load businesses - please refresh.</p>';
+          });
+      }
+      loadBusinesses();
+
+      document.getElementById("logout-btn").addEventListener("click", function () {
+        fetch("/api/auth?action=admin-logout", { method: "POST", credentials: "same-origin" })
+          .then(function () { window.location.href = "admin-login.html"; });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -14,6 +14,19 @@ function isKnownType(v) {
   return KNOWN_TYPES.indexOf(v) !== -1;
 }
 
+var CONFIGS_DIR = path.join(__dirname, "..", "..", "configs");
+
+// Every business's key, from the local configs/ directory - the full-scan
+// pattern api/weekly-digest.js and api/_lib/loginLookup.js each already
+// used (previously copy-pasted in both). Local disk, zero network I/O, a
+// non-issue at the "a handful to dozens of clients" scale this project is
+// at today.
+function listBusinessKeys() {
+  return fs.readdirSync(CONFIGS_DIR)
+    .filter(function (f) { return f.endsWith(".json"); })
+    .map(function (f) { return f.slice(0, -".json".length); });
+}
+
 // businessKey is validated against a strict allowlist pattern before ever
 // touching the filesystem, so this can't be used to read arbitrary paths.
 //
@@ -179,4 +192,4 @@ function buildConfigFromDraft(draft) {
   return sanitizeCommittedConfig(built);
 }
 
-module.exports = { loadConfig, loadConfigLive, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft, isEmailShaped };
+module.exports = { loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft, isEmailShaped };

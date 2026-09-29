@@ -10,6 +10,11 @@ const SECRET = process.env.SESSION_SECRET || "";
 // scoped to Path=/, with no Domain attribute - it can't be set by a
 // subdomain or leak to one, unlike a plain cookie name.
 const SESSION_COOKIE_NAME = "__Host-session";
+// A separate cookie name (not just a different payload under the same
+// cookie) so a business session and an admin session can never be confused
+// by anything reading the wrong header - each is only ever looked for
+// under its own name.
+const ADMIN_SESSION_COOKIE_NAME = "__Host-admin-session";
 const LOGIN_TOKEN_TTL_SECONDS = 15 * 60;
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
@@ -92,4 +97,51 @@ function clearSessionCookie(res) {
   res.setHeader("Set-Cookie", SESSION_COOKIE_NAME + "=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
 }
 
-module.exports = { signLoginToken, verifyLoginToken, setSessionCookie, getSessionBusinessKey, clearSessionCookie };
+// Founder/ops access, not a business - a comma-separated allowlist (env
+// var, not a file/database - there's never going to be more than a
+// handful of these) rather than anything resembling a user table.
+function isAdminEmail(email) {
+  var list = (process.env.ADMIN_EMAILS || "").split(",")
+    .map(function (e) { return e.trim().toLowerCase(); })
+    .filter(Boolean);
+  return list.indexOf((email || "").trim().toLowerCase()) !== -1;
+}
+
+function signAdminLoginToken(email) {
+  return sign({ email: email, purpose: "admin-login" }, LOGIN_TOKEN_TTL_SECONDS);
+}
+
+function verifyAdminLoginToken(token) {
+  var payload = verify(token);
+  return (payload && payload.purpose === "admin-login" && payload.email) ? payload.email : null;
+}
+
+function setAdminSessionCookie(res, email) {
+  var token = sign({ email: email, purpose: "admin-session" }, SESSION_TTL_SECONDS);
+  res.setHeader("Set-Cookie",
+    ADMIN_SESSION_COOKIE_NAME + "=" + encodeURIComponent(token) +
+    "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=" + SESSION_TTL_SECONDS);
+}
+
+// Re-checks isAdminEmail() against the CURRENT env var on every request,
+// rather than just trusting whatever was true when the token was signed -
+// unlike a business session (where even a cancelled business should still
+// be able to log in), pulling someone off ADMIN_EMAILS should take effect
+// immediately, not after their existing session happens to expire up to
+// 30 days later.
+function getSessionAdminEmail(req) {
+  var token = parseCookies(req)[ADMIN_SESSION_COOKIE_NAME];
+  if (!token) return null;
+  var payload = verify(token);
+  if (!payload || payload.purpose !== "admin-session" || !payload.email) return null;
+  return isAdminEmail(payload.email) ? payload.email : null;
+}
+
+function clearAdminSessionCookie(res) {
+  res.setHeader("Set-Cookie", ADMIN_SESSION_COOKIE_NAME + "=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0");
+}
+
+module.exports = {
+  signLoginToken, verifyLoginToken, setSessionCookie, getSessionBusinessKey, clearSessionCookie,
+  isAdminEmail, signAdminLoginToken, verifyAdminLoginToken, setAdminSessionCookie, getSessionAdminEmail, clearAdminSessionCookie
+};

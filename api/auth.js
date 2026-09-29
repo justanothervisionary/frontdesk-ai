@@ -8,7 +8,10 @@
 // from the original three files - just merged into one, routed by action.
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { findBusinessKeyByEmail } = require("./_lib/loginLookup");
-const { signLoginToken, verifyLoginToken, setSessionCookie, clearSessionCookie } = require("./_lib/session");
+const {
+  signLoginToken, verifyLoginToken, setSessionCookie, clearSessionCookie,
+  isAdminEmail, signAdminLoginToken, verifyAdminLoginToken, setAdminSessionCookie, clearAdminSessionCookie
+} = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
 
 const isRateLimited = createRateLimiter(5, 60 * 1000);
@@ -18,9 +21,9 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-async function sendLoginEmail(email, businessKey) {
-  var token = signLoginToken(businessKey);
-  var link = SITE_BASE_URL + "/api/auth?action=verify&token=" + encodeURIComponent(token);
+// Shared by both the business-owner and admin login flows - only the link
+// and a little copy differ.
+async function sendMagicLinkEmail(email, link, dashboardLabel) {
   var res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Authorization": "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
@@ -29,12 +32,24 @@ async function sendLoginEmail(email, businessKey) {
       to: email,
       subject: "Log in to Frontdesk",
       html:
-        "<p>Click below to log in to your Frontdesk dashboard. This link expires in 15 minutes and can only be used once.</p>" +
+        "<p>Click below to log in to your " + dashboardLabel + ". This link expires in 15 minutes and can only be used once.</p>" +
         "<p><a href=\"" + link + "\">Log in to Frontdesk</a></p>" +
         "<p style=\"color:#888;font-size:12px;\">If you didn't request this, you can safely ignore this email.</p>"
     })
   });
   if (!res.ok) throw new Error("Resend API error " + res.status + ": " + await res.text().catch(function () { return ""; }));
+}
+
+function sendLoginEmail(email, businessKey) {
+  var token = signLoginToken(businessKey);
+  var link = SITE_BASE_URL + "/api/auth?action=verify&token=" + encodeURIComponent(token);
+  return sendMagicLinkEmail(email, link, "Frontdesk dashboard");
+}
+
+function sendAdminLoginEmail(email) {
+  var token = signAdminLoginToken(email);
+  var link = SITE_BASE_URL + "/api/auth?action=admin-verify&token=" + encodeURIComponent(token);
+  return sendMagicLinkEmail(email, link, "Frontdesk admin dashboard");
 }
 
 async function handleRequestLogin(req, res) {
@@ -64,13 +79,44 @@ async function handleRequestLogin(req, res) {
   return res.status(200).json(GENERIC_RESPONSE);
 }
 
+async function handleAdminRequestLogin(req, res) {
+  var ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: "Too many requests - please try again in a minute." });
+  }
+
+  var email = ((req.body || {}).email || "").toString().trim().slice(0, 200);
+  // Same generic-response shape as the business login - never confirm or
+  // deny whether an email is on the admin allowlist.
+  var GENERIC_RESPONSE = { received: true, message: "If that email is registered, a login link is on its way." };
+
+  if (!EMAIL_RE.test(email)) return res.status(200).json(GENERIC_RESPONSE);
+
+  try {
+    if (isAdminEmail(email) && RESEND_API_KEY) {
+      await sendAdminLoginEmail(email);
+    } else if (isAdminEmail(email)) {
+      console.log("[frontdesk auth] Resend not configured - admin login link not sent for", email);
+    }
+  } catch (err) {
+    console.error("[frontdesk auth] admin-request-login error:", err.message);
+  }
+
+  return res.status(200).json(GENERIC_RESPONSE);
+}
+
 function escapeHtml(str) {
   return String(str || "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function confirmPageHtml(token, error) {
+// `action` picks which endpoint the confirm button actually POSTs to -
+// defaults to the business-login path, but the admin flow passes
+// "admin-verify" so its confirm page doesn't submit to the wrong handler
+// (which would just fail the purpose check and look like an expired link).
+function confirmPageHtml(token, error, action) {
+  action = action || "verify";
   return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />" +
     "<title>Log in to Frontdesk</title><style>" +
     "body{margin:0;background:#0a0b0d;color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
@@ -82,7 +128,7 @@ function confirmPageHtml(token, error) {
     (error
       ? "<h1>Link expired</h1><p>" + escapeHtml(error) + " Request a new login link from the login page.</p>"
       : "<h1>Confirm it's you</h1><p>Click below to finish logging in to your Frontdesk dashboard.</p>" +
-        "<form method=\"POST\" action=\"/api/auth?action=verify\">" +
+        "<form method=\"POST\" action=\"/api/auth?action=" + action + "\">" +
         "<input type=\"hidden\" name=\"token\" value=\"" + escapeHtml(token) + "\" />" +
         "<button type=\"submit\">Log in to Frontdesk</button></form>") +
     "</div></body></html>";
@@ -120,16 +166,43 @@ function handleLogout(req, res) {
   return res.status(200).json({ loggedOut: true });
 }
 
+function handleAdminVerifyGet(req, res) {
+  var token = (req.query && req.query.token) || "";
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  if (!token) return res.status(400).send(confirmPageHtml("", "That login link looks incomplete.", "admin-verify"));
+  return res.status(200).send(confirmPageHtml(token, null, "admin-verify"));
+}
+
+function handleAdminVerifyPost(req, res) {
+  var body = req.body || {};
+  var submittedToken = (body.token || "").toString();
+  var email = verifyAdminLoginToken(submittedToken);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  if (!email || !isAdminEmail(email)) {
+    return res.status(400).send(confirmPageHtml("", "That login link has expired or was already used.", "admin-verify"));
+  }
+  setAdminSessionCookie(res, email);
+  res.setHeader("Location", "/site/admin-dashboard.html");
+  return res.status(302).end();
+}
+
+function handleAdminLogout(req, res) {
+  if (!isTrustedOrigin(req)) return res.status(403).json({ error: "Forbidden" });
+  clearAdminSessionCookie(res);
+  return res.status(200).json({ loggedOut: true });
+}
+
 module.exports = async function handler(req, res) {
   var action = (req.query && req.query.action) || "";
 
-  // The verify page (GET, from an emailed link) is the one path that
-  // isn't a same-origin fetch call, so it's exempt from the
+  // The verify pages (GET, from an emailed link) are the one paths that
+  // aren't a same-origin fetch call, so they're exempt from the
   // ALLOWED_ORIGIN/CORS headers below - a visitor's own mail client is
-  // opening it directly, not our own site's JS.
-  if (action === "verify") {
-    if (req.method === "GET") return handleVerifyGet(req, res);
-    if (req.method === "POST") return handleVerifyPost(req, res);
+  // opening them directly, not our own site's JS.
+  if (action === "verify" || action === "admin-verify") {
+    var isAdmin = action === "admin-verify";
+    if (req.method === "GET") return isAdmin ? handleAdminVerifyGet(req, res) : handleVerifyGet(req, res);
+    if (req.method === "POST") return isAdmin ? handleAdminVerifyPost(req, res) : handleVerifyPost(req, res);
     return res.status(405).end();
   }
 
@@ -140,6 +213,8 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   if (action === "logout") return handleLogout(req, res);
+  if (action === "admin-logout") return handleAdminLogout(req, res);
+  if (action === "admin-request") return handleAdminRequestLogin(req, res);
   if (action === "request" || !action) return handleRequestLogin(req, res);
   return res.status(400).json({ error: "Unknown action" });
 };

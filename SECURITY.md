@@ -112,6 +112,27 @@ login), which is what sets a session cookie once clicked.
   are never editable from the dashboard; those are only ever set by
   Stripe's own webhook confirming a real payment event.
 
+## Admin dashboard login
+
+There's a separate, founder-only `site/admin-dashboard.html`, giving an
+at-a-glance view across every business (active status, lead counts,
+message/token usage) and a manual on/off switch per business. It's
+completely separate from the client dashboard above, not an extension of
+it:
+
+- A second, separate cookie (`__Host-admin-session`) - the two logins can
+  never be confused with each other, and a business owner's session can
+  never grant admin access no matter what.
+- Eligibility is a small allowlist of specific emails (an environment
+  variable, not a database), re-checked on every single request rather
+  than only at login - removing someone from that list logs them out
+  immediately, not whenever their session would otherwise have expired.
+- The admin "deactivate" switch only flips the same `active` flag Stripe's
+  own webhook already sets automatically on a real cancellation - it does
+  not touch billing or cancel a subscription. Actual billing changes still
+  only ever happen in Stripe's own dashboard, which the admin page links
+  to directly per business.
+
 ## How the live AI backend stays safe
 
 A public, unauthenticated AI endpoint is a genuine cost and abuse surface

@@ -5,6 +5,7 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { loadConfig, sanitizePreviewConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
+const { recordUsage } = require("./_lib/usage");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -91,8 +92,12 @@ module.exports = async function handler(req, res) {
   // falls back to the visitor-supplied previewConfig (sanitized above) when
   // there's no matching file - i.e. only for the self-serve tool's ad-hoc
   // "try it with your own business" configs, never able to override a real
-  // client's own settings.
-  var config = loadConfig(businessKey) || sanitizePreviewConfig(body.previewConfig);
+  // client's own settings. Kept as its own variable (not just inlined into
+  // the fallback below) so usage tracking further down can tell a real,
+  // file-backed business apart from an unauthenticated free-preview
+  // request - see the recordUsage() call below for why that matters.
+  var fileConfig = loadConfig(businessKey);
+  var config = fileConfig || sanitizePreviewConfig(body.previewConfig);
   if (!config) return res.status(400).json({ error: "Unknown business" });
   if (!isOriginAllowed(req.headers.origin, config)) {
     return res.status(403).json({ error: "This origin is not authorized for this business." });
@@ -135,6 +140,13 @@ module.exports = async function handler(req, res) {
     if (usage.cache_read_input_tokens || usage.cache_creation_input_tokens) {
       console.log("[frontdesk chat] cache usage:", businessKey, "read:", usage.cache_read_input_tokens || 0, "created:", usage.cache_creation_input_tokens || 0, "fresh:", usage.input_tokens || 0);
     }
+
+    // Fire-and-forget - deliberately NOT awaited. recordUsage() has its own
+    // timeout and never throws, but even so, a visitor's actual reply must
+    // never wait on this. Only for real, file-backed businesses: the free
+    // preview tool has no auth at all, so recording usage for it would let
+    // anyone write arbitrary keys into the usage store indefinitely.
+    if (fileConfig) recordUsage(businessKey, usage).catch(function () {});
 
     return res.status(200).json({ reply: reply });
   } catch (err) {

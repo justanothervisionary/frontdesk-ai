@@ -1,23 +1,13 @@
 // Finds which business a login email belongs to. There's no email-index
 // anywhere in this codebase - configs are keyed by businessKey, not email -
 // so this scans every config, same full-scan pattern api/weekly-digest.js
-// already runs on a cron. That's local disk (fs.readdirSync + loadConfig(),
-// zero network I/O), so it's a non-issue at the "a handful to dozens of
-// clients" scale this project is at; if that ever changes, a small
-// api/_private-configs/email-index.json maintained alongside every write
-// would turn this into an O(1) lookup, but building that now would be
+// already runs on a cron. That's local disk (listBusinessKeys() +
+// loadConfig(), zero network I/O), so it's a non-issue at the "a handful to
+// dozens of clients" scale this project is at; if that ever changes, a
+// small api/_private-configs/email-index.json maintained alongside every
+// write would turn this into an O(1) lookup, but building that now would be
 // solving a problem that doesn't exist yet.
-const fs = require("fs");
-const path = require("path");
-const { loadConfig } = require("./config");
-
-const CONFIGS_DIR = path.join(__dirname, "..", "..", "configs");
-
-function listBusinessKeys() {
-  return fs.readdirSync(CONFIGS_DIR)
-    .filter(function (f) { return f.endsWith(".json"); })
-    .map(function (f) { return f.slice(0, -".json".length); });
-}
+const { loadConfig, listBusinessKeys } = require("./config");
 
 // Only a business that actually paid (has a stripeCustomerId, set solely
 // by api/stripe-webhook.js on a genuine checkout) can ever get a session -

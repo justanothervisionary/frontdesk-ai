@@ -6,11 +6,12 @@
 // the original three files - just merged into one, routed by
 // method/action.
 const Stripe = require("stripe");
-const { loadConfig, loadConfigLive, isEmailShaped } = require("./_lib/config");
+const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
-const { getSessionBusinessKey } = require("./_lib/session");
+const { getSessionBusinessKey, getSessionAdminEmail } = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
 const { getFile, putFile } = require("./_lib/github");
+const { getUsage } = require("./_lib/usage");
 
 // Lazy, not eager - see api/create-checkout.js for why: an unset
 // STRIPE_SECRET_KEY should fail one request cleanly, not crash the module.
@@ -134,8 +135,93 @@ async function handleBillingPortal(req, res, businessKey) {
   }
 }
 
+// Every business, for the founder's own ops view - not the widget-facing
+// "one business" shape the rest of this file deals with. loadConfigLive
+// (not loadConfig) so a business just toggled below shows up-to-date
+// immediately, the same staleness trap already documented on loadConfig()
+// itself. Each business's own work is wrapped in its own try/catch so one
+// business's GitHub/usage hiccup can't take down the whole list - same
+// per-key error isolation api/weekly-digest.js's scan loop already uses.
+async function handleAdminList(req, res) {
+  var keys = listBusinessKeys();
+  var rows = await Promise.all(keys.map(async function (key) {
+    try {
+      var result = await loadConfigLive(key);
+      if (!result) return null;
+      var config = result.config;
+      var leadData = await readLeads(key);
+      var usage = await getUsage(key);
+      return {
+        businessKey: key,
+        businessName: config.businessName,
+        domain: config.domain || "",
+        type: config.type || "general",
+        active: config.active !== false,
+        stripeCustomerId: config.stripeCustomerId || "",
+        leadCount: leadData.all.length,
+        messages: usage.messages,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens
+      };
+    } catch (err) {
+      console.error("[frontdesk dashboard] admin-list error for", key, ":", err.message);
+      return { businessKey: key, businessName: key, error: "Could not load this business right now" };
+    }
+  }));
+  return res.status(200).json({ businesses: rows.filter(Boolean) });
+}
+
+// A manual override switch, not a replacement for real billing cancellation -
+// only ever flips the same `active` flag api/stripe-webhook.js already sets
+// automatically on a genuine Stripe cancellation. Deliberately does NOT
+// touch Stripe at all; the admin page links to each business's own Stripe
+// customer page for actual billing actions instead.
+async function handleAdminToggle(req, res) {
+  var body = req.body || {};
+  var businessKey = (body.businessKey || "").toString();
+  if (body.active !== true && body.active !== false) {
+    return res.status(400).json({ error: "active must be true or false" });
+  }
+
+  var result = await loadConfigLive(businessKey);
+  if (!result) return res.status(404).json({ error: "Business not found" });
+
+  var config = result.config;
+  config.active = body.active;
+  // loadConfigLive() merges the private notifyEmail into this same object -
+  // configs/{key}.json is served to the public internet as-is, so it must
+  // never end up in there, same guard handleSave() already applies at its
+  // own write.
+  delete config.notifyEmail;
+
+  try {
+    await putFile(`configs/${businessKey}.json`, config, `Admin ${body.active ? "reactivate" : "deactivate"} ${businessKey}`, result.sha);
+  } catch (err) {
+    console.error("[frontdesk dashboard] admin-toggle error:", err.message);
+    if (err.conflict) {
+      return res.status(409).json({ error: "This was just updated elsewhere - please refresh and try again." });
+    }
+    return res.status(502).json({ error: "Could not save that change - please try again." });
+  }
+
+  return res.status(200).json({ saved: true, active: config.active });
+}
+
 module.exports = async function handler(req, res) {
   if (!isTrustedOrigin(req)) return res.status(403).json({ error: "Forbidden" });
+
+  var action = (req.query && req.query.action) || "";
+
+  // Checked and returned BEFORE the business-session gate below, so an
+  // admin action can never fall through into business-dashboard logic (or
+  // vice versa) - the two are gated on entirely separate cookies/sessions.
+  if (action === "admin-list" || action === "admin-toggle") {
+    var adminEmail = getSessionAdminEmail(req);
+    if (!adminEmail) return res.status(401).json({ error: "Not logged in" });
+    if (req.method === "GET" && action === "admin-list") return handleAdminList(req, res);
+    if (req.method === "POST" && action === "admin-toggle") return handleAdminToggle(req, res);
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   var businessKey = getSessionBusinessKey(req);
   if (!businessKey) return res.status(401).json({ error: "Not logged in" });
@@ -143,7 +229,6 @@ module.exports = async function handler(req, res) {
   if (req.method === "GET") return handleGetData(req, res, businessKey);
 
   if (req.method === "POST") {
-    var action = (req.query && req.query.action) || "";
     if (action === "billing-portal") return handleBillingPortal(req, res, businessKey);
     if (action === "save" || !action) return handleSave(req, res, businessKey);
     return res.status(400).json({ error: "Unknown action" });
