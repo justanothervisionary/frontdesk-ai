@@ -112,6 +112,10 @@ function isEmailShaped(v) {
   return typeof v === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) && v.length <= 200;
 }
 
+function isPhoneShaped(v) {
+  return typeof v === "string" && v.length > 0 && v.length <= 40 && /^[0-9+\-()\s]+$/.test(v);
+}
+
 // A bare hostname, e.g. "dentistw4.co.uk" - no protocol, no path. This is
 // what api/_lib/cors.js checks an incoming request's Origin header against,
 // so it controls which website(s) this business's widget will actually
@@ -164,6 +168,13 @@ function sanitizeCommittedConfig(raw) {
     businessName: businessName,
     domain: isDomain(raw.domain) ? raw.domain.toLowerCase() : undefined,
     type: isKnownType(raw.type) ? raw.type : "general",
+    // isPhoneShaped() is checked here, not just in shared/build-config.js's
+    // buildFrontdeskConfig() - this function rebuilds the config as a brand
+    // new object literal, so a field only added there would silently vanish
+    // on every real paid signup the moment it passes through here, even
+    // though the free live preview (which never runs through this
+    // sanitizer) would look like it worked fine.
+    phone: isPhoneShaped(raw.phone) ? raw.phone : undefined,
     theme: { accentColor: accentColor, position: "right", assistantName: assistantName, avatarUrl: avatarUrl },
     greeting: ((raw.greeting || "").toString().slice(0, 300)) || ("Hi! Welcome to " + businessName + "."),
     fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||
@@ -192,4 +203,7 @@ function buildConfigFromDraft(draft) {
   return sanitizeCommittedConfig(built);
 }
 
-module.exports = { loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft, isEmailShaped };
+module.exports = {
+  loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft,
+  isEmailShaped, isPhoneShaped, isKnownType, KNOWN_TYPES
+};

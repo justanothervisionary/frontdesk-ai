@@ -1,15 +1,19 @@
 // Vercel serverless function - two onboarding shortcuts that both end up
-// doing the same job: turn a pile of raw text into the same short factual
-// reference the manual "teach your AI" textarea expects.
+// doing the same job: turn a pile of raw text into a short factual
+// reference plus a few auto-filled form fields.
 // - "read my website": fetches a business's own site server-side (never
 //   from the browser - their site almost certainly has no CORS header
 //   allowing that anyway) and strips it down to plain text.
 // - PDF upload: the browser already extracted the PDF's text (pdf.js) and
 //   sends it straight here as `text` - no fetch involved, so the SSRF
 //   checks below simply don't apply to that path.
-// Either way the raw text is handed to Claude to distill down, and the
-// result drops into the same textarea for the visitor to review/edit -
-// this never writes anything on its own.
+// Either way the raw text is handed to Claude via a forced tool call (not
+// asking it to emit JSON as plain text - that's fragile to markdown fences,
+// truncation, or a conversational preamble; tool-calling parses cleanly
+// every time). The result - a factual summary plus whichever of
+// businessName/phone/type Claude was actually confident about - drops into
+// shared/onboarding-scan.js's applyScanResult() on the frontend for the
+// visitor to review/edit. This never writes anything on its own.
 //
 // Fetching a visitor-supplied URL server-side is a classic SSRF vector, so
 // every request's hostname is resolved and checked against private/
@@ -19,6 +23,7 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { assertSafeToFetch } = require("./_lib/ssrfGuard");
+const { isKnownType, isPhoneShaped } = require("./_lib/config");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const isRateLimited = createRateLimiter(5, 60 * 1000);
@@ -103,20 +108,57 @@ module.exports = async function handler(req, res) {
   try {
     var completion = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 400,
-      system: "You turn raw text about a small local business - scraped from their website, or extracted from a PDF they uploaded (a menu, brochure, service list, etc.) - into a short, factual reference a customer-service AI will use to answer visitor questions. Only include real facts actually present in the text (services offered, hours, location, pricing, policies, specialties) - never invent or assume anything not stated. Write it as plain descriptive sentences, not a list or navigation menu. If the text doesn't contain enough real business information to work with (e.g. it's mostly navigation, cookie notices, or unrelated content), respond with exactly: NOT_ENOUGH_INFO. Keep the result under 900 characters.",
-      messages: [{ role: "user", content: "Business text:\n\n" + pageText.slice(0, 12000) }]
+      max_tokens: 600,
+      system: "You turn raw text about a small local business - scraped from their website, or extracted from a PDF they uploaded (a menu, brochure, service list, etc.) - into a short, factual reference a customer-service AI will use to answer visitor questions, plus a few structured details for an onboarding form. Only use real facts actually present in the text - never invent or assume anything not stated. Leave businessName/phone/type empty if you're not genuinely confident, rather than guessing - these pre-fill form fields a human will review, so a wrong guess is worse than a blank.",
+      messages: [{ role: "user", content: "Business text:\n\n" + pageText.slice(0, 12000) }],
+      tool_choice: { type: "tool", name: "extract_business_profile" },
+      tools: [{
+        name: "extract_business_profile",
+        description: "Record the extracted business profile.",
+        input_schema: {
+          type: "object",
+          properties: {
+            hasEnoughInfo: {
+              type: "boolean",
+              description: "False if the text is mostly navigation, cookie notices, or unrelated content - i.e. there isn't enough real business information here to work with."
+            },
+            businessName: { type: "string", description: "The business's real name, exactly as stated. Empty string if unclear." },
+            phone: { type: "string", description: "Their contact phone number, exactly as written. Empty string if none is given." },
+            type: {
+              type: "string",
+              enum: ["appointments", "callouts", "viewings", "general", ""],
+              description: "appointments = books appointments (clinics, salons, therapists); callouts = call-outs/jobs (trades, home services); viewings = viewings/valuations (estate agents); general = general enquiries; \"\" if genuinely unclear."
+            },
+            summary: {
+              type: "string",
+              description: "Plain descriptive sentences (not a list or navigation menu) covering services offered, hours, location, pricing, policies, specialties - whatever's actually present. Under 900 characters."
+            }
+          },
+          required: ["hasEnoughInfo", "summary"]
+        }
+      }]
     });
 
-    var summary = completion.content && completion.content[0] && completion.content[0].text
-      ? completion.content[0].text.trim()
-      : "";
+    var toolUse = completion.content && completion.content.find(function (block) { return block.type === "tool_use"; });
+    var result = toolUse ? toolUse.input : null;
 
-    if (!summary || summary.indexOf("NOT_ENOUGH_INFO") !== -1) {
+    if (!result || result.hasEnoughInfo === false || !result.summary || !result.summary.trim()) {
       return res.status(422).json({ error: "Couldn't find enough business detail there - try pasting the info manually instead." });
     }
 
-    return res.status(200).json({ text: summary.slice(0, 1000) });
+    // Re-validated server-side regardless of what the model returned - this
+    // is about to pre-fill form fields, not just display text, so the same
+    // defense-in-depth as everywhere else in this codebase applies. `type`
+    // is simply omitted (never defaulted to "general") when it doesn't
+    // match - that default belongs to the dropdown itself, not this endpoint.
+    var response = { text: result.summary.toString().trim().slice(0, 1000) };
+    var businessName = (result.businessName || "").toString().trim().slice(0, 80);
+    if (businessName) response.businessName = businessName;
+    var phone = (result.phone || "").toString().trim().slice(0, 40);
+    if (isPhoneShaped(phone)) response.phone = phone;
+    if (isKnownType(result.type)) response.type = result.type;
+
+    return res.status(200).json(response);
   } catch (err) {
     console.error("[frontdesk scrape-website] AI summarization failed:", err.message);
     return res.status(502).json({ error: "Something went wrong reading that - please try again." });

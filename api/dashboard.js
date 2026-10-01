@@ -6,7 +6,7 @@
 // the original three files - just merged into one, routed by
 // method/action.
 const Stripe = require("stripe");
-const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped } = require("./_lib/config");
+const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
 const { getSessionBusinessKey, getSessionAdminEmail } = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
@@ -27,6 +27,8 @@ async function handleGetData(req, res, businessKey) {
   return res.status(200).json({
     businessKey: businessKey,
     businessName: result.config.businessName,
+    type: result.config.type || "general",
+    phone: result.config.phone || "",
     greeting: result.config.greeting,
     fallbackAnswer: result.config.fallbackAnswer,
     faqs: result.config.faqs || [],
@@ -67,6 +69,21 @@ async function handleSave(req, res, businessKey) {
   var body = req.body || {};
   var config = result.config; // mutated in place below, then written back whole - never rebuilt from scratch
 
+  if (typeof body.businessName === "string" && body.businessName.trim()) {
+    config.businessName = body.businessName.trim().slice(0, 80);
+  }
+  if (typeof body.type === "string" && body.type.trim()) {
+    if (!isKnownType(body.type.trim())) {
+      return res.status(400).json({ error: "That's not a valid business type." });
+    }
+    config.type = body.type.trim();
+  }
+  if (typeof body.phone === "string" && body.phone.trim()) {
+    if (!isPhoneShaped(body.phone.trim())) {
+      return res.status(400).json({ error: "That doesn't look like a valid phone number." });
+    }
+    config.phone = body.phone.trim();
+  }
   if (typeof body.greeting === "string") {
     config.greeting = body.greeting.trim().slice(0, 300) || config.greeting;
   }

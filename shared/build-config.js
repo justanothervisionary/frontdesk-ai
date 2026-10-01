@@ -84,6 +84,11 @@
       // api/chat.js can name the right conversion action (booking, a
       // call-out, a viewing...) instead of a generic "leave your details".
       type: type,
+      // Stored as its own field (not just baked into the FAQ/fallback text
+      // below) so a business can see and change it later from their
+      // dashboard - the baked-in text stays as a one-time snapshot, same as
+      // the business's name in the greeting.
+      phone: phone,
       theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: avatarUrl },
       greeting: GREETINGS[type].replace("{name}", name),
       fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",

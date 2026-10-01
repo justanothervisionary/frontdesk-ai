@@ -30,11 +30,12 @@
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
   .card h2 { font-size: 15px; margin: 0 0 16px; }
   label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 5px; }
-  input[type=text], input[type=email], textarea {
+  input[type=text], input[type=email], select, textarea {
     width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border);
     background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; margin-bottom: 14px;
   }
   textarea { resize: vertical; }
+  .field-tip { font-size: 12px; color: var(--muted2); margin: -8px 0 14px; line-height: 1.5; }
   .faq-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; background: var(--bg2); }
   .faq-row input, .faq-row textarea { margin-bottom: 8px; }
   .faq-row button.remove {
@@ -79,6 +80,22 @@
     <h1 id="business-name">Your dashboard</h1>
     <p class="sub">Manage your AI receptionist.</p>
     <div class="inactive-banner" id="inactive-banner">Your AI receptionist is currently inactive - it won't respond on your site. Check your billing to reactivate.</div>
+
+    <div class="card">
+      <h2>About your business</h2>
+      <label for="d-business-name">Business name</label>
+      <input type="text" id="d-business-name" />
+      <label for="d-type">What do you do?</label>
+      <select id="d-type">
+        <option value="appointments">Book appointments (clinics, salons, therapists)</option>
+        <option value="callouts">Call-outs / jobs (trades, home services)</option>
+        <option value="viewings">Viewings / valuations (estate agents)</option>
+        <option value="general">General enquiries</option>
+      </select>
+      <label for="d-phone">Phone number</label>
+      <input type="text" id="d-phone" />
+      <div class="field-tip">Changing these updates what your AI is told about your business going forward - it won't rewrite your existing greeting or FAQ answers below that already mention the old name/number as text, so update those too if needed.</div>
+    </div>
 
     <div class="card">
       <h2>How it talks</h2>
@@ -193,6 +210,9 @@
           document.getElementById("dashboard").style.display = "block";
           document.getElementById("business-name").textContent = data.businessName;
           document.getElementById("inactive-banner").style.display = data.active ? "none" : "block";
+          document.getElementById("d-business-name").value = data.businessName || "";
+          document.getElementById("d-type").value = data.type || "general";
+          document.getElementById("d-phone").value = data.phone || "";
           document.getElementById("d-assistant-name").value = data.assistantName || "";
           document.getElementById("d-greeting").value = data.greeting || "";
           document.getElementById("d-fallback").value = data.fallbackAnswer || "";
@@ -216,6 +236,9 @@
         fetch("/api/dashboard?action=save", {
           method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            businessName: document.getElementById("d-business-name").value,
+            type: document.getElementById("d-type").value,
+            phone: document.getElementById("d-phone").value,
             assistantName: document.getElementById("d-assistant-name").value,
             greeting: document.getElementById("d-greeting").value,
             fallbackAnswer: document.getElementById("d-fallback").value,
@@ -230,6 +253,9 @@
               statusEl.className = "save-status err";
               statusEl.textContent = result.data.error || "Something went wrong saving that.";
               return;
+            }
+            if (result.data.config && result.data.config.businessName) {
+              document.getElementById("business-name").textContent = result.data.config.businessName;
             }
             statusEl.className = "save-status ok";
             statusEl.textContent = "Saved - this can take a minute to go live on your site.";

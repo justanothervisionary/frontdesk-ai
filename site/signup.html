@@ -66,14 +66,27 @@
     font-family: inherit; padding: 0; text-decoration: underline;
   }
   .pdf-status { font-size: 11px; color: var(--muted2); margin-top: 4px; min-height: 14px; }
-  .url-reader-row { display: none; gap: 8px; margin-top: 8px; }
-  .url-reader-row.open { display: flex; }
-  .url-reader-row input { flex: 1; margin: 0; }
-  .url-reader-row button {
-    background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
-    padding: 0 16px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  .field-tip { font-size: 11px; color: var(--muted2); margin-top: 6px; line-height: 1.5; }
+
+  /* The primary "scan my website" action - leads the form, not a buried
+     text link, since most visitors already have a site that says most of
+     this for them. */
+  .scan-box {
+    background: color-mix(in srgb, var(--accent2) 8%, var(--bg2));
+    border: 1px solid color-mix(in srgb, var(--accent2) 30%, transparent);
+    border-radius: 12px; padding: 16px; margin-bottom: 20px;
   }
-  .url-reader-row button:disabled { opacity: .6; cursor: default; }
+  .scan-box-label { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .scan-box-sub { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+  .scan-row { display: flex; gap: 8px; }
+  .scan-row input { flex: 1; margin: 0; }
+  .scan-row button {
+    background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
+    padding: 0 16px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .scan-row button:disabled { opacity: .6; cursor: default; }
+  .scan-status { font-size: 11px; color: var(--muted2); margin-top: 8px; min-height: 14px; }
+  .scan-status.ok { color: var(--accent2); }
 
   .start-btn {
     width: 100%; background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
@@ -136,6 +149,16 @@
 
     <div class="layout">
       <div class="panel">
+        <div class="scan-box" id="scan-box">
+          <div class="scan-box-label">🌐 Got a website already?</div>
+          <p class="scan-box-sub">Paste the address below and we'll read it to fill in most of this for you - you can still edit anything it gets wrong.</p>
+          <div class="scan-row">
+            <input type="text" id="url-input" placeholder="yourbusiness.co.uk" />
+            <button type="button" id="url-go-btn">Scan my website</button>
+          </div>
+          <div class="scan-status" id="url-status"></div>
+        </div>
+
         <div class="field">
           <label for="su-email">Your email</label>
           <input type="email" id="su-email" placeholder="you@yourbusiness.com" />
@@ -161,18 +184,12 @@
           <textarea id="su-extra-info" maxlength="1000" rows="5"
             placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour."></textarea>
           <div class="extra-actions">
-            <span>
-              <button type="button" class="pdf-btn" id="pdf-trigger">📄 Or upload a PDF</button>
-              <button type="button" class="pdf-btn" id="url-trigger" style="margin-left:14px;">🌐 Or read my website</button>
-            </span>
+            <button type="button" class="pdf-btn" id="pdf-trigger">📄 Or upload a PDF</button>
             <span class="char-count" id="su-extra-count">0 / 1000</span>
           </div>
           <input type="file" id="pdf-upload" accept="application/pdf" style="display:none;" />
-          <div class="url-reader-row" id="url-reader-row">
-            <input type="text" id="url-input" placeholder="yourbusiness.co.uk" />
-            <button type="button" id="url-go-btn">Read it</button>
-          </div>
           <div class="pdf-status" id="pdf-status"></div>
+          <div class="field-tip">💡 Already used the scan above? This is for anything extra - specific prices, policies, or what makes you different. A PDF (menu, brochure, price list, even a few pages) works great too - it gets read and distilled automatically, not cut off.</div>
         </div>
 
         <div class="field-row">
@@ -246,6 +263,7 @@
 
   <script src="../shared/avatar-presets.js"></script>
   <script src="../shared/build-config.js"></script>
+  <script src="../shared/onboarding-scan.js"></script>
   <!-- No data-business/data-config-url here on purpose - this page never
        auto-inits a widget instance, only mounts one manually below once
        the visitor has typed something. -->
@@ -386,10 +404,11 @@
               statusEl.textContent = "Couldn't find any text in that PDF - try pasting the info manually instead.";
               return;
             }
-            // Same AI-summarization endpoint the "read my website" button
-            // uses - a long PDF (a full menu, brochure, etc.) gets distilled
-            // down to the actual useful facts instead of just being cut off
-            // wherever the 1000-character limit happens to land.
+            // Same AI-extraction endpoint the website scan above uses - a
+            // long PDF (a full menu, brochure, etc.) gets distilled down to
+            // the actual useful facts instead of just being cut off wherever
+            // the 1000-character limit happens to land, and the same
+            // auto-fill (business name/type/phone) applies here too.
             statusEl.textContent = "Reading your PDF...";
             return fetch("/api/scrape-website", {
               method: "POST", headers: { "Content-Type": "application/json" },
@@ -401,10 +420,10 @@
                   statusEl.textContent = result.data.error || "Couldn't read that PDF - try pasting the info manually instead.";
                   return;
                 }
-                var textarea = document.getElementById("su-extra-info");
-                textarea.value = result.data.text;
-                textarea.dispatchEvent(new Event("input", { bubbles: true }));
-                statusEl.textContent = "Extracted from your PDF - feel free to edit it above.";
+                FrontdeskOnboardingScan.applyScanResult(result.data, {
+                  name: "su-name", type: "su-type", phone: "su-phone", extraInfo: "su-extra-info"
+                });
+                statusEl.textContent = "Extracted from your PDF - feel free to edit anything above.";
               });
           })
           .catch(function (err) {
@@ -413,25 +432,20 @@
           });
       });
 
-      // --- "read my website" onboarding shortcut - fetches the URL
-      // server-side (api/scrape-website.js) and drops an AI-summarized
-      // version into the same textarea, same review/edit pattern as PDF
-      // extraction above. ---
-      document.getElementById("url-trigger").addEventListener("click", function () {
-        var row = document.getElementById("url-reader-row");
-        var opening = !row.classList.contains("open");
-        row.classList.toggle("open", opening);
-        if (opening) document.getElementById("url-input").focus();
-      });
-
+      // --- "scan my website" - the primary onboarding shortcut, leading
+      // the form rather than buried under the manual textarea. Fetches the
+      // URL server-side (api/scrape-website.js) and auto-fills business
+      // name/type/phone/extraInfo wherever it was confident enough to - the
+      // visitor reviews and can edit any of it afterward. ---
       function readWebsite() {
         var urlInput = document.getElementById("url-input");
         var url = urlInput.value.trim();
-        var statusEl = document.getElementById("pdf-status");
+        var statusEl = document.getElementById("url-status");
         var goBtn = document.getElementById("url-go-btn");
-        if (!url) { statusEl.textContent = "Enter your website's address first."; return; }
+        if (!url) { statusEl.textContent = "Enter your website's address first."; statusEl.className = "scan-status"; return; }
 
         goBtn.disabled = true;
+        statusEl.className = "scan-status";
         statusEl.textContent = "Reading your website...";
 
         fetch("/api/scrape-website", {
@@ -442,14 +456,22 @@
           .then(function (result) {
             goBtn.disabled = false;
             if (!result.ok) {
-              statusEl.textContent = result.data.error || "Couldn't read that site - try pasting the info manually instead.";
+              statusEl.textContent = result.data.error || "Couldn't read that site - try filling it in manually instead.";
               return;
             }
-            var textarea = document.getElementById("su-extra-info");
-            textarea.value = result.data.text;
-            textarea.dispatchEvent(new Event("input", { bubbles: true }));
-            statusEl.textContent = "Read from your website - feel free to edit it above.";
-            document.getElementById("url-reader-row").classList.remove("open");
+            FrontdeskOnboardingScan.applyScanResult(result.data, {
+              name: "su-name", type: "su-type", phone: "su-phone", extraInfo: "su-extra-info"
+            });
+            // The domain field is what actually gets installed/locked to
+            // later - filling it from the URL the visitor just typed (not
+            // from anything the AI extracted) is a plain, safe client-side
+            // normalization of input they already gave us directly.
+            var domainEl = document.getElementById("su-domain");
+            if (domainEl && !domainEl.value.trim() && window.FrontdeskBuildConfig) {
+              domainEl.value = FrontdeskBuildConfig.normalizeDomain(url);
+            }
+            statusEl.className = "scan-status ok";
+            statusEl.textContent = "Done - review the details below and edit anything that's not quite right.";
           })
           .catch(function (err) {
             goBtn.disabled = false;
