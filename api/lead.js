@@ -1,63 +1,21 @@
 // Vercel serverless function - server-side only. Sends a lead notification
 // email to the business via Resend. RESEND_API_KEY lives in a server-side
 // env var, never reachable from the browser.
+//
+// This is the visitor-initiated path (the "leave your details" form). As
+// of the AI being able to capture a lead directly from the conversation
+// too (api/chat.js), sendNotification() itself lives in api/_lib/leadNotify.js
+// so both paths trigger the exact same notification, never two copies that
+// could drift apart.
 const { loadConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
 const { appendLead } = require("./_lib/leadLog");
-
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
+const { sendNotification } = require("./_lib/leadNotify");
 
 // Same best-effort, provider-independent safety net as api/chat.js - see
 // that file's comment for why this isn't a guaranteed persistent limit.
 const isRateLimited = createRateLimiter(10, 60 * 1000);
-
-function escapeHtml(str) {
-  return String(str || "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-async function sendNotification(config, lead) {
-  if (!RESEND_API_KEY || !config.notifyEmail) {
-    // Not configured yet = pre-launch/demo, not a real client waiting on a
-    // real lead - fine to log and tell the visitor it worked. Once a
-    // business is live (has notifyEmail set) this branch should never run
-    // for them; if it does, that's a setup bug worth catching in logs.
-    console.log("[frontdesk lead] not configured (missing API key or notifyEmail) - lead logged only:", lead);
-    return { delivered: false, configured: false };
-  }
-
-  var transcriptHtml = (lead.transcript || [])
-    .map(function (m) { return "<p><strong>" + escapeHtml(m.role) + ":</strong> " + escapeHtml(m.content) + "</p>"; })
-    .join("");
-
-  var res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + RESEND_API_KEY,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from: FROM_ADDRESS,
-      to: config.notifyEmail,
-      bcc: process.env.LEAD_BCC_ADDRESS || undefined, // optional - our own visibility/safety net, not required
-      subject: "New website lead: " + lead.name,
-      html:
-        "<p>New lead from your Frontdesk chat widget (" + escapeHtml(config.businessName) + "):</p>" +
-        "<p><strong>Name:</strong> " + escapeHtml(lead.name) + "<br/>" +
-        "<strong>Contact:</strong> " + escapeHtml(lead.contact) + "</p>" +
-        (transcriptHtml ? "<p>Recent conversation:</p>" + transcriptHtml : "")
-    })
-  });
-
-  if (!res.ok) {
-    console.error("[frontdesk lead] Resend API error:", res.status, await res.text().catch(function () { return ""; }));
-    return { delivered: false, configured: true };
-  }
-  return { delivered: true, configured: true };
-}
 
 module.exports = async function handler(req, res) {
   applyWidgetCors(req, res);

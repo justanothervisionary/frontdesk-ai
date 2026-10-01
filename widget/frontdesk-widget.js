@@ -495,6 +495,11 @@
     // trusted as an access-control boundary; the server independently caps
     // input length, history length, and requests per minute.
     var history = [];
+    // True once the AI has captured a lead directly from the conversation
+    // (see api/chat.js's capture_lead tool) - stops the server from even
+    // offering the tool again this conversation, and hides the now-
+    // redundant manual "leave your details" link below.
+    var leadAlreadyCaptured = false;
 
     function askBackend(text) {
       var controller = new AbortController();
@@ -507,6 +512,7 @@
       // client-side object matches what actually gets used server-side.
       var body = { businessKey: instanceKey, message: text, history: history };
       if (opts.sendConfigInline) body.previewConfig = config;
+      if (leadAlreadyCaptured) body.leadAlreadyCaptured = true;
 
       return fetch(instanceApiUrl, {
         method: "POST",
@@ -519,7 +525,7 @@
           if (!r.ok) throw new Error("bad status " + r.status);
           return r.json();
         })
-        .then(function (data) { return data.reply; });
+        .then(function (data) { return { reply: data.reply, leadCaptured: !!data.leadCaptured }; });
     }
 
     function send() {
@@ -532,7 +538,7 @@
 
       var typingEl = showTyping();
 
-      function finish(replyText) {
+      function finish(replyText, leadCaptured) {
         typingEl.remove();
         addMessage(replyText, "bot");
         addFeedback(text, replyText);
@@ -541,10 +547,18 @@
         input.disabled = false;
         sendBtn.disabled = false;
         input.focus();
+
+        if (leadCaptured && !leadAlreadyCaptured) {
+          leadAlreadyCaptured = true;
+          setLeadFormOpen(false);
+          leaveLink.style.display = "none";
+        }
       }
 
       if (instanceApiUrl) {
-        askBackend(text).then(finish).catch(function () {
+        askBackend(text).then(function (result) {
+          finish(result.reply, result.leadCaptured);
+        }).catch(function () {
           // Backend down/slow/misconfigured - degrade to local matching
           // rather than leaving the visitor with a broken widget.
           finish(matchAnswer(config, text));

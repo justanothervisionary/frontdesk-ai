@@ -52,15 +52,22 @@ dependency on your CMS or hosting platform.
 
 ## Lead capture
 
-When a visitor chooses to leave their name and contact details (always
-opt-in - never collected automatically or without them clicking "leave
-your details"), that information is emailed directly to the business's
-own configured notification address. The last few messages of that
-conversation are included in the notification so the business has context
-on what the visitor was asking. If email delivery fails for a live client,
-the visitor is told honestly to call instead, rather than being shown a
-false "success" message that could leave a real inquiry lost with nobody
-aware of it.
+A visitor's contact details only ever reach a business if the visitor
+chooses to give them - always opt-in, never scraped or inferred. That
+happens one of two ways: clicking "leave your details" and filling in the
+form directly, or giving a phone number or email in the chat itself after
+the AI asks (it's instructed to ask at most once, low-pressure, and only
+after it's already been genuinely helpful - never before, never repeated).
+Either way, the business only ever learns what the visitor actually chose
+to say - the AI can't invent a lead or capture anything a visitor didn't
+themselves provide. Both paths trigger the exact same notification,
+emailed directly to the business's own configured notification address,
+with the last few messages of that conversation included so the business
+has context on what the visitor was asking. If email delivery fails for a
+live client, the visitor is told honestly to call instead (for the manual
+form) or simply keeps the AI's real answer with nothing silently broken
+(for the in-chat path) - never a false "success" message that could leave
+a real inquiry lost with nobody aware of it.
 
 A lead's name and contact details are also logged to a small per-business
 file under `api/_private-configs/leads/{key}.json` - never publicly

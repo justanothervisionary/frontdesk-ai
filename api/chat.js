@@ -6,6 +6,8 @@ const { loadConfig, sanitizePreviewConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
 const { recordUsage } = require("./_lib/usage");
+const { sendNotification } = require("./_lib/leadNotify");
+const { appendLead } = require("./_lib/leadLog");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -16,6 +18,32 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 // cap you set in the Anthropic console (do this before going live) - this
 // in-memory counter is a best-effort secondary layer only, not a guarantee.
 const isRateLimited = createRateLimiter(20, 60 * 1000);
+
+// A separate, stricter limit specifically on actually capturing a lead
+// (sending a real notification email) - matches api/lead.js's own dedicated
+// limit for the manual form. Without this, a chat-based path to triggering
+// real emails would be reachable at the much looser general chat rate above.
+// Each endpoint is its own serverless function with its own in-memory
+// counter, so these don't compose into one true combined cap - same
+// best-effort caveat as every other rate limiter in this codebase.
+const isLeadCaptureRateLimited = createRateLimiter(10, 60 * 1000);
+
+// Offered to Claude only for a real, file-backed business - see the
+// fileConfig check below for why this must never reach the free preview
+// tool. Deliberately narrow: just enough for the model to record what a
+// visitor volunteered, not a general-purpose action tool.
+var CAPTURE_LEAD_TOOL = {
+  name: "capture_lead",
+  description: "Call this only when a visitor has voluntarily given their own phone number or email in the conversation - whether in reply to your own offer to take their number, or unprompted. Never call this for the business's own contact details, or anyone else's. Call it at most once per conversation - if contact info was already captured earlier in this conversation, do not call it again.",
+  input_schema: {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "The visitor's name, if given. Empty string if not given." },
+      contact: { type: "string", description: "The visitor's phone number or email, exactly as they wrote it." }
+    },
+    required: ["contact"]
+  }
+};
 
 // The onboarding "what do you do?" selection (config.type - see
 // shared/build-config.js) maps to the specific next step this business
@@ -87,6 +115,7 @@ module.exports = async function handler(req, res) {
   var businessKey = body.businessKey;
   var message = (body.message || "").toString().slice(0, 1000); // hard cap on input length
   var history = Array.isArray(body.history) ? body.history.slice(-6) : []; // last 6 turns only - keeps cost bounded
+  var leadAlreadyCaptured = body.leadAlreadyCaptured === true;
 
   // File-based config (a real, reviewed business) takes priority. Only
   // falls back to the visitor-supplied previewConfig (sanitized above) when
@@ -114,9 +143,9 @@ module.exports = async function handler(req, res) {
   if (!message.trim()) return res.status(400).json({ error: "Empty message" });
 
   try {
-    var completion = await anthropic.messages.create({
+    var requestOptions = {
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
+      max_tokens: 300,
       // Cached: the system prompt is identical for every visitor to the
       // same business within the cache window, so this is the single
       // biggest lever on cost once a business's training text gets long -
@@ -127,11 +156,42 @@ module.exports = async function handler(req, res) {
         { type: "text", text: buildSystemPrompt(config), cache_control: { type: "ephemeral" } }
       ],
       messages: history.concat([{ role: "user", content: message }])
-    });
+    };
 
-    var reply = completion.content && completion.content[0] && completion.content[0].text
-      ? completion.content[0].text.trim()
-      : config.fallbackAnswer;
+    // Only ever offered to a real, file-backed business, and only once per
+    // conversation - never the free preview tool (no real config file
+    // behind it, so a captured "lead" there would just be a permanent,
+    // unpruned GitHub commit nothing ever reads back), and never again once
+    // the widget has told us (via leadAlreadyCaptured) that this
+    // conversation already got one. tool_choice "auto", not forced: most
+    // turns won't use it at all.
+    if (fileConfig && !leadAlreadyCaptured) {
+      requestOptions.tools = [CAPTURE_LEAD_TOOL];
+      requestOptions.tool_choice = { type: "auto", disable_parallel_tool_use: true };
+    }
+
+    var completion = await anthropic.messages.create(requestOptions);
+
+    // Content blocks aren't guaranteed to come back in a fixed order once a
+    // tool is involved, so the text reply and any tool call are pulled out
+    // independently rather than assuming content[0] is the text (which is
+    // only safe when no tool is offered at all).
+    var content = completion.content || [];
+    var textBlock = content.find(function (b) { return b.type === "text"; });
+    var toolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "capture_lead"; });
+
+    var reply;
+    if (textBlock && textBlock.text.trim()) {
+      reply = textBlock.text.trim();
+    } else if (toolUse) {
+      // Claude sometimes calls the tool without also producing prose -
+      // config.fallbackAnswer ("I'll pass that on to the team...") is the
+      // couldn't-answer message and would read as a non-sequitur right
+      // after a visitor just gave their number.
+      reply = "Thanks - I've got that, someone from the team will be in touch.";
+    } else {
+      reply = config.fallbackAnswer;
+    }
 
     // Cheap visibility into whether caching is actually paying off, without
     // a whole analytics pipeline - cache_read_input_tokens > 0 means this
@@ -148,7 +208,35 @@ module.exports = async function handler(req, res) {
     // anyone write arbitrary keys into the usage store indefinitely.
     if (fileConfig) recordUsage(businessKey, usage).catch(function () {});
 
-    return res.status(200).json({ reply: reply });
+    // Capturing a lead is NOT fire-and-forget like usage tracking - silently
+    // losing a real enquiry is exactly the bug this feature exists to fix.
+    // But a delivery failure must never turn into a broken response: the
+    // visitor still gets the real conversational reply Claude generated
+    // either way, never a 502 or a swapped-out message - that would discard
+    // a perfectly good answer and trip the widget's degraded local-matching
+    // fallback for an unrelated reason. Success/failure goes into
+    // leadCaptured instead, same success condition api/lead.js already uses.
+    var leadCaptured = false;
+    if (toolUse && !isLeadCaptureRateLimited(ip)) {
+      var capturedContact = ((toolUse.input && toolUse.input.contact) || "").toString().trim().slice(0, 200);
+      var capturedName = ((toolUse.input && toolUse.input.name) || "").toString().trim().slice(0, 200);
+      if (capturedContact) {
+        var transcript = history.concat([
+          { role: "user", content: message },
+          { role: "assistant", content: reply }
+        ]).slice(-6);
+        var captureResults = await Promise.all([
+          sendNotification(config, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript }),
+          appendLead(businessKey, { name: capturedName || "Website visitor", contact: capturedContact }).catch(function (err) {
+            console.error("[frontdesk chat] failed to log captured lead for digest:", businessKey, err.message);
+          })
+        ]);
+        var captureResult = captureResults[0];
+        leadCaptured = !(captureResult.configured && !captureResult.delivered);
+      }
+    }
+
+    return res.status(200).json({ reply: reply, leadCaptured: leadCaptured });
   } catch (err) {
     console.error("[frontdesk chat] provider error:", err.message);
     // A non-2xx here (not the generic fallback text with a 200) is
