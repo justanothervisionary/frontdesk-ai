@@ -75,6 +75,15 @@
             statusEl.className = "status ok";
             statusEl.textContent = data.message || "If that email is registered, a login link is on its way - check your inbox.";
             btn.textContent = "Link sent";
+            // Re-enabled after a short pause rather than staying stuck until
+            // a page reload - a login link expires in 15 minutes and is
+            // single-use, so being able to request a fresh one (an email
+            // that didn't arrive, a typo, or a link that's since expired)
+            // without reloading the whole page matters here.
+            setTimeout(function () {
+              btn.disabled = false;
+              btn.textContent = "Resend login link";
+            }, 4000);
           })
           .catch(function () {
             btn.disabled = false;

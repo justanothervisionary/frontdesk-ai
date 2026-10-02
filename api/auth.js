@@ -21,16 +21,17 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-// Shared by both the business-owner and admin login flows - only the link
-// and a little copy differ.
-async function sendMagicLinkEmail(email, link, dashboardLabel) {
+// Shared by both the business-owner and admin login flows - only the
+// subject, link, and a little copy differ, so the two are still tellable
+// apart at a glance in a shared inbox (e.g. the owners' own admin email).
+async function sendMagicLinkEmail(email, link, dashboardLabel, subject) {
   var res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Authorization": "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: FROM_ADDRESS,
       to: email,
-      subject: "Log in to Frontdesk",
+      subject: subject,
       html:
         "<p>Click below to log in to your " + dashboardLabel + ". This link expires in 15 minutes and can only be used once.</p>" +
         "<p><a href=\"" + link + "\">Log in to Frontdesk</a></p>" +
@@ -43,13 +44,13 @@ async function sendMagicLinkEmail(email, link, dashboardLabel) {
 function sendLoginEmail(email, businessKey) {
   var token = signLoginToken(businessKey);
   var link = SITE_BASE_URL + "/api/auth?action=verify&token=" + encodeURIComponent(token);
-  return sendMagicLinkEmail(email, link, "Frontdesk dashboard");
+  return sendMagicLinkEmail(email, link, "Frontdesk dashboard", "Log in to Frontdesk");
 }
 
 function sendAdminLoginEmail(email) {
   var token = signAdminLoginToken(email);
   var link = SITE_BASE_URL + "/api/auth?action=admin-verify&token=" + encodeURIComponent(token);
-  return sendMagicLinkEmail(email, link, "Frontdesk admin dashboard");
+  return sendMagicLinkEmail(email, link, "Frontdesk admin dashboard", "Log in to Frontdesk Admin");
 }
 
 async function handleRequestLogin(req, res) {
