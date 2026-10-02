@@ -11,6 +11,7 @@
 const Stripe = require("stripe");
 const { getFile, putFile } = require("./_lib/github");
 const { buildConfigFromDraft } = require("./_lib/config");
+const { escapeHtml } = require("./_lib/leadNotify");
 
 // Where a business's real contact email is stored - deliberately NOT in
 // configs/{key}.json, which is served to the public internet as-is. See
@@ -19,6 +20,54 @@ const { buildConfigFromDraft } = require("./_lib/config");
 // public internet.
 function privateFilePath(businessKey) {
   return "api/_private-configs/" + businessKey + ".json";
+}
+
+const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://frontdesk-ai-chi-ten.vercel.app";
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
+
+// A new signup lands on site/success.html right after checkout, which shows
+// the install snippet live - but that's a one-time view. Without this, a
+// business that closes that tab (or loses the snippet before installing it)
+// has no way back to it, and no idea their dashboard - where they can edit
+// their greeting/FAQs, see leads, or manage billing - even exists. Best-
+// effort and never allowed to fail the webhook itself: this fires after the
+// config is already successfully published, so a failed welcome email
+// should never turn a genuinely successful signup into a Stripe retry (see
+// the try/catch around the call site below).
+async function sendWelcomeEmail(notifyEmail, businessKey, businessName) {
+  if (!RESEND_API_KEY) {
+    console.log("[frontdesk webhook] Resend not configured - welcome email not sent for", businessKey);
+    return;
+  }
+
+  var snippet =
+    "&lt;script src=\"" + SITE_BASE_URL + "/widget/frontdesk-widget.js\"\n" +
+    "        data-business=\"" + businessKey + "\"\n" +
+    "        data-config-url=\"" + SITE_BASE_URL + "/configs/" + businessKey + ".json\"\n" +
+    "        data-api-url=\"" + SITE_BASE_URL + "/api/chat\"\n" +
+    "        defer&gt;&lt;/script&gt;";
+  var loginUrl = SITE_BASE_URL + "/site/login.html";
+
+  var res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: notifyEmail,
+      subject: "Welcome to Frontdesk - " + businessName + " is live",
+      html:
+        "<p>Your AI receptionist for " + escapeHtml(businessName) + " is live and ready to install.</p>" +
+        "<p>If you've already pasted the install snippet into your site, you're all set. If you lost it or haven't yet, here it is again:</p>" +
+        "<pre style=\"background:#14161a;color:#f3f4f6;padding:14px 16px;border-radius:10px;font-size:12px;overflow-x:auto;\">" + snippet + "</pre>" +
+        "<p>Whenever you need to update your greeting or FAQs, check your leads, or manage billing, log in to your dashboard - no password needed, just click the link and we'll email you a one-time login link:</p>" +
+        "<p><a href=\"" + loginUrl + "\">" + loginUrl + "</a></p>"
+    })
+  });
+
+  if (!res.ok) {
+    console.error("[frontdesk webhook] welcome email failed:", res.status, await res.text().catch(function () { return ""; }));
+  }
 }
 
 // See api/create-checkout.js for why this is lazy rather than constructed
@@ -85,6 +134,22 @@ async function handleCheckoutCompleted(session) {
     await putFile(privateFilePath(businessKey), { notifyEmail: notifyEmail }, "Set contact email for " + businessKey);
   }
   console.log("[frontdesk webhook] published new config for", businessKey);
+
+  // Caught locally, deliberately - the config is already successfully
+  // published at this point, so a welcome-email failure must never throw
+  // back out to the handler's own try/catch, which would return a 500 and
+  // make Stripe retry the whole event. On that retry, the idempotency check
+  // at the top of this function (existingConfig.stripeCheckoutSessionId ===
+  // session.id) would see the config already exists and return early before
+  // ever reaching this point again - so the email would never get a second
+  // chance to send if its failure were allowed to trigger a retry.
+  if (notifyEmail) {
+    try {
+      await sendWelcomeEmail(notifyEmail, businessKey, config.businessName);
+    } catch (err) {
+      console.error("[frontdesk webhook] welcome email threw:", businessKey, err.message);
+    }
+  }
 }
 
 async function setActiveFlag(subscription, active) {
