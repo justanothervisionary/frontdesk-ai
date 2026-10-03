@@ -313,7 +313,7 @@
   // hosted on our own domain since the widget itself gets embedded on
   // arbitrary third-party sites via a single script tag, so this needs to
   // be a real absolute URL, not a relative path.
-  var DEFAULT_AVATAR_URL = "https://frontdesk-ai-chi-ten.vercel.app/site/assets/images/ivy-avatar.jpg";
+  var DEFAULT_AVATAR_URL = "https://frontdesk-ai-chi-ten.vercel.app/site/assets/images/sia-avatar.jpg";
 
   // Back-compat: older configs set accentColor at the top level. Newer
   // configs use a theme object so more than just color is customizable

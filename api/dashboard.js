@@ -6,7 +6,7 @@
 // the original three files - just merged into one, routed by
 // method/action.
 const Stripe = require("stripe");
-const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType } = require("./_lib/config");
+const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
 const { getSessionBusinessKey, getSessionAdminEmail } = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
@@ -35,6 +35,7 @@ async function handleGetData(req, res, businessKey) {
     faqs: result.config.faqs || [],
     notifyEmail: result.config.notifyEmail || "",
     assistantName: (result.config.theme && result.config.theme.assistantName) || "Sia",
+    avatarUrl: (result.config.theme && result.config.theme.avatarUrl) || "",
     active: result.config.active !== false,
     // All leads within the 35-day retention window, not just this week's
     // slice (that narrower view is specifically for the weekly digest
@@ -100,6 +101,23 @@ async function handleSave(req, res, businessKey) {
   if (typeof body.assistantName === "string" && body.assistantName.trim()) {
     config.theme = config.theme || {};
     config.theme.assistantName = body.assistantName.trim().slice(0, 40);
+  }
+  // Omitted entirely = leave the current avatar alone. An explicit "" means
+  // "reset to the default face" (theme.avatarUrl removed, so the widget
+  // falls back to its own DEFAULT_AVATAR_URL) - anything else must match a
+  // real preset or an upload this same endpoint's own api/upload-avatar.js
+  // already committed, same trust boundary sanitizeCommittedConfig() uses
+  // for a brand new signup.
+  if (typeof body.avatarUrl === "string") {
+    var avatarUrl = body.avatarUrl.trim();
+    config.theme = config.theme || {};
+    if (!avatarUrl) {
+      delete config.theme.avatarUrl;
+    } else if (isKnownAvatarUrl(avatarUrl)) {
+      config.theme.avatarUrl = avatarUrl;
+    } else {
+      return res.status(400).json({ error: "That doesn't look like a valid avatar image." });
+    }
   }
   if (body.faqs !== undefined) {
     var faqs = sanitizeFaqs(body.faqs);

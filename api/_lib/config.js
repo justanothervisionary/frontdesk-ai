@@ -205,5 +205,5 @@ function buildConfigFromDraft(draft) {
 
 module.exports = {
   loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft,
-  isEmailShaped, isPhoneShaped, isKnownType, KNOWN_TYPES
+  isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, KNOWN_TYPES
 };

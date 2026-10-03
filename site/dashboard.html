@@ -109,6 +109,16 @@
   .empty { color: var(--muted2); font-size: 13px; text-align: center; padding: 10px 0; }
   pre { background: #0d0f12; border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 12px; overflow-x: auto; color: #cbd5e1; margin: 0 0 10px; }
   .copy-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 7px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .avatar-uploader { position: relative; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: var(--bg2); border: 1px solid var(--border); cursor: pointer; display: block; }
+  .avatar-uploader img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .avatar-uploader input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .avatar-uploader::after {
+    content: "Edit"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.5); color: #fff; font-size: 9px; font-weight: 700; opacity: 0; transition: opacity .15s; pointer-events: none;
+  }
+  .avatar-uploader:hover::after { opacity: 1; }
+  .avatar-hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .loading { text-align: center; color: var(--muted); padding: 60px 0; }
 </style>
 </head>
@@ -170,6 +180,16 @@
 
     <div class="card">
       <h2>How it talks</h2>
+      <div class="avatar-row">
+        <label class="avatar-uploader" for="d-avatar-upload" id="d-avatar-uploader">
+          <img id="d-avatar-preview" alt="" />
+          <input type="file" id="d-avatar-upload" accept="image/*" />
+        </label>
+        <div>
+          <div class="avatar-hint">Photo or logo for the chat face. Click it to change.</div>
+          <button type="button" class="copy-btn" id="avatar-reset-btn">Reset to default face</button>
+        </div>
+      </div>
       <label for="d-assistant-name">Assistant name</label>
       <input type="text" id="d-assistant-name" />
       <label for="d-greeting">Greeting</label>
@@ -218,6 +238,9 @@
     (function () {
       var faqListEl = document.getElementById("faq-list");
       var businessKey = null;
+      var DEFAULT_AVATAR_URL = "https://frontdesk-ai-chi-ten.vercel.app/site/assets/images/sia-avatar.jpg";
+      var MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+      var selectedAvatarFile = null, selectedAvatarDataUri = null, uploadedAvatarId = null, avatarReset = false;
       var typeLabels = {
         appointments: "Book appointments", callouts: "Call-outs / jobs", viewings: "Viewings / valuations",
         bookings: "Bookings / reservations", classes: "Classes / sessions", quotes: "Quotes / consultations",
@@ -368,6 +391,7 @@
           document.getElementById("d-type").value = data.type || "general";
           document.getElementById("d-phone").value = data.phone || "";
           document.getElementById("d-scan-url").value = data.domain || "";
+          document.getElementById("d-avatar-preview").src = data.avatarUrl || DEFAULT_AVATAR_URL;
           document.getElementById("d-assistant-name").value = data.assistantName || "";
           document.getElementById("d-greeting").value = data.greeting || "";
           document.getElementById("d-fallback").value = data.fallbackAnswer || "";
@@ -381,26 +405,81 @@
           document.getElementById("loading-state").innerHTML = '<p class="loading">Couldn\'t load your dashboard - please refresh.</p>';
         });
 
+      document.getElementById("d-avatar-upload").addEventListener("change", function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (!/^image\//.test(file.type)) { alert("That doesn't look like an image - try a JPG, PNG, or WebP."); return; }
+        if (file.size > MAX_AVATAR_BYTES) { alert("That image is a bit large (max 2MB) - try a smaller file."); return; }
+
+        selectedAvatarFile = file;
+        uploadedAvatarId = null;
+        avatarReset = false;
+
+        var reader = new FileReader();
+        reader.onload = function () {
+          selectedAvatarDataUri = reader.result;
+          document.getElementById("d-avatar-preview").src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById("avatar-reset-btn").addEventListener("click", function () {
+        selectedAvatarFile = null;
+        selectedAvatarDataUri = null;
+        uploadedAvatarId = null;
+        avatarReset = true;
+        document.getElementById("d-avatar-preview").src = DEFAULT_AVATAR_URL;
+      });
+
+      // Mirrors site/signup.html's own upload flow: the image only has to
+      // actually hit the server once Save is clicked, not the moment it's
+      // picked - and caching the resulting avatarId means clicking Save
+      // again without picking a new file never re-uploads the same image.
+      function ensureAvatarUploaded() {
+        if (!selectedAvatarFile) return Promise.resolve(null);
+        if (uploadedAvatarId) return Promise.resolve(uploadedAvatarId);
+        return fetch("/api/upload-avatar", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageDataUri: selectedAvatarDataUri })
+        })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            if (!result.ok) throw new Error(result.data.error || "Could not upload your photo.");
+            uploadedAvatarId = result.data.avatarId;
+            return uploadedAvatarId;
+          });
+      }
+
       document.getElementById("save-btn").addEventListener("click", function () {
         var btn = this;
         var statusEl = document.getElementById("save-status");
         btn.disabled = true;
         statusEl.className = "save-status";
-        statusEl.textContent = "Saving...";
+        statusEl.textContent = selectedAvatarFile ? "Uploading photo..." : "Saving...";
 
-        fetch("/api/dashboard?action=save", {
-          method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            businessName: document.getElementById("d-business-name").value,
-            type: document.getElementById("d-type").value,
-            phone: document.getElementById("d-phone").value,
-            assistantName: document.getElementById("d-assistant-name").value,
-            greeting: document.getElementById("d-greeting").value,
-            fallbackAnswer: document.getElementById("d-fallback").value,
-            notifyEmail: document.getElementById("d-notify-email").value,
-            faqs: collectFaqs()
+        ensureAvatarUploaded()
+          .then(function (avatarId) {
+            statusEl.textContent = "Saving...";
+            var payload = {
+              businessName: document.getElementById("d-business-name").value,
+              type: document.getElementById("d-type").value,
+              phone: document.getElementById("d-phone").value,
+              assistantName: document.getElementById("d-assistant-name").value,
+              greeting: document.getElementById("d-greeting").value,
+              fallbackAnswer: document.getElementById("d-fallback").value,
+              notifyEmail: document.getElementById("d-notify-email").value,
+              faqs: collectFaqs()
+            };
+            if (avatarReset) {
+              payload.avatarUrl = "";
+            } else if (avatarId) {
+              payload.avatarUrl = window.location.origin + "/configs/avatars/" + avatarId;
+            }
+            return fetch("/api/dashboard?action=save", {
+              method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
           })
-        })
           .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
           .then(function (result) {
             btn.disabled = false;
@@ -412,13 +491,15 @@
             if (result.data.config && result.data.config.businessName) {
               document.getElementById("business-name").textContent = result.data.config.businessName;
             }
+            selectedAvatarFile = null;
+            avatarReset = false;
             statusEl.className = "save-status ok";
             statusEl.textContent = "Saved - this can take a minute to go live on your site.";
           })
-          .catch(function () {
+          .catch(function (err) {
             btn.disabled = false;
             statusEl.className = "save-status err";
-            statusEl.textContent = "Something went wrong - please try again.";
+            statusEl.textContent = (err && err.message) || "Something went wrong - please try again.";
           });
       });
 
