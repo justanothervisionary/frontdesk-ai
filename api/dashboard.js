@@ -29,6 +29,7 @@ async function handleGetData(req, res, businessKey) {
     businessName: result.config.businessName,
     type: result.config.type || "general",
     phone: result.config.phone || "",
+    domain: result.config.domain || "",
     greeting: result.config.greeting,
     fallbackAnswer: result.config.fallbackAnswer,
     faqs: result.config.faqs || [],
@@ -152,6 +153,39 @@ async function handleBillingPortal(req, res, businessKey) {
   }
 }
 
+// Client-initiated pause/resume - mirrors handleAdminToggle's webhook-
+// independent flip (never touches Stripe, same as that function's own
+// comment explains) but scoped to the CALLER'S OWN business via the
+// session rather than a businessKey in the body, so a logged-in client can
+// only ever pause/resume themselves, never another business. Deliberately
+// doesn't check subscription status either way - same simple override
+// philosophy as the admin toggle, just self-service.
+async function handleToggleActive(req, res, businessKey) {
+  var body = req.body || {};
+  if (body.active !== true && body.active !== false) {
+    return res.status(400).json({ error: "active must be true or false" });
+  }
+
+  var result = await loadConfigLive(businessKey);
+  if (!result) return res.status(404).json({ error: "Business not found" });
+
+  var config = result.config;
+  config.active = body.active;
+  delete config.notifyEmail; // see handleSave()'s matching guard - never written to the public config
+
+  try {
+    await putFile(`configs/${businessKey}.json`, config, `${body.active ? "Resume" : "Pause"} ${businessKey} (client toggle)`, result.sha);
+  } catch (err) {
+    console.error("[frontdesk dashboard] toggle-active error:", err.message);
+    if (err.conflict) {
+      return res.status(409).json({ error: "This was just updated elsewhere - please refresh and try again." });
+    }
+    return res.status(502).json({ error: "Could not save that change - please try again." });
+  }
+
+  return res.status(200).json({ saved: true, active: config.active });
+}
+
 // Every business, for the founder's own ops view - not the widget-facing
 // "one business" shape the rest of this file deals with. loadConfigLive
 // (not loadConfig) so a business just toggled below shows up-to-date
@@ -247,6 +281,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "POST") {
     if (action === "billing-portal") return handleBillingPortal(req, res, businessKey);
+    if (action === "toggle-active") return handleToggleActive(req, res, businessKey);
     if (action === "save" || !action) return handleSave(req, res, businessKey);
     return res.status(400).json({ error: "Unknown action" });
   }

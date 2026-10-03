@@ -47,11 +47,22 @@
     padding: 9px; width: 100%; font-size: 12px; cursor: pointer; font-family: inherit;
   }
   #add-faq:hover { color: var(--text); border-color: var(--muted); }
-  .save-btn, .portal-btn {
+  .save-btn, .portal-btn, .pause-btn {
     background: var(--accent2); color: #04160c; border: none; border-radius: 9px; padding: 11px 20px;
     font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
   }
-  .save-btn:disabled, .portal-btn:disabled { opacity: .6; cursor: default; }
+  .save-btn:disabled, .portal-btn:disabled, .pause-btn:disabled { opacity: .6; cursor: default; }
+  .pause-btn.pause { background: none; border: 1px solid var(--border); color: var(--text); }
+  .pause-btn.pause:hover { border-color: var(--muted); }
+  .status-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 14px; }
+  .status-pill .dot2 { width: 7px; height: 7px; border-radius: 50%; }
+  .status-pill.live { color: var(--accent2); }
+  .status-pill.live .dot2 { background: var(--accent2); box-shadow: 0 0 8px rgba(53,214,143,.7); }
+  .status-pill.paused { color: var(--muted); }
+  .status-pill.paused .dot2 { background: var(--muted); }
+  .suggestion-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; background: var(--bg2); }
+  .suggestion-row .s-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .suggestion-row .s-value { font-size: 13px; color: var(--text); margin-bottom: 8px; line-height: 1.5; }
   .save-status { font-size: 12px; margin-top: 10px; min-height: 16px; color: var(--muted); }
   .save-status.ok { color: var(--accent2); }
   .save-status.err { color: #f2837a; }
@@ -79,7 +90,15 @@
   <div class="wrap" id="dashboard" style="display:none;">
     <h1 id="business-name">Your dashboard</h1>
     <p class="sub">Manage your AI receptionist.</p>
-    <div class="inactive-banner" id="inactive-banner">Your AI receptionist is currently inactive - it won't respond on your site. Check your billing to reactivate.</div>
+    <div class="inactive-banner" id="inactive-banner">Your AI receptionist is currently paused - it won't respond on your site. Use the toggle below to resume it.</div>
+
+    <div class="card">
+      <h2>AI receptionist status</h2>
+      <div class="status-pill live" id="status-pill"><span class="dot2"></span><span id="status-pill-text">Live</span></div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 14px;" id="status-copy">Your AI receptionist is live and answering chats on your site.</p>
+      <button class="pause-btn" id="toggle-active-btn" type="button">Pause my AI receptionist</button>
+      <div class="save-status" id="toggle-status"></div>
+    </div>
 
     <div class="card">
       <h2>About your business</h2>
@@ -107,6 +126,16 @@
       <textarea id="d-fallback" rows="2"></textarea>
       <label for="d-notify-email">Lead notification email</label>
       <input type="email" id="d-notify-email" />
+    </div>
+
+    <div class="card">
+      <h2>Rescan your website</h2>
+      <p class="field-tip" style="margin-top:0;">Pick up new or changed info from your site. This only ever suggests - nothing below is changed or removed automatically, and nothing is saved until you review a suggestion and hit Save changes.</p>
+      <label for="d-scan-url">Website address</label>
+      <input type="text" id="d-scan-url" placeholder="yourbusiness.com" />
+      <button class="copy-btn" id="rescan-btn" type="button">Rescan my website</button>
+      <div class="save-status" id="rescan-status"></div>
+      <div id="rescan-results" style="display:none;margin-top:14px;"></div>
     </div>
 
     <div class="card">
@@ -142,6 +171,19 @@
     (function () {
       var faqListEl = document.getElementById("faq-list");
       var businessKey = null;
+      var typeLabels = { appointments: "Book appointments", callouts: "Call-outs / jobs", viewings: "Viewings / valuations", general: "General enquiries" };
+
+      function setActiveState(active) {
+        document.getElementById("inactive-banner").style.display = active ? "none" : "block";
+        document.getElementById("status-pill").className = "status-pill " + (active ? "live" : "paused");
+        document.getElementById("status-pill-text").textContent = active ? "Live" : "Paused";
+        document.getElementById("status-copy").textContent = active
+          ? "Your AI receptionist is live and answering chats on your site."
+          : "Your AI receptionist is paused - it won't respond on your site. Your subscription keeps running as normal while paused.";
+        var btn = document.getElementById("toggle-active-btn");
+        btn.textContent = active ? "Pause my AI receptionist" : "Resume my AI receptionist";
+        btn.className = active ? "pause-btn pause" : "pause-btn";
+      }
 
       function addFaqRow(keywords, answer) {
         var row = document.createElement("div");
@@ -210,10 +252,11 @@
           document.getElementById("loading-state").style.display = "none";
           document.getElementById("dashboard").style.display = "block";
           document.getElementById("business-name").textContent = data.businessName;
-          document.getElementById("inactive-banner").style.display = data.active ? "none" : "block";
+          setActiveState(data.active);
           document.getElementById("d-business-name").value = data.businessName || "";
           document.getElementById("d-type").value = data.type || "general";
           document.getElementById("d-phone").value = data.phone || "";
+          document.getElementById("d-scan-url").value = data.domain || "";
           document.getElementById("d-assistant-name").value = data.assistantName || "";
           document.getElementById("d-greeting").value = data.greeting || "";
           document.getElementById("d-fallback").value = data.fallbackAnswer || "";
@@ -292,6 +335,147 @@
             btn.disabled = false;
             statusEl.className = "save-status err";
             statusEl.textContent = result.data.error || "Could not open billing management - please try again.";
+          })
+          .catch(function () {
+            btn.disabled = false;
+            statusEl.className = "save-status err";
+            statusEl.textContent = "Something went wrong - please try again.";
+          });
+      });
+
+      document.getElementById("toggle-active-btn").addEventListener("click", function () {
+        var btn = this;
+        var statusEl = document.getElementById("toggle-status");
+        var nextActive = btn.textContent.indexOf("Resume") === 0;
+        btn.disabled = true;
+        statusEl.className = "save-status";
+        statusEl.textContent = nextActive ? "Resuming..." : "Pausing...";
+
+        fetch("/api/dashboard?action=toggle-active", {
+          method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: nextActive })
+        })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            btn.disabled = false;
+            if (!result.ok) {
+              statusEl.className = "save-status err";
+              statusEl.textContent = result.data.error || "Something went wrong - please try again.";
+              return;
+            }
+            setActiveState(result.data.active);
+            statusEl.className = "save-status ok";
+            statusEl.textContent = result.data.active
+              ? "Live again - this can take a minute to take effect on your site."
+              : "Paused - this can take a minute to take effect on your site.";
+          })
+          .catch(function () {
+            btn.disabled = false;
+            statusEl.className = "save-status err";
+            statusEl.textContent = "Something went wrong - please try again.";
+          });
+      });
+
+      // Purely additive, by design: this only ever proposes changes for the
+      // owner to review and apply by hand (into the form fields above, or as
+      // a brand new FAQ row below) - it never writes to an existing field or
+      // FAQ entry on its own, so a rescan can never silently clobber
+      // something the business typed in themselves.
+      function buildSuggestionRow(label, value, buttonLabel, onApply) {
+        var row = document.createElement("div");
+        row.className = "suggestion-row";
+        var labelEl = document.createElement("div");
+        labelEl.className = "s-label";
+        labelEl.textContent = label;
+        var valueEl = document.createElement("div");
+        valueEl.className = "s-value";
+        valueEl.textContent = value;
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "copy-btn";
+        btn.textContent = buttonLabel;
+        btn.addEventListener("click", function () { onApply(btn); });
+        row.appendChild(labelEl);
+        row.appendChild(valueEl);
+        row.appendChild(btn);
+        return row;
+      }
+
+      function renderRescanResults(data) {
+        var el = document.getElementById("rescan-results");
+        el.innerHTML = "";
+        el.style.display = "block";
+        var foundAnything = false;
+
+        if (data.businessName && data.businessName !== document.getElementById("d-business-name").value.trim()) {
+          foundAnything = true;
+          el.appendChild(buildSuggestionRow("Business name", data.businessName, "Use this", function (btn) {
+            document.getElementById("d-business-name").value = data.businessName;
+            btn.textContent = "Applied above"; btn.disabled = true;
+          }));
+        }
+        if (data.phone && data.phone !== document.getElementById("d-phone").value.trim()) {
+          foundAnything = true;
+          el.appendChild(buildSuggestionRow("Phone number", data.phone, "Use this", function (btn) {
+            document.getElementById("d-phone").value = data.phone;
+            btn.textContent = "Applied above"; btn.disabled = true;
+          }));
+        }
+        if (data.type && data.type !== document.getElementById("d-type").value) {
+          foundAnything = true;
+          el.appendChild(buildSuggestionRow("Business type", typeLabels[data.type] || data.type, "Use this", function (btn) {
+            document.getElementById("d-type").value = data.type;
+            btn.textContent = "Applied above"; btn.disabled = true;
+          }));
+        }
+        if (data.text) {
+          foundAnything = true;
+          el.appendChild(buildSuggestionRow("Summary of your site right now - check it says something new before adding", data.text, "Add as a new FAQ", function (btn) {
+            addFaqRow([], data.text);
+            btn.textContent = "Added below"; btn.disabled = true;
+          }));
+        }
+
+        if (!foundAnything) {
+          el.innerHTML = '<p class="empty">Nothing new found - everything matches what you already have.</p>';
+          return;
+        }
+        var note = document.createElement("p");
+        note.className = "field-tip";
+        note.style.margin = "4px 0 0";
+        note.textContent = "Nothing is saved yet - apply the ones you want above, then hit Save changes below.";
+        el.appendChild(note);
+      }
+
+      document.getElementById("rescan-btn").addEventListener("click", function () {
+        var btn = this;
+        var statusEl = document.getElementById("rescan-status");
+        var url = document.getElementById("d-scan-url").value.trim();
+        if (!url) {
+          statusEl.className = "save-status err";
+          statusEl.textContent = "Enter your website address first.";
+          return;
+        }
+        btn.disabled = true;
+        statusEl.className = "save-status";
+        statusEl.textContent = "Scanning your site...";
+        document.getElementById("rescan-results").style.display = "none";
+
+        fetch("/api/scrape-website", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: url })
+        })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            btn.disabled = false;
+            if (!result.ok) {
+              statusEl.className = "save-status err";
+              statusEl.textContent = result.data.error || "Couldn't scan that site - please try again.";
+              return;
+            }
+            statusEl.className = "save-status ok";
+            statusEl.textContent = "Done - review what's new below.";
+            renderRescanResults(result.data);
           })
           .catch(function () {
             btn.disabled = false;
