@@ -134,6 +134,7 @@
       <h2>Billing</h2>
       <p style="color:var(--muted);font-size:13px;margin:0 0 14px;">Update your card, view invoices, or cancel your subscription.</p>
       <button class="portal-btn" id="portal-btn" type="button">Manage billing</button>
+      <div class="save-status" id="billing-status"></div>
     </div>
   </div>
 
@@ -277,14 +278,26 @@
 
       document.getElementById("portal-btn").addEventListener("click", function () {
         var btn = this;
+        var statusEl = document.getElementById("billing-status");
         btn.disabled = true;
+        statusEl.className = "save-status";
+        statusEl.textContent = "Opening billing...";
         fetch("/api/dashboard?action=billing-portal", { method: "POST", credentials: "same-origin" })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            if (result.ok && result.data.url) {
+              window.location.href = result.data.url;
+              return;
+            }
             btn.disabled = false;
-            if (data.url) window.location.href = data.url;
+            statusEl.className = "save-status err";
+            statusEl.textContent = result.data.error || "Could not open billing management - please try again.";
           })
-          .catch(function () { btn.disabled = false; });
+          .catch(function () {
+            btn.disabled = false;
+            statusEl.className = "save-status err";
+            statusEl.textContent = "Something went wrong - please try again.";
+          });
       });
 
       document.getElementById("logout-btn").addEventListener("click", function () {
