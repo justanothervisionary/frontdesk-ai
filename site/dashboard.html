@@ -66,11 +66,46 @@
   .save-status { font-size: 12px; margin-top: 10px; min-height: 16px; color: var(--muted); }
   .save-status.ok { color: var(--accent2); }
   .save-status.err { color: #f2837a; }
-  .lead-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-  .lead-row:last-child { border-bottom: none; }
-  .lead-row .name { font-weight: 600; }
-  .lead-row .contact { color: var(--muted); }
-  .lead-row .when { color: var(--muted2); font-size: 12px; }
+  .leads-card {
+    position: relative; overflow: hidden; border-color: color-mix(in srgb, var(--accent2) 30%, var(--border));
+    background: linear-gradient(165deg, color-mix(in srgb, var(--accent2) 7%, var(--card)), var(--card) 55%);
+  }
+  .leads-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+  .leads-header h2 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 16px; }
+  .leads-header h2 .spark { font-size: 15px; }
+  .leads-stats { display: flex; gap: 18px; flex-shrink: 0; }
+  .stat-tile { text-align: center; }
+  .stat-tile .stat-num { font-size: 24px; font-weight: 800; color: var(--accent2); line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat-tile .stat-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+  .leads-sub { color: var(--muted); font-size: 12px; margin: 2px 0 16px; }
+  .lead-card {
+    display: flex; align-items: center; gap: 12px; padding: 10px 2px;
+    border-bottom: 1px solid var(--border); animation: leadIn .4s ease backwards;
+  }
+  .lead-card:last-child { border-bottom: none; }
+  .lead-avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--accent2) 20%, transparent); color: var(--accent2); font-weight: 700; font-size: 13px;
+  }
+  .lead-info { flex: 1; min-width: 0; }
+  .lead-name-row { display: flex; align-items: center; gap: 7px; }
+  .lead-info .name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lead-badge {
+    font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #04160c;
+    background: var(--accent2); padding: 2px 7px; border-radius: 20px; flex-shrink: 0; animation: badgePulse 2.4s ease-in-out infinite;
+  }
+  .lead-info .contact { display: block; color: var(--muted); font-size: 12px; text-decoration: none; }
+  .lead-info .contact:hover { color: var(--accent2); text-decoration: underline; }
+  .lead-when { color: var(--muted2); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+  @keyframes leadIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes badgePulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent2) 55%, transparent); }
+    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent2) 0%, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lead-card { animation: none; }
+    .lead-badge { animation: none; }
+  }
   .empty { color: var(--muted2); font-size: 13px; text-align: center; padding: 10px 0; }
   pre { background: #0d0f12; border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 12px; overflow-x: auto; color: #cbd5e1; margin: 0 0 10px; }
   .copy-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 7px; padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
@@ -91,6 +126,18 @@
     <h1 id="business-name">Your dashboard</h1>
     <p class="sub">Manage your AI receptionist.</p>
     <div class="inactive-banner" id="inactive-banner">Your AI receptionist is currently paused - it won't respond on your site. Use the toggle below to resume it.</div>
+
+    <div class="card leads-card">
+      <div class="leads-header">
+        <h2><span class="spark">⚡</span> Leads</h2>
+        <div class="leads-stats">
+          <div class="stat-tile"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Last 35 days</div></div>
+          <div class="stat-tile"><div class="stat-num" id="stat-week">0</div><div class="stat-label">This week</div></div>
+        </div>
+      </div>
+      <p class="leads-sub">Everyone who's left their details with your AI receptionist, newest first.</p>
+      <div id="leads-list"></div>
+    </div>
 
     <div class="card">
       <h2>AI receptionist status</h2>
@@ -152,11 +199,6 @@
     <button class="save-btn" id="save-btn" type="button">Save changes</button>
     <div class="save-status" id="save-status"></div>
 
-    <div class="card" style="margin-top:24px;">
-      <h2>Recent leads</h2>
-      <div id="leads-list"></div>
-    </div>
-
     <div class="card">
       <h2>Install snippet</h2>
       <p style="color:var(--muted);font-size:13px;margin:0 0 10px;">Paste this one line into your site if you ever need to reinstall it.</p>
@@ -217,23 +259,83 @@
         }).filter(function (f) { return f.answer; });
       }
 
+      function relativeTime(iso) {
+        var ms = Date.now() - new Date(iso).getTime();
+        if (!(ms >= 0)) return "";
+        var mins = Math.floor(ms / 60000);
+        if (mins < 1) return "Just now";
+        if (mins < 60) return mins + "m ago";
+        var hours = Math.floor(mins / 60);
+        if (hours < 24) return hours + "h ago";
+        var days = Math.floor(hours / 24);
+        if (days === 1) return "Yesterday";
+        if (days < 7) return days + "d ago";
+        try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (e) { return ""; }
+      }
+
+      function contactHref(contact) {
+        var c = (contact || "").trim();
+        if (/^[0-9+\-()\s]{5,}$/.test(c)) return "tel:" + c.replace(/[^0-9+]/g, "");
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c)) return "mailto:" + c;
+        return null;
+      }
+
       function renderLeads(leads) {
         var el = document.getElementById("leads-list");
         el.innerHTML = "";
+
+        document.getElementById("stat-total").textContent = leads.length;
+        var weekMs = 7 * 24 * 60 * 60 * 1000;
+        var weekCount = leads.filter(function (l) { return (Date.now() - new Date(l.at).getTime()) < weekMs; }).length;
+        document.getElementById("stat-week").textContent = weekCount;
+
         if (!leads.length) {
-          el.innerHTML = '<p class="empty">No leads in the last 35 days.</p>';
+          el.innerHTML = '<p class="empty">No leads yet - once someone leaves their details, they\'ll show up here first.</p>';
           return;
         }
-        leads.forEach(function (lead) {
+
+        leads.forEach(function (lead, i) {
+          var isNew = (Date.now() - new Date(lead.at).getTime()) < (24 * 60 * 60 * 1000);
+          var initial = ((lead.name || "?").trim().charAt(0) || "?").toUpperCase();
+          var href = contactHref(lead.contact);
+
           var row = document.createElement("div");
-          row.className = "lead-row";
-          var when = "";
-          try { when = new Date(lead.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (e) {}
-          row.innerHTML =
-            '<div><span class="name"></span> <span class="contact"></span></div><span class="when"></span>';
-          row.querySelector(".name").textContent = lead.name;
-          row.querySelector(".contact").textContent = lead.contact;
-          row.querySelector(".when").textContent = when;
+          row.className = "lead-card";
+          row.style.animationDelay = Math.min(i * 60, 480) + "ms";
+
+          var avatar = document.createElement("div");
+          avatar.className = "lead-avatar";
+          avatar.textContent = initial;
+
+          var info = document.createElement("div");
+          info.className = "lead-info";
+          var nameRow = document.createElement("div");
+          nameRow.className = "lead-name-row";
+          var nameEl = document.createElement("span");
+          nameEl.className = "name";
+          nameEl.textContent = lead.name || "Someone";
+          nameRow.appendChild(nameEl);
+          if (isNew) {
+            var badge = document.createElement("span");
+            badge.className = "lead-badge";
+            badge.textContent = "New";
+            nameRow.appendChild(badge);
+          }
+          info.appendChild(nameRow);
+
+          var contactEl = href ? document.createElement("a") : document.createElement("span");
+          contactEl.className = "contact";
+          if (href) contactEl.href = href;
+          contactEl.textContent = lead.contact;
+          info.appendChild(contactEl);
+
+          var when = document.createElement("span");
+          when.className = "lead-when";
+          when.textContent = relativeTime(lead.at);
+
+          row.appendChild(avatar);
+          row.appendChild(info);
+          row.appendChild(when);
           el.appendChild(row);
         });
       }
