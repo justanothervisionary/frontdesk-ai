@@ -7,7 +7,7 @@
     "position": "right",
     "assistantName": "Jade"
   },
-  "greeting": "Hi! Welcome to Swigable. Ask me anything, or leave your details and the team will get back to you.",
+  "greeting": "Hi! Welcome to Swigable. Is there anything I can help with?",
   "fallbackAnswer": "Our chat services are currently down - would you like to leave your name and number so someone can get back to you?",
   "faqs": [
     {
