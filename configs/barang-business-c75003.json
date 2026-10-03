@@ -1,5 +1,5 @@
 {
-  "businessName": "Barang business",
+  "businessName": "Spearson's Group",
   "domain": "spearsons.co.uk",
   "type": "appointments",
   "theme": {
@@ -8,7 +8,7 @@
     "assistantName": "George",
     "avatarUrl": "https://frontdesk-ai-chi-ten.vercel.app/configs/avatars/a2a9b5143139f8be7ee3a7d4.jpg"
   },
-  "greeting": "Hi! Welcome to Barang business. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
+  "greeting": "Hi! Welcome to Spearson's Group. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
   "fallbackAnswer": "I'll pass that on to the team - would you like to leave your name and number, or call 07593009486?",
   "faqs": [
     {
