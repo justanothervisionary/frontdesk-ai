@@ -9,7 +9,7 @@ First target: **West London Dental Centres** (dentistw4.co.uk), Chiswick.
 
 ## Future idea: a premium tier that takes payment in-chat (not built yet)
 
-Instead of just capturing a lead for the business to follow up on, Ivy
+Instead of just capturing a lead for the business to follow up on, Sia
 closes the transaction herself - customer books and pays right in the
 widget. Noted here so it doesn't get lost, deliberately **not** scoped for
 now - it's a materially bigger build than anything else in this project:
@@ -122,21 +122,21 @@ once there's volume to justify the complexity:
 The closed bubble used to just sit there statically. Now: pops in with a
 little spring on page load, a soft breathing glow while idle (color-matched
 to each business's own accent color via `color-mix()`), an irregular blink
-on Ivy's drawn eyes (only the default face - never animates a business's
+on Sia's drawn eyes (only the default face - never animates a business's
 own uploaded logo), and a one-time, dismissible teaser bubble ("👋 Got a
-question? I'm Ivy.") that appears after ~4.5s and auto-hides after 9s if
+question? I'm Sia.") that appears after ~4.5s and auto-hides after 9s if
 ignored. All of it stops the instant someone actually opens the panel -
 the goal is a first glance, not a nagging loop. Verified the full
 lifecycle live: pop-in and pulse active on load, teaser appears on
 schedule, and clicking it opens the panel, stops all animation, and
 removes the teaser cleanly.
 
-## Visual identity - "Ivy"
+## Visual identity - "Sia"
 
 The widget was competent but generic - looked like every other blue SaaS
 chat bubble (Intercom, Drift, Tawk.to). Redesigned around an actual
 identity instead of a chat icon: every install's assistant is named
-**"Ivy"** by default (`theme.assistantName` to override), with a warm
+**"Sia"** by default (`theme.assistantName` to override), with a warm
 illustrated face (inline SVG, not a fake stock-photo human - honestly
 not-a-real-person, but alive and friendly) rather than a generic
 speech-bubble outline. The panel now has a rounded speech-bubble tail

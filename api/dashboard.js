@@ -34,7 +34,7 @@ async function handleGetData(req, res, businessKey) {
     fallbackAnswer: result.config.fallbackAnswer,
     faqs: result.config.faqs || [],
     notifyEmail: result.config.notifyEmail || "",
-    assistantName: (result.config.theme && result.config.theme.assistantName) || "Ivy",
+    assistantName: (result.config.theme && result.config.theme.assistantName) || "Sia",
     active: result.config.active !== false,
     // All leads within the 35-day retention window, not just this week's
     // slice (that narrower view is specifically for the weekly digest

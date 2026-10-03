@@ -325,7 +325,7 @@
       position: t.position || "right",
       offset: t.offset,
       avatarUrl: t.avatarUrl || DEFAULT_AVATAR_URL,
-      assistantName: t.assistantName || config.assistantName || "Ivy",
+      assistantName: t.assistantName || config.assistantName || "Sia",
       fontFamily: t.fontFamily || null
     };
   }

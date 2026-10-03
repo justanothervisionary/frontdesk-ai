@@ -152,7 +152,7 @@ function sanitizeCommittedConfig(raw) {
 
   var theme = raw.theme || {};
   var accentColor = isHexColor(theme.accentColor) ? theme.accentColor : "#2f8fe0";
-  var assistantName = ((theme.assistantName || "Ivy").toString().slice(0, 40).trim()) || "Ivy";
+  var assistantName = ((theme.assistantName || "Sia").toString().slice(0, 40).trim()) || "Sia";
   var avatarUrl = isKnownAvatarUrl(theme.avatarUrl) ? theme.avatarUrl : undefined;
 
   var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
