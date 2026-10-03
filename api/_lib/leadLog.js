@@ -28,10 +28,22 @@ function pruneOld(entries) {
 // is relying on the notification, not this bookkeeping. Callers should
 // swallow rejections rather than let them affect the visitor-facing
 // response.
+//
+// transcript is optional (the manual form and the AI tool-call path both
+// have one in scope; an admin-added lead or an old pre-this-field entry
+// won't). Capped at 4 turns here specifically - tighter than the 6 used
+// for the one-time notification email - because this write, unlike that
+// email, rewrites the business's ENTIRE accumulated 35-day lead file on
+// every single new lead. A long-running business's transcript text would
+// otherwise bloat every future write, not just its own entry.
 async function appendLead(businessKey, lead) {
   var existing = await getFile(logPath(businessKey));
   var entries = existing ? pruneOld(JSON.parse(existing.content)) : [];
-  entries.push({ name: lead.name, contact: lead.contact, at: new Date().toISOString() });
+  var entry = { name: lead.name, contact: lead.contact, at: new Date().toISOString() };
+  if (Array.isArray(lead.transcript) && lead.transcript.length) {
+    entry.transcript = lead.transcript.slice(-4);
+  }
+  entries.push(entry);
   await putFile(logPath(businessKey), entries, "Log lead for " + businessKey + "'s weekly digest", existing && existing.sha);
 }
 

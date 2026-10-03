@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
   // any failure) is deliberately ignored here.
   var results = await Promise.all([
     sendNotification(config, { name: name, contact: contact, transcript: transcript }),
-    appendLead(businessKey, { name: name, contact: contact }).catch(function (err) {
+    appendLead(businessKey, { name: name, contact: contact, transcript: transcript }).catch(function (err) {
       console.error("[frontdesk lead] failed to log lead for digest:", businessKey, err.message);
     })
   ]);

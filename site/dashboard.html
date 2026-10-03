@@ -27,6 +27,11 @@
     display: none; background: rgba(242,131,122,.1); border: 1px solid rgba(242,131,122,.3); color: #f2837a;
     border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px;
   }
+  .impersonation-banner {
+    display: none; background: rgba(47,143,224,.12); border: 1px solid rgba(47,143,224,.35); color: #7cc0f5;
+    border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 20px;
+  }
+  .impersonation-banner a { color: inherit; text-decoration: underline; font-weight: 600; cursor: pointer; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
   .card h2 { font-size: 15px; margin: 0 0 16px; }
   label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 5px; }
@@ -78,11 +83,22 @@
   .stat-tile .stat-num { font-size: 24px; font-weight: 800; color: var(--accent2); line-height: 1; font-variant-numeric: tabular-nums; }
   .stat-tile .stat-label { font-size: 10px; color: var(--muted2); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
   .leads-sub { color: var(--muted); font-size: 12px; margin: 2px 0 16px; }
-  .lead-card {
-    display: flex; align-items: center; gap: 12px; padding: 10px 2px;
-    border-bottom: 1px solid var(--border); animation: leadIn .4s ease backwards;
+  .lead-entry { border-bottom: 1px solid var(--border); animation: leadIn .4s ease backwards; }
+  .lead-entry:last-child { border-bottom: none; }
+  .lead-card { display: flex; align-items: center; gap: 12px; padding: 10px 2px; }
+  .transcript-toggle {
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px;
+    padding: 2px 0 2px 6px; flex-shrink: 0; font-family: inherit;
   }
-  .lead-card:last-child { border-bottom: none; }
+  .transcript-toggle:hover { color: var(--accent2); }
+  .transcript-panel { padding: 2px 2px 12px 46px; }
+  .transcript-line { font-size: 12px; line-height: 1.55; margin-bottom: 5px; color: var(--muted); }
+  .transcript-line .who { font-weight: 700; color: var(--muted2); }
+  .transcript-line.from-visitor { color: var(--text); }
+  .missed-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .missed-row:last-child { border-bottom: none; }
+  .missed-row .missed-q { color: var(--text); }
+  .export-link { display: inline-block; text-decoration: none; margin-bottom: 14px; }
   .lead-avatar {
     width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     background: color-mix(in srgb, var(--accent2) 20%, transparent); color: var(--accent2); font-weight: 700; font-size: 13px;
@@ -103,7 +119,7 @@
     50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent2) 0%, transparent); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .lead-card { animation: none; }
+    .lead-entry { animation: none; }
     .lead-badge { animation: none; }
   }
   .empty { color: var(--muted2); font-size: 13px; text-align: center; padding: 10px 0; }
@@ -135,6 +151,9 @@
   <div class="wrap" id="dashboard" style="display:none;">
     <h1 id="business-name">Your dashboard</h1>
     <p class="sub">Manage your AI receptionist.</p>
+    <div class="impersonation-banner" id="impersonation-banner">
+      <span id="impersonation-text"></span> - <a id="exit-impersonation-link">exit to admin</a>
+    </div>
     <div class="inactive-banner" id="inactive-banner">Your AI receptionist is currently paused - it won't respond on your site. Use the toggle below to resume it.</div>
 
     <div class="card leads-card">
@@ -143,10 +162,18 @@
         <div class="leads-stats">
           <div class="stat-tile"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Last 35 days</div></div>
           <div class="stat-tile"><div class="stat-num" id="stat-week">0</div><div class="stat-label">This week</div></div>
+          <div class="stat-tile"><div class="stat-num" id="stat-conversations">0</div><div class="stat-label">Conversations</div></div>
         </div>
       </div>
       <p class="leads-sub">Everyone who's left their details with your AI receptionist, newest first.</p>
+      <a class="copy-btn export-link" id="export-csv-link" href="/api/dashboard?action=leads-export">⬇ Export CSV</a>
       <div id="leads-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Questions it couldn't answer</h2>
+      <p class="field-tip" style="margin-top:0;">Things visitors asked that your FAQs don't cover yet - a good source for new entries in "What it knows" below.</p>
+      <div id="missed-list"></div>
     </div>
 
     <div class="card">
@@ -220,10 +247,17 @@
     <div class="save-status" id="save-status"></div>
 
     <div class="card">
+      <h2>Try it yourself</h2>
+      <p class="field-tip" style="margin-top:0;">Your real AI receptionist - look for the chat bubble in the bottom-right corner of this page.</p>
+    </div>
+
+    <div class="card">
       <h2>Install snippet</h2>
       <p style="color:var(--muted);font-size:13px;margin:0 0 10px;">Paste this one line into your site if you ever need to reinstall it.</p>
       <pre id="snippet-out"></pre>
       <button class="copy-btn" id="copy-snippet-btn" type="button">Copy</button>
+      <button class="copy-btn" id="check-install-btn" type="button">Check installation</button>
+      <div class="save-status" id="install-status"></div>
     </div>
 
     <div class="card">
@@ -234,6 +268,11 @@
     </div>
   </div>
 
+  <!-- No data-config-url, deliberately - the widget's own start() logs an
+       error and mounts nothing without one, so this never auto-inits a
+       second instance. window.FrontdeskWidget.mount() below is the real
+       entry point, called once businessKey is known. -->
+  <script src="/widget/frontdesk-widget.js"></script>
   <script>
     (function () {
       var faqListEl = document.getElementById("faq-list");
@@ -322,9 +361,12 @@
           var initial = ((lead.name || "?").trim().charAt(0) || "?").toUpperCase();
           var href = contactHref(lead.contact);
 
+          var entry = document.createElement("div");
+          entry.className = "lead-entry";
+          entry.style.animationDelay = Math.min(i * 60, 480) + "ms";
+
           var row = document.createElement("div");
           row.className = "lead-card";
-          row.style.animationDelay = Math.min(i * 60, 480) + "ms";
 
           var avatar = document.createElement("div");
           avatar.className = "lead-avatar";
@@ -359,8 +401,93 @@
           row.appendChild(avatar);
           row.appendChild(info);
           row.appendChild(when);
+
+          // Only leads captured after this feature shipped have a
+          // transcript (api/_lib/leadLog.js's appendLead only started
+          // storing one recently) - older entries, or ones added via
+          // admin-edit, simply don't get a toggle at all.
+          if (Array.isArray(lead.transcript) && lead.transcript.length) {
+            var toggleBtn = document.createElement("button");
+            toggleBtn.type = "button";
+            toggleBtn.className = "transcript-toggle";
+            toggleBtn.textContent = "💬";
+            toggleBtn.setAttribute("aria-label", "View conversation");
+            row.appendChild(toggleBtn);
+
+            var panel = document.createElement("div");
+            panel.className = "transcript-panel";
+            panel.style.display = "none";
+            lead.transcript.forEach(function (turn) {
+              var line = document.createElement("div");
+              line.className = "transcript-line" + (turn.role === "user" ? " from-visitor" : "");
+              var who = document.createElement("span");
+              who.className = "who";
+              who.textContent = (turn.role === "user" ? "Them: " : "Sia: ");
+              var msg = document.createElement("span");
+              // textContent only - this is visitor-typed content, never
+              // rendered as HTML, matching the widget's own XSS discipline.
+              msg.textContent = turn.content;
+              line.appendChild(who);
+              line.appendChild(msg);
+              panel.appendChild(line);
+            });
+            toggleBtn.addEventListener("click", function () {
+              var open = panel.style.display !== "none";
+              panel.style.display = open ? "none" : "block";
+            });
+            entry.appendChild(row);
+            entry.appendChild(panel);
+          } else {
+            entry.appendChild(row);
+          }
+
+          el.appendChild(entry);
+        });
+      }
+
+      function renderMissedQuestions(items) {
+        var el = document.getElementById("missed-list");
+        el.innerHTML = "";
+        if (!items.length) {
+          el.innerHTML = '<p class="empty">Nothing missed recently - your FAQs are covering what visitors ask.</p>';
+          return;
+        }
+        items.forEach(function (item) {
+          var row = document.createElement("div");
+          row.className = "missed-row";
+          var q = document.createElement("span");
+          q.className = "missed-q";
+          q.textContent = item.question;
+          var when = document.createElement("span");
+          when.className = "lead-when";
+          when.textContent = relativeTime(item.at);
+          row.appendChild(q);
+          row.appendChild(when);
           el.appendChild(row);
         });
+      }
+
+      // Mounts the business's own REAL widget on their own dashboard page -
+      // window.FrontdeskWidget.mount() (see widget/frontdesk-widget.js) is
+      // the public API built for exactly this, returning { destroy() } so a
+      // stray re-call never stacks a second instance. Previews the live
+      // PUBLISHED config (the same /configs/{key}.json a real visitor's
+      // browser fetches), not unsaved form edits above - live-previewing
+      // those would mean replicating the server's own sanitizer client-side.
+      var previewInstance = null;
+      function mountPreview(key) {
+        if (!window.FrontdeskWidget) return;
+        fetch("/configs/" + key + ".json")
+          .then(function (r) { return r.json(); })
+          .then(function (configJson) {
+            if (previewInstance) { previewInstance.destroy(); previewInstance = null; }
+            previewInstance = window.FrontdeskWidget.mount(configJson, {
+              businessKey: key,
+              apiUrl: window.location.origin + "/api/chat",
+              leadApiUrl: window.location.origin + "/api/lead"
+            });
+          })
+          .catch(function () {});
       }
 
       function renderSnippet(key) {
@@ -398,8 +525,15 @@
           document.getElementById("d-notify-email").value = data.notifyEmail || "";
           (data.faqs || []).forEach(function (f) { addFaqRow(f.keywords, f.answer); });
           if (!data.faqs || !data.faqs.length) addFaqRow([], "");
+          document.getElementById("stat-conversations").textContent = data.messagesThisPeriod || 0;
           renderLeads(data.leads || []);
+          renderMissedQuestions(data.missedQuestions || []);
           renderSnippet(businessKey);
+          mountPreview(businessKey);
+          if (data.impersonatedBy) {
+            document.getElementById("impersonation-text").textContent = "You're viewing this as an admin (" + data.impersonatedBy + ")";
+            document.getElementById("impersonation-banner").style.display = "block";
+          }
         })
         .catch(function () {
           document.getElementById("loading-state").innerHTML = '<p class="loading">Couldn\'t load your dashboard - please refresh.</p>';
@@ -668,6 +802,41 @@
             statusEl.className = "save-status ok";
             statusEl.textContent = "Done - review what's new below.";
             renderRescanResults(result.data);
+          })
+          .catch(function () {
+            btn.disabled = false;
+            statusEl.className = "save-status err";
+            statusEl.textContent = "Something went wrong - please try again.";
+          });
+      });
+
+      document.getElementById("exit-impersonation-link").addEventListener("click", function (e) {
+        e.preventDefault();
+        // Only clears the business cookie (__Host-session) - the admin's
+        // own session (__Host-admin-session) is a separate cookie entirely
+        // and is left untouched, so this lands back in admin, not logged
+        // out of everything.
+        fetch("/api/auth?action=logout", { method: "POST", credentials: "same-origin" })
+          .then(function () { window.location.href = "admin-dashboard.html"; });
+      });
+
+      document.getElementById("check-install-btn").addEventListener("click", function () {
+        var btn = this;
+        var statusEl = document.getElementById("install-status");
+        btn.disabled = true;
+        statusEl.className = "save-status";
+        statusEl.textContent = "Checking...";
+        fetch("/api/dashboard?action=check-install", { method: "POST", credentials: "same-origin" })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            btn.disabled = false;
+            if (!result.ok) {
+              statusEl.className = "save-status err";
+              statusEl.textContent = result.data.error || "Something went wrong - please try again.";
+              return;
+            }
+            statusEl.className = "save-status" + (result.data.installed === true ? " ok" : result.data.installed === false ? " err" : "");
+            statusEl.textContent = result.data.message;
           })
           .catch(function () {
             btn.disabled = false;

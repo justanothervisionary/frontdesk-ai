@@ -8,10 +8,20 @@
 const Stripe = require("stripe");
 const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
-const { getSessionBusinessKey, getSessionAdminEmail } = require("./_lib/session");
+const { getSessionBusinessKey, getSessionAdminEmail, getSessionImpersonator, setSessionCookie } = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
 const { getFile, putFile } = require("./_lib/github");
 const { getUsage } = require("./_lib/usage");
+const { getMissedQuestions } = require("./_lib/missedQuestions");
+const { checkInstallation } = require("./_lib/installCheck");
+const { createRateLimiter } = require("./_lib/rateLimit");
+
+// Scoped specifically to admin-edit/admin-impersonate, not the rest of this
+// file: a business's own actions (save, toggle-active) can only ever touch
+// its OWN data, but one compromised admin session looping these two could
+// rewrite or impersonate every business on the platform - a tripwire the
+// other actions here don't need.
+const isAdminActionRateLimited = createRateLimiter(20, 60 * 1000);
 
 // Lazy, not eager - see api/create-checkout.js for why: an unset
 // STRIPE_SECRET_KEY should fail one request cleanly, not crash the module.
@@ -22,7 +32,12 @@ async function handleGetData(req, res, businessKey) {
   var result = await loadConfigLive(businessKey);
   if (!result) return res.status(404).json({ error: "Business not found" });
 
-  var leadData = await readLeads(businessKey);
+  // Independent reads, parallelized rather than stacked as sequential
+  // awaits - each already has its own internal error handling (readLeads
+  // throws on a real GitHub failure, getUsage/getMissedQuestions never
+  // throw at all), so a Promise.all here doesn't need its own try/catch.
+  var extras = await Promise.all([readLeads(businessKey), getUsage(businessKey), getMissedQuestions(businessKey, 20)]);
+  var leadData = extras[0], usage = extras[1], missedQuestions = extras[2];
 
   return res.status(200).json({
     businessKey: businessKey,
@@ -37,6 +52,15 @@ async function handleGetData(req, res, businessKey) {
     assistantName: (result.config.theme && result.config.theme.assistantName) || "Sia",
     avatarUrl: (result.config.theme && result.config.theme.avatarUrl) || "",
     active: result.config.active !== false,
+    // Non-null only when this session was minted by an admin "viewing as"
+    // this business (see handleAdminImpersonate) - drives the dashboard's
+    // own banner from the session token's own truth, not a side-channel
+    // guess like "is an admin cookie also present".
+    impersonatedBy: getSessionImpersonator(req),
+    // Message count only - raw token counts are an internal cost metric,
+    // not something a non-technical business owner needs to see.
+    messagesThisPeriod: usage.messages,
+    missedQuestions: missedQuestions,
     // All leads within the 35-day retention window, not just this week's
     // slice (that narrower view is specifically for the weekly digest
     // email) - a business checking their own dashboard wants everything
@@ -204,6 +228,66 @@ async function handleToggleActive(req, res, businessKey) {
   return res.status(200).json({ saved: true, active: config.active });
 }
 
+// Neutralizes classic CSV formula injection: a lead's name/contact is
+// visitor-controlled text ("exactly as they wrote it", per the capture_lead
+// tool's own description) with no guarantee it doesn't start with =/+/-/@ -
+// opened in Excel/Sheets, a leading one of those triggers formula
+// evaluation. Prefixing with a single quote is the standard mitigation
+// (OWASP's own recommendation) - it reads as plain text everywhere, at the
+// cost of a visible leading quote in some viewers for the rare row that
+// actually needed it.
+function csvCell(value) {
+  var str = (value || "").toString();
+  if (/^[=+\-@]/.test(str)) str = "'" + str;
+  if (/[",\n]/.test(str)) str = '"' + str.replace(/"/g, '""') + '"';
+  return str;
+}
+
+// Transcript is deliberately left out of the export entirely - it's
+// already viewable per-lead in the dashboard (see handleGetData), and
+// including it here would only compound the injection surface above with
+// RFC4180 multi-line quoting complexity for no real benefit.
+async function handleLeadsExport(req, res, businessKey) {
+  var leadData = await readLeads(businessKey);
+  var rows = ["Name,Contact,Date"].concat(
+    leadData.all.slice().reverse().map(function (l) {
+      return [csvCell(l.name), csvCell(l.contact), csvCell(l.at)].join(",");
+    })
+  );
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  // A plain <a href="/api/dashboard?action=leads-export"> works via the
+  // existing session cookie with no fetch+blob dance needed - it's a
+  // same-origin top-level GET navigation, so the cookie is sent
+  // automatically. isTrustedOrigin()'s Referer fallback (see the module
+  // handler below) is specifically what makes this work despite a plain
+  // navigation having no Origin header - if a future hardening pass ever
+  // locks that down further, this download breaks along with it.
+  res.setHeader("Content-Disposition", 'attachment; filename="leads.csv"');
+  return res.status(200).send(rows.join("\r\n"));
+}
+
+// On-demand "Check my installation" - business-session-gated. installed
+// comes back true/false/null (see api/_lib/installCheck.js for what each
+// means) - message is just friendlier copy around the same three states.
+async function handleCheckInstall(req, res, businessKey) {
+  var config = loadConfig(businessKey);
+  if (!config) return res.status(404).json({ error: "Business not found" });
+  if (!config.domain) {
+    return res.status(200).json({ installed: null, message: "We don't have your website address on file yet, so we can't check this automatically." });
+  }
+
+  var installed = await checkInstallation(config.domain, businessKey, 4000);
+  var message;
+  if (installed === true) {
+    message = "Found it - your AI receptionist is live on " + config.domain + ".";
+  } else if (installed === false) {
+    message = "Couldn't find it on " + config.domain + " right now - if you've recently rebuilt your site, you may need to re-add the install snippet.";
+  } else {
+    message = "Couldn't check your site just now - please try again shortly.";
+  }
+  return res.status(200).json({ installed: installed, message: message });
+}
+
 // Every business, for the founder's own ops view - not the widget-facing
 // "one business" shape the rest of this file deals with. loadConfigLive
 // (not loadConfig) so a business just toggled below shows up-to-date
@@ -211,6 +295,31 @@ async function handleToggleActive(req, res, businessKey) {
 // itself. Each business's own work is wrapped in its own try/catch so one
 // business's GitHub/usage hiccup can't take down the whole list - same
 // per-key error isolation api/weekly-digest.js's scan loop already uses.
+// Real billing status/revenue from Stripe itself, not just the `active`
+// flag (which is Frontdesk's own webhook/manual-override bit and can
+// genuinely diverge from billing reality - e.g. active=true but Stripe
+// says past_due - worth surfacing both, not collapsing one into the
+// other). Deliberately its OWN try/catch, nested inside the per-business
+// one below rather than sharing it: a Stripe hiccup for one business must
+// degrade only ITS subscription fields, never wipe out that business's
+// otherwise-fine lead/usage numbers by falling into the outer catch.
+async function lookupSubscription(config) {
+  if (!stripe || !config.stripeSubscriptionId) {
+    return { subscriptionStatus: "none", mrr: 0 };
+  }
+  try {
+    var sub = await stripe.subscriptions.retrieve(config.stripeSubscriptionId);
+    var mrr = 0;
+    if (sub.status === "active" && sub.items && sub.items.data[0] && sub.items.data[0].price) {
+      mrr = (sub.items.data[0].price.unit_amount || 0) / 100; // unit_amount is pence, not pounds
+    }
+    return { subscriptionStatus: sub.status, mrr: mrr };
+  } catch (err) {
+    console.error("[frontdesk dashboard] stripe lookup failed:", config.businessName, err.message);
+    return { subscriptionStatus: "unknown", mrr: 0 };
+  }
+}
+
 async function handleAdminList(req, res) {
   var keys = listBusinessKeys();
   var rows = await Promise.all(keys.map(async function (key) {
@@ -220,13 +329,23 @@ async function handleAdminList(req, res) {
       var config = result.config;
       var leadData = await readLeads(key);
       var usage = await getUsage(key);
+      var subscription = await lookupSubscription(config);
       return {
         businessKey: key,
         businessName: config.businessName,
         domain: config.domain || "",
         type: config.type || "general",
+        // phone/notifyEmail weren't needed here before admin-edit existed -
+        // now the admin UI needs something to pre-fill its edit form with,
+        // same reasoning handleGetData already applies for the client's own
+        // dashboard. loadConfigLive() already merges notifyEmail in from the
+        // private file (see its own comment), so no extra read needed here.
+        phone: config.phone || "",
+        notifyEmail: config.notifyEmail || "",
         active: config.active !== false,
         stripeCustomerId: config.stripeCustomerId || "",
+        subscriptionStatus: subscription.subscriptionStatus,
+        mrr: subscription.mrr,
         leadCount: leadData.all.length,
         messages: usage.messages,
         inputTokens: usage.inputTokens,
@@ -237,7 +356,9 @@ async function handleAdminList(req, res) {
       return { businessKey: key, businessName: key, error: "Could not load this business right now" };
     }
   }));
-  return res.status(200).json({ businesses: rows.filter(Boolean) });
+  var businesses = rows.filter(Boolean);
+  var totalMrr = businesses.reduce(function (sum, b) { return sum + (b.mrr || 0); }, 0);
+  return res.status(200).json({ businesses: businesses, totalMrr: totalMrr });
 }
 
 // A manual override switch, not a replacement for real billing cancellation -
@@ -276,30 +397,91 @@ async function handleAdminToggle(req, res) {
   return res.status(200).json({ saved: true, active: config.active });
 }
 
+// Fixes exactly the kind of mismatch that needed a hand-edited JSON file
+// this session (Spearson's Group showing as "Barang business") - admin
+// acting on ANOTHER business's identity fields, not a second copy of the
+// full client dashboard. Deliberately filters the body down to just these
+// 4 fields before delegating to handleSave's own field-sanitization logic -
+// handleSave takes businessKey as a plain parameter already, so reuse is
+// clean, but passing the RAW admin request body through would silently
+// also accept every other field handleSave whitelists (faqs, greeting,
+// assistantName, avatarUrl) - not a security hole since admin is already
+// trusted, but scope drift: the backend would permit more than this admin
+// action's own UI implies, with zero review.
+async function handleAdminEdit(req, res) {
+  var body = req.body || {};
+  var targetBusinessKey = (body.businessKey || "").toString();
+  if (!targetBusinessKey) return res.status(400).json({ error: "businessKey is required" });
+
+  var filtered = {};
+  ["businessName", "type", "phone", "notifyEmail"].forEach(function (field) {
+    if (typeof body[field] === "string") filtered[field] = body[field];
+  });
+  return handleSave({ body: filtered }, res, targetBusinessKey);
+}
+
+// "View as this business" for support - mints a real business session via
+// the already-exported setSessionCookie rather than a magic-link email,
+// since the admin is already authenticated and this is an explicit,
+// intentional support action. impersonatedBy is baked into the signed
+// session payload itself (see api/_lib/session.js) so the dashboard's own
+// banner is driven by the token's truth, never a side-channel guess.
+// Exiting is just the existing /api/auth?action=logout - confirmed it only
+// clears the business cookie, leaving the admin's own session untouched.
+async function handleAdminImpersonate(req, res, adminEmail, ip) {
+  var body = req.body || {};
+  var targetBusinessKey = (body.businessKey || "").toString();
+  if (!targetBusinessKey) return res.status(400).json({ error: "businessKey is required" });
+
+  // Cheap local check (no network) purely so a fat-fingered businessKey
+  // produces a clear error now rather than a cookie for nothing - a
+  // downstream handleGetData would 404 gracefully either way, so this is
+  // audit-quality, not a security boundary.
+  var config = loadConfig(targetBusinessKey);
+  if (!config) return res.status(404).json({ error: "Business not found" });
+
+  console.log("[frontdesk dashboard] admin impersonation:", JSON.stringify({
+    adminEmail: adminEmail, targetBusinessKey: targetBusinessKey, ip: ip, at: new Date().toISOString()
+  }));
+
+  setSessionCookie(res, targetBusinessKey, adminEmail);
+  return res.status(200).json({ impersonating: targetBusinessKey });
+}
+
 module.exports = async function handler(req, res) {
   if (!isTrustedOrigin(req)) return res.status(403).json({ error: "Forbidden" });
 
   var action = (req.query && req.query.action) || "";
+  var ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown").split(",")[0].trim();
 
   // Checked and returned BEFORE the business-session gate below, so an
   // admin action can never fall through into business-dashboard logic (or
   // vice versa) - the two are gated on entirely separate cookies/sessions.
-  if (action === "admin-list" || action === "admin-toggle") {
+  if (action === "admin-list" || action === "admin-toggle" || action === "admin-edit" || action === "admin-impersonate") {
     var adminEmail = getSessionAdminEmail(req);
     if (!adminEmail) return res.status(401).json({ error: "Not logged in" });
     if (req.method === "GET" && action === "admin-list") return handleAdminList(req, res);
     if (req.method === "POST" && action === "admin-toggle") return handleAdminToggle(req, res);
+    if (req.method === "POST" && (action === "admin-edit" || action === "admin-impersonate")) {
+      if (isAdminActionRateLimited(ip)) return res.status(429).json({ error: "Too many requests - please try again in a minute." });
+      if (action === "admin-edit") return handleAdminEdit(req, res);
+      return handleAdminImpersonate(req, res, adminEmail, ip);
+    }
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   var businessKey = getSessionBusinessKey(req);
   if (!businessKey) return res.status(401).json({ error: "Not logged in" });
 
-  if (req.method === "GET") return handleGetData(req, res, businessKey);
+  if (req.method === "GET") {
+    if (action === "leads-export") return handleLeadsExport(req, res, businessKey);
+    return handleGetData(req, res, businessKey);
+  }
 
   if (req.method === "POST") {
     if (action === "billing-portal") return handleBillingPortal(req, res, businessKey);
     if (action === "toggle-active") return handleToggleActive(req, res, businessKey);
+    if (action === "check-install") return handleCheckInstall(req, res, businessKey);
     if (action === "save" || !action) return handleSave(req, res, businessKey);
     return res.status(400).json({ error: "Unknown action" });
   }

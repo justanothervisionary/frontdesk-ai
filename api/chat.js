@@ -6,6 +6,7 @@ const { loadConfig, sanitizePreviewConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { applyWidgetCors, isOriginAllowed } = require("./_lib/cors");
 const { recordUsage } = require("./_lib/usage");
+const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
 
@@ -43,6 +44,19 @@ var CAPTURE_LEAD_TOOL = {
     },
     required: ["contact"]
   }
+};
+
+// Feeds the dashboard's "questions we couldn't answer" view - the feedback
+// loop that shows a business what's actually missing from their own FAQ
+// content. No input schema: when this fires, the server logs its own
+// already-captured `message` variable verbatim rather than trusting the
+// model to re-type the visitor's question into a tool argument, which
+// would risk a paraphrased, dropped, or translated copy instead of what
+// the visitor actually typed.
+var FLAG_UNANSWERED_TOOL = {
+  name: "flag_unanswered",
+  description: "Call this when the visitor asked a real, on-topic question about this business that the information above doesn't cover - not for greetings, small talk, or things you already correctly redirected to calling the business (that's normal, expected behaviour, not a gap). This only logs the gap for the business to review; it does not change how you should reply - still follow the HARD RULES above (offer to pass it on, take their details, etc.) exactly as you normally would. If the visitor ALSO gave their own contact info in this same message, call capture_lead instead of this.",
+  input_schema: { type: "object", properties: {} }
 };
 
 // The onboarding "what do you do?" selection (config.type - see
@@ -163,15 +177,25 @@ module.exports = async function handler(req, res) {
       messages: history.concat([{ role: "user", content: message }])
     };
 
-    // Only ever offered to a real, file-backed business, and only once per
-    // conversation - never the free preview tool (no real config file
-    // behind it, so a captured "lead" there would just be a permanent,
-    // unpruned GitHub commit nothing ever reads back), and never again once
-    // the widget has told us (via leadAlreadyCaptured) that this
-    // conversation already got one. tool_choice "auto", not forced: most
-    // turns won't use it at all.
-    if (fileConfig && !leadAlreadyCaptured) {
-      requestOptions.tools = [CAPTURE_LEAD_TOOL];
+    // Both only ever offered to a real, file-backed business - never the
+    // free preview tool (no real config file behind it, so either tool
+    // firing there would just be a permanent, unpruned write nothing ever
+    // reads back). capture_lead also stops being offered once the widget
+    // has told us (via leadAlreadyCaptured) this conversation already got
+    // one; flag_unanswered keeps working regardless, since a conversation
+    // can hit an FAQ gap at any point, lead captured or not. tool_choice
+    // "auto", not forced: most turns won't use either at all. Offering both
+    // together under disable_parallel_tool_use means the model can only
+    // call ONE per turn - a message that's both unanswerable AND contains
+    // contact info might not fire both - made explicit in
+    // FLAG_UNANSWERED_TOOL's own description rather than left to chance.
+    var tools = [];
+    if (fileConfig) {
+      if (!leadAlreadyCaptured) tools.push(CAPTURE_LEAD_TOOL);
+      tools.push(FLAG_UNANSWERED_TOOL);
+    }
+    if (tools.length) {
+      requestOptions.tools = tools;
       requestOptions.tool_choice = { type: "auto", disable_parallel_tool_use: true };
     }
 
@@ -183,19 +207,29 @@ module.exports = async function handler(req, res) {
     // only safe when no tool is offered at all).
     var content = completion.content || [];
     var textBlock = content.find(function (b) { return b.type === "text"; });
-    var toolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "capture_lead"; });
+    var captureToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "capture_lead"; });
+    var flagToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "flag_unanswered"; });
 
     var reply;
     if (textBlock && textBlock.text.trim()) {
       reply = textBlock.text.trim();
-    } else if (toolUse) {
+    } else if (captureToolUse) {
       // Claude sometimes calls the tool without also producing prose -
       // config.fallbackAnswer ("I'll pass that on to the team...") is the
       // couldn't-answer message and would read as a non-sequitur right
-      // after a visitor just gave their number.
+      // after a visitor just gave their number. Checked specifically
+      // against captureToolUse, not "any tool fired" - a bare
+      // flagToolUse with no prose should fall through to fallbackAnswer
+      // below instead, never claim contact info was captured when it wasn't.
       reply = "Thanks - I've got that, someone from the team will be in touch.";
     } else {
       reply = config.fallbackAnswer;
+    }
+
+    // Fire-and-forget, like recordUsage() below - losing an occasional
+    // entry is fine; this must never add latency to the visitor's reply.
+    if (fileConfig && flagToolUse) {
+      recordMissedQuestion(businessKey, message).catch(function () {});
     }
 
     // Cheap visibility into whether caching is actually paying off, without
@@ -222,9 +256,9 @@ module.exports = async function handler(req, res) {
     // fallback for an unrelated reason. Success/failure goes into
     // leadCaptured instead, same success condition api/lead.js already uses.
     var leadCaptured = false;
-    if (toolUse && !isLeadCaptureRateLimited(ip)) {
-      var capturedContact = ((toolUse.input && toolUse.input.contact) || "").toString().trim().slice(0, 200);
-      var capturedName = ((toolUse.input && toolUse.input.name) || "").toString().trim().slice(0, 200);
+    if (captureToolUse && !isLeadCaptureRateLimited(ip)) {
+      var capturedContact = ((captureToolUse.input && captureToolUse.input.contact) || "").toString().trim().slice(0, 200);
+      var capturedName = ((captureToolUse.input && captureToolUse.input.name) || "").toString().trim().slice(0, 200);
       if (capturedContact) {
         var transcript = history.concat([
           { role: "user", content: message },
@@ -232,7 +266,7 @@ module.exports = async function handler(req, res) {
         ]).slice(-6);
         var captureResults = await Promise.all([
           sendNotification(config, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript }),
-          appendLead(businessKey, { name: capturedName || "Website visitor", contact: capturedContact }).catch(function (err) {
+          appendLead(businessKey, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript }).catch(function (err) {
             console.error("[frontdesk chat] failed to log captured lead for digest:", businessKey, err.message);
           })
         ]);

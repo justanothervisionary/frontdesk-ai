@@ -86,11 +86,29 @@ function getSessionBusinessKey(req) {
   return (payload && payload.purpose === "session" && payload.businessKey) ? payload.businessKey : null;
 }
 
-function setSessionCookie(res, businessKey) {
-  var token = sign({ businessKey: businessKey, purpose: "session" }, SESSION_TTL_SECONDS);
+// impersonatedBy is optional - set only when an admin is minting this
+// session on a business's behalf (see api/dashboard.js's admin-impersonate
+// action), never by a real login. Baked into the signed payload itself,
+// not inferred from "is an admin cookie also present" - that side-channel
+// would wrongly fire for a real business owner who ALSO happens to be an
+// admin logged in separately, which isn't impersonation at all.
+function setSessionCookie(res, businessKey, impersonatedBy) {
+  var payload = { businessKey: businessKey, purpose: "session" };
+  if (impersonatedBy) payload.impersonatedBy = impersonatedBy;
+  var token = sign(payload, SESSION_TTL_SECONDS);
   res.setHeader("Set-Cookie",
     SESSION_COOKIE_NAME + "=" + encodeURIComponent(token) +
     "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=" + SESSION_TTL_SECONDS);
+}
+
+// Null when this session was a normal login, or no valid session at all -
+// otherwise the admin email that minted it via impersonation. Mirrors
+// getSessionBusinessKey()'s own cookie-parse-and-verify shape.
+function getSessionImpersonator(req) {
+  var token = parseCookies(req)[SESSION_COOKIE_NAME];
+  if (!token) return null;
+  var payload = verify(token);
+  return (payload && payload.purpose === "session" && payload.impersonatedBy) ? payload.impersonatedBy : null;
 }
 
 function clearSessionCookie(res) {
@@ -142,6 +160,6 @@ function clearAdminSessionCookie(res) {
 }
 
 module.exports = {
-  signLoginToken, verifyLoginToken, setSessionCookie, getSessionBusinessKey, clearSessionCookie,
+  signLoginToken, verifyLoginToken, setSessionCookie, getSessionBusinessKey, getSessionImpersonator, clearSessionCookie,
   isAdminEmail, signAdminLoginToken, verifyAdminLoginToken, setAdminSessionCookie, getSessionAdminEmail, clearAdminSessionCookie
 };

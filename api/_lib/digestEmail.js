@@ -64,7 +64,12 @@ function leadRow(lead, isLast) {
 // Returns { subject, html }. `thisWeek` is an array of { name, contact, at }
 // (see api/_lib/leadLog.js). `config` is the loaded, sanitized business
 // config - assistantName comes from config.theme.assistantName.
-function buildDigestEmail(config, thisWeek) {
+// `installWarning` (optional, true/false/undefined) comes from
+// api/weekly-digest.js's own-domain check - undefined means "no domain set
+// or check inconclusive", deliberately rendered as nothing rather than a
+// false alarm either way; only an explicit `false` (checked and NOT found)
+// shows the banner.
+function buildDigestEmail(config, thisWeek, installWarning) {
   var assistantName = (config.theme && config.theme.assistantName) || "Your AI receptionist";
   var count = thisWeek.length;
   var hasLeads = count > 0;
@@ -87,6 +92,16 @@ function buildDigestEmail(config, thisWeek) {
       '</table>'
     : "";
 
+  var installBanner = installWarning === false
+    ? '<tr><td style="padding:16px 32px 0 32px;">' +
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(242,131,122,.12);border:1px solid rgba(242,131,122,.3);border-radius:10px;">' +
+          '<tr><td style="padding:12px 16px;font-family:' + FONT + ';color:#f2837a;font-size:13px;line-height:1.5;">' +
+            "We checked " + escapeHtml(config.domain || "your site") + " and couldn't find " + escapeHtml(assistantName) + "'s widget installed - if you've moved or rebuilt your site recently, you may need to re-add the install snippet from your dashboard." +
+          '</td></tr>' +
+        '</table>' +
+      '</td></tr>'
+    : "";
+
   var html =
     '<div style="background:' + COLORS.pageBg + ';padding:32px 16px;">' +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;">' +
@@ -105,6 +120,8 @@ function buildDigestEmail(config, thisWeek) {
               '<div style="color:' + COLORS.text + ';font-size:23px;font-weight:800;letter-spacing:-0.02em;line-height:1.3;">' + headline + '</div>' +
               '<div style="color:' + COLORS.bodyText + ';font-size:14px;margin-top:10px;line-height:1.55;">' + subline + '</div>' +
             '</td></tr>' +
+
+            installBanner +
 
             (hasLeads ? '<tr><td style="padding:20px 32px 0 32px;">' + leadsBlock + '</td></tr>' : '') +
 

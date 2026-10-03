@@ -14,12 +14,24 @@
 const { loadConfig, listBusinessKeys } = require("./_lib/config");
 const { readLeads, writePrunedLeads } = require("./_lib/leadLog");
 const { buildDigestEmail } = require("./_lib/digestEmail");
+const { checkInstallation } = require("./_lib/installCheck");
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
 
-async function sendDigest(config, thisWeek) {
-  var email = buildDigestEmail(config, thisWeek);
+// A short, fail-open timeout - this loop is sequential `await`, not
+// parallel, so one slow client's own site must never cost every OTHER
+// client their digest email. installWarning stays undefined (no banner)
+// on anything inconclusive - never a false "it's broken" reading from a
+// check that only had 3 seconds to prove otherwise.
+async function checkInstallWarning(config, businessKey) {
+  if (!config.domain) return undefined;
+  var installed = await checkInstallation(config.domain, businessKey, 3000);
+  return installed === false ? false : undefined;
+}
+
+async function sendDigest(config, thisWeek, installWarning) {
+  var email = buildDigestEmail(config, thisWeek, installWarning);
 
   var res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -70,7 +82,8 @@ module.exports = async function handler(req, res) {
       }
 
       var leadData = await readLeads(key);
-      await sendDigest(config, leadData.thisWeek);
+      var installWarning = await checkInstallWarning(config, key);
+      await sendDigest(config, leadData.thisWeek, installWarning);
 
       // Only write back if pruning actually removed something old - a
       // business with no stale leads shouldn't generate a pointless commit

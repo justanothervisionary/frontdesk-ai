@@ -4,25 +4,14 @@
 // something as rare as a lead, but a chat message happens on every single
 // visitor turn, and a commit per message would mean constant write
 // conflicts under concurrent invocations plus unbounded repo growth. This
-// talks to Upstash Redis's plain REST API instead (a genuinely new piece of
-// infrastructure, added specifically for this) - raw fetch(), no client
-// library, matching how api/_lib/github.js and api/lead.js already talk to
-// their own third-party APIs.
+// talks to Upstash Redis's plain REST API instead (api/_lib/upstash.js) -
+// a genuinely new piece of infrastructure, added specifically for this.
 //
 // All-time counters only for v1 - three keys per business, no daily/trend
 // buckets yet. That's "basic info to begin with", not a permanent design
 // decision; a time-series view is a natural fast-follow once there's real
 // volume to make one worth looking at.
-//
-// Var names come straight from what the Vercel Marketplace's "Upstash for
-// Redis" integration actually provisions with a custom prefix of
-// "UPSTASH_REDIS_REST" - it appends its own fixed "_KV_REST_API_URL"/
-// "_KV_REST_API_TOKEN" suffixes on top of that prefix, not a plain
-// "_URL"/"_TOKEN". Confirmed against the real values in the Vercel
-// dashboard rather than assumed.
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
-const FETCH_TIMEOUT_MS = 1500;
+const { pipeline, isConfigured } = require("./upstash");
 
 function keysFor(businessKey) {
   return {
@@ -32,32 +21,12 @@ function keysFor(businessKey) {
   };
 }
 
-// A short hard timeout so a slow or down Upstash instance can never hang a
-// caller indefinitely, regardless of how it's invoked - this is what makes
-// it SAFE for api/chat.js to fire-and-forget this without awaiting it.
-async function pipeline(commands) {
-  var controller = new AbortController();
-  var timeout = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT_MS);
-  try {
-    var res = await fetch(UPSTASH_URL + "/pipeline", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + UPSTASH_TOKEN, "Content-Type": "application/json" },
-      body: JSON.stringify(commands),
-      signal: controller.signal
-    });
-    if (!res.ok) throw new Error("Upstash pipeline failed: " + res.status);
-    return res.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 // Fire-and-forget from the caller's side (api/chat.js does NOT await this) -
 // never throws, so it can never affect the visitor-facing chat response.
 // Silently does nothing if Upstash isn't configured yet, same "not
 // configured" handling already used for RESEND_API_KEY elsewhere.
 async function recordUsage(businessKey, usage) {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return;
+  if (!isConfigured()) return;
   try {
     var k = keysFor(businessKey);
     var inputTokens = (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0);
@@ -78,7 +47,7 @@ async function recordUsage(businessKey, usage) {
 // try/catch for everything else.
 async function getUsage(businessKey) {
   var zero = { messages: 0, inputTokens: 0, outputTokens: 0 };
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return zero;
+  if (!isConfigured()) return zero;
   try {
     var k = keysFor(businessKey);
     var result = await pipeline([["GET", k.messages], ["GET", k.inputTokens], ["GET", k.outputTokens]]);

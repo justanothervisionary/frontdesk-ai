@@ -39,17 +39,44 @@
   .pill.active { background: rgba(53,214,143,.12); color: var(--accent2); }
   .pill.inactive { background: rgba(242,131,122,.12); color: #f2837a; }
   .pill.error { background: rgba(242,131,122,.12); color: #f2837a; }
+  .pill.sub-trialing { background: rgba(47,143,224,.14); color: #7cc0f5; }
+  .pill.sub-active { background: rgba(53,214,143,.12); color: var(--accent2); }
+  .pill.sub-past_due { background: rgba(255,176,32,.14); color: #ffb020; }
+  .pill.sub-canceled { background: rgba(242,131,122,.12); color: #f2837a; }
+  .pill.sub-default { background: rgba(255,255,255,.06); color: var(--muted); }
+  .pill-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .biz-stats { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
   .biz-stats div span.num { font-variant-numeric: tabular-nums; font-weight: 700; }
   .biz-stats div span.lbl { color: var(--muted); margin-left: 4px; }
   .biz-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-  .toggle-btn, .stripe-link {
+  .toggle-btn, .stripe-link, .edit-btn, .view-as-btn {
     background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px;
     padding: 7px 14px; font-size: 12px; cursor: pointer; font-family: inherit; text-decoration: none; display: inline-block;
   }
-  .toggle-btn:hover, .stripe-link:hover { border-color: var(--muted); }
-  .toggle-btn:disabled { opacity: .5; cursor: default; }
+  .toggle-btn:hover, .stripe-link:hover, .edit-btn:hover, .view-as-btn:hover { border-color: var(--muted); }
+  .toggle-btn:disabled, .view-as-btn:disabled { opacity: .5; cursor: default; }
   .toggle-btn.deactivate { color: #f2837a; }
+  .search-input {
+    width: 100%; max-width: 320px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; margin-bottom: 20px; display: block;
+  }
+  .edit-form { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .edit-form label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin: 0 0 4px; }
+  .edit-form input, .edit-form select {
+    width: 100%; padding: 8px 10px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; margin-bottom: 10px;
+  }
+  .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .edit-actions { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
+  .save-edit-btn {
+    background: var(--accent2); color: #04160c; border: none; border-radius: 7px; padding: 7px 14px;
+    font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  }
+  .save-edit-btn:disabled { opacity: .6; cursor: default; }
+  .cancel-edit-btn { background: none; border: none; color: var(--muted); font-size: 12px; cursor: pointer; font-family: inherit; }
+  .edit-status { font-size: 12px; margin-top: 8px; min-height: 16px; color: var(--muted); }
+  .edit-status.ok { color: var(--accent2); }
+  .edit-status.err { color: #f2837a; }
 </style>
 </head>
 <body>
@@ -67,30 +94,55 @@
     <p class="sub">Every business on the platform, at a glance.</p>
 
     <div class="totals" id="totals"></div>
+    <input type="text" class="search-input" id="search-input" placeholder="Search by name or domain..." />
     <div id="biz-list"></div>
   </div>
 
   <script>
     (function () {
+      var allRows = []; // the last fetch's full list, re-filtered locally by the search box rather than refetched
+
+      var TYPE_OPTIONS_HTML =
+        '<option value="appointments">Book appointments (clinics, salons, therapists)</option>' +
+        '<option value="callouts">Call-outs / jobs (trades, home services)</option>' +
+        '<option value="viewings">Viewings / valuations (estate agents)</option>' +
+        '<option value="bookings">Bookings / reservations (restaurants, venues, events)</option>' +
+        '<option value="classes">Classes / sessions (gyms, studios, tutors)</option>' +
+        '<option value="quotes">Quotes / consultations (solicitors, accountants, consultants)</option>' +
+        '<option value="retail">Shop / product enquiries (retail, online stores)</option>' +
+        '<option value="automotive">Vehicle servicing / sales (garages, dealerships)</option>' +
+        '<option value="general">General enquiries</option>';
+
       function fmt(n) { return (n || 0).toLocaleString("en-GB"); }
+      function fmtMoney(n) { return "£" + (n || 0).toLocaleString("en-GB", { maximumFractionDigits: 2 }); }
+
+      function subPillClass(status) {
+        if (status === "trialing") return "sub-trialing";
+        if (status === "active") return "sub-active";
+        if (status === "past_due") return "sub-past_due";
+        if (status === "canceled" || status === "unpaid" || status === "incomplete_expired") return "sub-canceled";
+        return "sub-default";
+      }
 
       function renderTotals(rows) {
         var totalBiz = rows.length;
         var activeBiz = rows.filter(function (r) { return r.active; }).length;
         var totalLeads = rows.reduce(function (s, r) { return s + (r.leadCount || 0); }, 0);
         var totalMessages = rows.reduce(function (s, r) { return s + (r.messages || 0); }, 0);
+        var totalMrr = rows.reduce(function (s, r) { return s + (r.mrr || 0); }, 0);
         var el = document.getElementById("totals");
         el.innerHTML = "";
         [
-          [totalBiz, "Businesses"],
-          [activeBiz, "Active"],
-          [totalLeads, "Leads (35d)"],
-          [totalMessages, "Messages (all-time)"]
+          [fmtMoney(totalMrr), "MRR"],
+          [fmt(totalBiz), "Businesses"],
+          [fmt(activeBiz), "Active"],
+          [fmt(totalLeads), "Leads (35d)"],
+          [fmt(totalMessages), "Messages (all-time)"]
         ].forEach(function (pair) {
           var s = document.createElement("div");
           s.className = "stat";
           s.innerHTML = '<div class="num"></div><div class="lbl"></div>';
-          s.querySelector(".num").textContent = fmt(pair[0]);
+          s.querySelector(".num").textContent = pair[0];
           s.querySelector(".lbl").textContent = pair[1];
           el.appendChild(s);
         });
@@ -120,29 +172,53 @@
           card.innerHTML =
             '<div class="biz-top">' +
               '<div><div class="biz-name"></div><div class="biz-domain"></div></div>' +
-              '<span class="pill"></span>' +
+              '<div class="pill-row"><span class="pill active-pill"></span><span class="pill sub-pill"></span></div>' +
             '</div>' +
             '<div class="biz-stats">' +
               '<div><span class="num"></span><span class="lbl">leads (35d)</span></div>' +
               '<div><span class="num"></span><span class="lbl">messages</span></div>' +
               '<div><span class="num"></span><span class="lbl">input tokens</span></div>' +
               '<div><span class="num"></span><span class="lbl">output tokens</span></div>' +
+              '<div><span class="num"></span><span class="lbl">MRR</span></div>' +
             '</div>' +
             '<div class="biz-actions">' +
               '<button class="toggle-btn" type="button"></button>' +
+              '<button class="edit-btn" type="button">Edit</button>' +
+              '<button class="view-as-btn" type="button">View as this business</button>' +
+            '</div>' +
+            '<div class="edit-form">' +
+              '<div class="edit-row">' +
+                '<div><label>Business name</label><input type="text" class="edit-name" /></div>' +
+                '<div><label>Phone</label><input type="text" class="edit-phone" /></div>' +
+              '</div>' +
+              '<div class="edit-row">' +
+                '<div><label>What do you do?</label><select class="edit-type">' + TYPE_OPTIONS_HTML + '</select></div>' +
+                '<div><label>Lead notification email</label><input type="email" class="edit-notify-email" /></div>' +
+              '</div>' +
+              '<div class="edit-actions"><button class="save-edit-btn" type="button">Save</button><button class="cancel-edit-btn" type="button">Cancel</button></div>' +
+              '<div class="edit-status"></div>' +
             '</div>';
 
           card.querySelector(".biz-name").textContent = row.businessName + " (" + row.type + ")";
           card.querySelector(".biz-domain").textContent = row.domain || "no domain set";
-          var pill = card.querySelector(".pill");
-          pill.classList.add(row.active ? "active" : "inactive");
-          pill.textContent = row.active ? "Active" : "Inactive";
+          var activePill = card.querySelector(".active-pill");
+          activePill.classList.add(row.active ? "active" : "inactive");
+          activePill.textContent = row.active ? "Active" : "Inactive";
+          // An ADDITIONAL pill, not a replacement for the one above - they
+          // mean different things. `active` is Frontdesk's own webhook/
+          // manual-override flag; this is Stripe's own billing reality, and
+          // the two can genuinely diverge (active=true but past_due is a
+          // real, useful-to-see warning sign, not a contradiction to hide).
+          var subPill = card.querySelector(".sub-pill");
+          subPill.classList.add(subPillClass(row.subscriptionStatus));
+          subPill.textContent = row.subscriptionStatus || "none";
 
           var stats = card.querySelectorAll(".biz-stats .num");
           stats[0].textContent = fmt(row.leadCount);
           stats[1].textContent = fmt(row.messages);
           stats[2].textContent = fmt(row.inputTokens);
           stats[3].textContent = fmt(row.outputTokens);
+          stats[4].textContent = fmtMoney(row.mrr);
 
           var toggleBtn = card.querySelector(".toggle-btn");
           toggleBtn.textContent = row.active ? "Deactivate" : "Activate";
@@ -171,6 +247,91 @@
               });
           });
 
+          // Exactly the fields involved in the Spearson's Group mismatch
+          // this session - businessName/type/phone/notifyEmail - not a
+          // second copy of the client dashboard's full FAQ/greeting editor.
+          var editBtn = card.querySelector(".edit-btn");
+          var editForm = card.querySelector(".edit-form");
+          var editStatus = card.querySelector(".edit-status");
+          editBtn.addEventListener("click", function () {
+            var opening = editForm.style.display !== "block";
+            if (opening) {
+              card.querySelector(".edit-name").value = row.businessName || "";
+              card.querySelector(".edit-phone").value = row.phone || "";
+              card.querySelector(".edit-type").value = row.type || "general";
+              card.querySelector(".edit-notify-email").value = row.notifyEmail || "";
+              editStatus.className = "edit-status";
+              editStatus.textContent = "";
+            }
+            editForm.style.display = opening ? "block" : "none";
+          });
+          card.querySelector(".cancel-edit-btn").addEventListener("click", function () {
+            editForm.style.display = "none";
+          });
+          card.querySelector(".save-edit-btn").addEventListener("click", function () {
+            var saveBtn = card.querySelector(".save-edit-btn");
+            saveBtn.disabled = true;
+            editStatus.className = "edit-status";
+            editStatus.textContent = "Saving...";
+            fetch("/api/dashboard?action=admin-edit", {
+              method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                businessKey: row.businessKey,
+                businessName: card.querySelector(".edit-name").value,
+                phone: card.querySelector(".edit-phone").value,
+                type: card.querySelector(".edit-type").value,
+                notifyEmail: card.querySelector(".edit-notify-email").value
+              })
+            })
+              .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+              .then(function (result) {
+                saveBtn.disabled = false;
+                if (!result.ok) {
+                  editStatus.className = "edit-status err";
+                  editStatus.textContent = result.data.error || "Something went wrong saving that.";
+                  return;
+                }
+                editStatus.className = "edit-status ok";
+                editStatus.textContent = "Saved - this can take a minute to go live.";
+                loadBusinesses();
+              })
+              .catch(function () {
+                saveBtn.disabled = false;
+                editStatus.className = "edit-status err";
+                editStatus.textContent = "Something went wrong - please try again.";
+              });
+          });
+
+          // Mints a real session for this business via setSessionCookie
+          // (api/_lib/session.js) - no magic-link email needed since the
+          // admin is already authenticated. Lands on the real client
+          // dashboard with a "viewing as admin" banner driven by the
+          // session token's own impersonatedBy field.
+          var viewAsBtn = card.querySelector(".view-as-btn");
+          viewAsBtn.addEventListener("click", function () {
+            viewAsBtn.disabled = true;
+            viewAsBtn.textContent = "Opening...";
+            fetch("/api/dashboard?action=admin-impersonate", {
+              method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ businessKey: row.businessKey })
+            })
+              .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+              .then(function (result) {
+                if (!result.ok) {
+                  viewAsBtn.disabled = false;
+                  viewAsBtn.textContent = "View as this business";
+                  alert(result.data.error || "Something went wrong - please try again.");
+                  return;
+                }
+                window.location.href = "dashboard.html";
+              })
+              .catch(function () {
+                viewAsBtn.disabled = false;
+                viewAsBtn.textContent = "View as this business";
+                alert("Something went wrong - please try again.");
+              });
+          });
+
           if (row.stripeCustomerId) {
             var stripeLink = document.createElement("a");
             stripeLink.className = "stripe-link";
@@ -185,6 +346,19 @@
         });
       }
 
+      function applySearch(rows) {
+        var q = document.getElementById("search-input").value.trim().toLowerCase();
+        if (!q) return rows;
+        return rows.filter(function (r) {
+          return (r.businessName || "").toLowerCase().indexOf(q) !== -1 ||
+            (r.domain || "").toLowerCase().indexOf(q) !== -1;
+        });
+      }
+
+      document.getElementById("search-input").addEventListener("input", function () {
+        renderBusinesses(applySearch(allRows));
+      });
+
       function loadBusinesses() {
         fetch("/api/dashboard?action=admin-list", { credentials: "same-origin" })
           .then(function (r) {
@@ -196,8 +370,12 @@
             if (!data) return;
             document.getElementById("loading-state").style.display = "none";
             document.getElementById("admin-dashboard").style.display = "block";
-            renderTotals(data.businesses || []);
-            renderBusinesses(data.businesses || []);
+            allRows = data.businesses || [];
+            renderTotals(allRows);
+            // Re-applies whatever search filter is currently typed - a
+            // toggle/edit/impersonate action calling this to refresh must
+            // never silently clear the admin's own search.
+            renderBusinesses(applySearch(allRows));
           })
           .catch(function () {
             document.getElementById("loading-state").innerHTML = '<p class="loading">Couldn\'t load businesses - please refresh.</p>';
