@@ -109,6 +109,11 @@
         <option value="appointments">Book appointments (clinics, salons, therapists)</option>
         <option value="callouts">Call-outs / jobs (trades, home services)</option>
         <option value="viewings">Viewings / valuations (estate agents)</option>
+        <option value="bookings">Bookings / reservations (restaurants, venues, events)</option>
+        <option value="classes">Classes / sessions (gyms, studios, tutors)</option>
+        <option value="quotes">Quotes / consultations (solicitors, accountants, consultants)</option>
+        <option value="retail">Shop / product enquiries (retail, online stores)</option>
+        <option value="automotive">Vehicle servicing / sales (garages, dealerships)</option>
         <option value="general">General enquiries</option>
       </select>
       <label for="d-phone">Phone number</label>
@@ -171,7 +176,11 @@
     (function () {
       var faqListEl = document.getElementById("faq-list");
       var businessKey = null;
-      var typeLabels = { appointments: "Book appointments", callouts: "Call-outs / jobs", viewings: "Viewings / valuations", general: "General enquiries" };
+      var typeLabels = {
+        appointments: "Book appointments", callouts: "Call-outs / jobs", viewings: "Viewings / valuations",
+        bookings: "Bookings / reservations", classes: "Classes / sessions", quotes: "Quotes / consultations",
+        retail: "Shop / product enquiries", automotive: "Vehicle servicing / sales", general: "General enquiries"
+      };
 
       function setActiveState(active) {
         document.getElementById("inactive-banner").style.display = active ? "none" : "block";

@@ -126,8 +126,8 @@ module.exports = async function handler(req, res) {
             phone: { type: "string", description: "Their contact phone number, exactly as written. Empty string if none is given." },
             type: {
               type: "string",
-              enum: ["appointments", "callouts", "viewings", "general", ""],
-              description: "appointments = books appointments (clinics, salons, therapists); callouts = call-outs/jobs (trades, home services); viewings = viewings/valuations (estate agents); general = general enquiries; \"\" if genuinely unclear."
+              enum: ["appointments", "callouts", "viewings", "bookings", "classes", "quotes", "retail", "automotive", "general", ""],
+              description: "appointments = books appointments (clinics, salons, therapists); callouts = call-outs/jobs (trades, home services); viewings = viewings/valuations (estate agents); bookings = reservations/bookings (restaurants, venues, event spaces); classes = class/session bookings (gyms, studios, tutors); quotes = quotes/consultations (solicitors, accountants, consultants, other professional services); retail = shop/product enquiries (retail, online stores); automotive = vehicle servicing/sales (garages, dealerships); general = general enquiries; \"\" if genuinely unclear."
             },
             summary: {
               type: "string",

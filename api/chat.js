@@ -54,6 +54,11 @@ var CONVERSION_GOALS = {
   appointments: "booking an appointment",
   callouts: "arranging a call-out",
   viewings: "arranging a viewing or valuation",
+  bookings: "making a booking or reservation",
+  classes: "booking a class or session",
+  quotes: "getting a quote or consultation",
+  retail: "a product enquiry or order",
+  automotive: "booking a service or enquiring about a vehicle",
   general: "making an enquiry or leaving their contact details"
 };
 

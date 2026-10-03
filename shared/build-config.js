@@ -18,6 +18,11 @@
     appointments: "Hi! Welcome to {name}. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
     callouts: "Hi! Welcome to {name}. Ask about call-outs, pricing, or coverage area - or leave your details for a callback.",
     viewings: "Hi! Welcome to {name}. Ask about viewings, valuations, or current listings - or leave your details and we'll be in touch.",
+    bookings: "Hi! Welcome to {name}. Ask about availability, menus, or packages - or leave your details and we'll confirm your booking.",
+    classes: "Hi! Welcome to {name}. Ask about classes, schedules, or membership - or leave your details and we'll get back to you.",
+    quotes: "Hi! Welcome to {name}. Ask about our services, or leave your details for a free quote or consultation.",
+    retail: "Hi! Welcome to {name}. Ask about our products, stock, or orders - or leave your details and the team will help.",
+    automotive: "Hi! Welcome to {name}. Ask about servicing, MOTs, or available vehicles - or leave your details and we'll be in touch.",
     general: "Hi! Welcome to {name}. Ask me anything, or leave your details and the team will get back to you."
   };
 
