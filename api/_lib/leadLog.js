@@ -43,6 +43,10 @@ async function appendLead(businessKey, lead) {
   if (Array.isArray(lead.transcript) && lead.transcript.length) {
     entry.transcript = lead.transcript.slice(-4);
   }
+  // Optional - lets the dashboard/CSV eventually distinguish channels.
+  // Unset means "web" (the original, still-default channel); cheap to
+  // add now rather than retrofit once a second channel actually exists.
+  if (lead.source) entry.source = lead.source;
   entries.push(entry);
   await putFile(logPath(businessKey), entries, "Log lead for " + businessKey + "'s weekly digest", existing && existing.sha);
 }

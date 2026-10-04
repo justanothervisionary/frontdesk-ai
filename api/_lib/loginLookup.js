@@ -27,4 +27,27 @@ function findBusinessKeyByEmail(email) {
   return null;
 }
 
-module.exports = { findBusinessKeyByEmail };
+// Resolves an incoming WhatsApp webhook's phone_number_id back to the
+// business it belongs to - same full-scan-via-loadConfig pattern as
+// findBusinessKeyByEmail above (loadConfig is a synchronous local read,
+// the same cost class api/chat.js already pays per message today, just
+// O(n) instead of O(1) - dwarfed by the Anthropic call that follows
+// either way, fine at this project's "dozens of clients" scale).
+// Deliberately does NOT require stripeCustomerId the way the email
+// lookup does - that requirement exists there to gate real account/
+// session access, but this only determines which business's FAQ content
+// answers a message, so testing against a demo/outreach config before a
+// client's gone through real Stripe checkout is fine.
+function findBusinessKeyByWhatsAppPhoneNumberId(phoneNumberId) {
+  var target = (phoneNumberId || "").toString().trim();
+  if (!target) return null;
+  var keys = listBusinessKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var config = loadConfig(keys[i]);
+    if (!config || !config.whatsapp || !config.whatsapp.phoneNumberId) continue;
+    if (config.whatsapp.phoneNumberId === target) return keys[i];
+  }
+  return null;
+}
+
+module.exports = { findBusinessKeyByEmail, findBusinessKeyByWhatsAppPhoneNumberId };

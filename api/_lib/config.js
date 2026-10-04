@@ -116,6 +116,15 @@ function isPhoneShaped(v) {
   return typeof v === "string" && v.length > 0 && v.length <= 40 && /^[0-9+\-()\s]+$/.test(v);
 }
 
+// Meta's own phone_number_id - a bare numeric string (NOT a phone number
+// itself, e.g. not "+44..." - it's an opaque id Meta assigns per WhatsApp
+// Business number), used to look up which business an incoming webhook
+// message belongs to. Deliberately separate from isPhoneShaped() above,
+// which validates an actual dialable phone number in a different shape.
+function isWhatsAppPhoneNumberId(v) {
+  return typeof v === "string" && /^[0-9]{5,30}$/.test(v);
+}
+
 // A bare hostname, e.g. "dentistw4.co.uk" - no protocol, no path. This is
 // what api/_lib/cors.js checks an incoming request's Origin header against,
 // so it controls which website(s) this business's widget will actually
@@ -205,5 +214,5 @@ function buildConfigFromDraft(draft) {
 
 module.exports = {
   loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft,
-  isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, KNOWN_TYPES
+  isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId, KNOWN_TYPES
 };

@@ -511,7 +511,7 @@
       document.getElementById("su-email").addEventListener("blur", function () {
         var email = this.value.trim();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
-        fetch("/api/capture-lead-email", {
+        fetch("/api/create-checkout?action=capture-email", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email, businessName: document.getElementById("su-name").value.trim() })
         }).catch(function () {}); // best-effort - never surfaced to the visitor

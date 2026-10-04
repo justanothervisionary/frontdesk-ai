@@ -19,6 +19,12 @@ function escapeHtml(str) {
 // widget/frontdesk-widget.js's askBackend()). An unbounded hang here could
 // otherwise silently eat the time budget for a reply that was already
 // generated and ready to send.
+//
+// lead.source (optional) varies the copy per channel - "whatsapp" or
+// unset/anything else (web). Without this, a WhatsApp-sourced lead would
+// get an email that says "New website lead" / "from your Frontdesk chat
+// widget," which is simply wrong and confusing for a lead that never
+// touched the website at all.
 async function sendNotification(config, lead) {
   if (!RESEND_API_KEY || !config.notifyEmail) {
     // Not configured yet = pre-launch/demo, not a real client waiting on a
@@ -28,6 +34,8 @@ async function sendNotification(config, lead) {
     console.log("[frontdesk lead] not configured (missing API key or notifyEmail) - lead logged only:", lead);
     return { delivered: false, configured: false };
   }
+
+  var isWhatsApp = lead.source === "whatsapp";
 
   var transcriptHtml = (lead.transcript || [])
     .map(function (m) { return "<p><strong>" + escapeHtml(m.role) + ":</strong> " + escapeHtml(m.content) + "</p>"; })
@@ -47,9 +55,9 @@ async function sendNotification(config, lead) {
         from: FROM_ADDRESS,
         to: config.notifyEmail,
         bcc: process.env.LEAD_BCC_ADDRESS || undefined, // optional - our own visibility/safety net, not required
-        subject: "New website lead: " + lead.name,
+        subject: (isWhatsApp ? "New WhatsApp lead: " : "New website lead: ") + lead.name,
         html:
-          "<p>New lead from your Frontdesk chat widget (" + escapeHtml(config.businessName) + "):</p>" +
+          "<p>New lead from your Frontdesk " + (isWhatsApp ? "WhatsApp AI receptionist" : "chat widget") + " (" + escapeHtml(config.businessName) + "):</p>" +
           "<p><strong>Name:</strong> " + escapeHtml(lead.name) + "<br/>" +
           "<strong>Contact:</strong> " + escapeHtml(lead.contact) + "</p>" +
           (transcriptHtml ? "<p>Recent conversation:</p>" + transcriptHtml : "")

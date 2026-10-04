@@ -214,9 +214,12 @@ own blue accent color untouched.
   `sessionStorage` (read once on load, then cleared, so a later refresh
   doesn't clobber edits), the pricing button is now a plain link, no JS.
   New on this page: an email field captured early via
-  `api/capture-lead-email.js` (before Stripe, so an abandoned signup
-  leaves a trace instead of none - log-only for now, no automated
-  follow-up yet), PDF upload for training text (parsed entirely
+  `api/create-checkout.js`'s `action=capture-email` (before Stripe, so an
+  abandoned signup leaves a trace instead of none - log-only for now, no
+  automated follow-up yet; originally its own file,
+  `api/capture-lead-email.js`, merged in later to free a function slot
+  for `api/whatsapp.js` under the Vercel Hobby plan's 12-function cap),
+  PDF upload for training text (parsed entirely
   client-side via pdf.js, dynamic-`import()`-loaded from cdnjs since 6.x
   ships as an ES module with no UMD global build - extracted text drops
   into the same 1000-char textarea the manual-typing path already fully

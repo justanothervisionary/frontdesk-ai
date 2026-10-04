@@ -89,6 +89,19 @@
       <li>No cookies, no tracking scripts, no analytics on the widget itself.</li>
     </ul>
 
+    <h2>What we collect from a visitor messaging a client's WhatsApp number</h2>
+    <ul>
+      <li>Some businesses also offer an AI receptionist over WhatsApp. Messages are relayed
+      through Meta's own WhatsApp Business Platform and sent to Anthropic the same way as the
+      website widget, to generate a reply.</li>
+      <li>Your WhatsApp number is already your own contact detail on that platform - we only
+      ever use it to reply to your conversation and, if it's a genuine enquiry, to let the
+      business know, the same as the lead-capture description above.</li>
+      <li>A short rolling window of recent messages is kept per conversation so the AI has
+      context across your messages (WhatsApp doesn't give us anything like that itself) -
+      deleted automatically after 48 hours of inactivity.</li>
+    </ul>
+
     <h2>How long we keep things</h2>
     <p>Business configs (what your AI receptionist knows) are kept for as long as your
     subscription is active, in a version-controlled repository. A lead's short conversation
@@ -102,8 +115,9 @@
       <li><strong>Stripe</strong> - payment processing.</li>
       <li><strong>Anthropic</strong> - powers the AI that answers chat messages.</li>
       <li><strong>Resend</strong> - delivers lead-notification and login emails.</li>
-      <li><strong>Upstash</strong> - stores usage counts and the unanswered-question list
-      mentioned above.</li>
+      <li><strong>Meta</strong> - relays messages for businesses using the WhatsApp channel.</li>
+      <li><strong>Upstash</strong> - stores usage counts, the unanswered-question list
+      mentioned above, and the short-lived WhatsApp conversation window.</li>
       <li><strong>Vercel</strong> and <strong>GitHub</strong> - host the site and store configs.</li>
     </ul>
     <p>We don't sell data, and we don't share it with anyone beyond what's needed to actually

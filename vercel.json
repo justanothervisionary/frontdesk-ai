@@ -4,5 +4,10 @@
   ],
   "crons": [
     { "path": "/api/weekly-digest", "schedule": "0 9 * * 1" }
-  ]
+  ],
+  "functions": {
+    "api/whatsapp.js": {
+      "maxDuration": 60
+    }
+  }
 }

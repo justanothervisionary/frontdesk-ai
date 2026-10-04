@@ -6,8 +6,9 @@
 // the original three files - just merged into one, routed by
 // method/action.
 const Stripe = require("stripe");
-const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl } = require("./_lib/config");
+const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
+const { findBusinessKeyByWhatsAppPhoneNumberId } = require("./_lib/loginLookup");
 const { getSessionBusinessKey, getSessionAdminEmail, getSessionImpersonator, setSessionCookie } = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
 const { getFile, putFile } = require("./_lib/github");
@@ -51,6 +52,7 @@ async function handleGetData(req, res, businessKey) {
     notifyEmail: result.config.notifyEmail || "",
     assistantName: (result.config.theme && result.config.theme.assistantName) || "Sia",
     avatarUrl: (result.config.theme && result.config.theme.avatarUrl) || "",
+    whatsappPhoneNumberId: (result.config.whatsapp && result.config.whatsapp.phoneNumberId) || "",
     active: result.config.active !== false,
     // Non-null only when this session was minted by an admin "viewing as"
     // this business (see handleAdminImpersonate) - drives the dashboard's
@@ -147,6 +149,33 @@ async function handleSave(req, res, businessKey) {
     var faqs = sanitizeFaqs(body.faqs);
     if (faqs === null) return res.status(400).json({ error: "Invalid FAQ list." });
     config.faqs = faqs;
+  }
+  // Same omitted-vs-empty-string convention as avatarUrl above: omitted
+  // entirely leaves it alone, an explicit "" disconnects WhatsApp
+  // (config.whatsapp removed outright, not left as an empty object - so
+  // api/_lib/loginLookup.js's reverse lookup never has to special-case a
+  // present-but-empty phoneNumberId). No `enabled` flag - presence of
+  // phoneNumberId IS enabled, kept simple rather than precedent-setting a
+  // second nested boolean nothing else in this function has.
+  if (typeof body.whatsappPhoneNumberId === "string") {
+    var whatsappId = body.whatsappPhoneNumberId.trim();
+    if (!whatsappId) {
+      delete config.whatsapp;
+    } else if (!isWhatsAppPhoneNumberId(whatsappId)) {
+      return res.status(400).json({ error: "That doesn't look like a valid WhatsApp phone number id." });
+    } else {
+      // Best-effort uniqueness check (same local-disk staleness window
+      // every other loadConfig-based lookup in this codebase already
+      // accepts) - without it, the reverse lookup incoming WhatsApp
+      // messages use is "first match wins," which would silently route a
+      // second business's messages to whichever business happened to
+      // scan first.
+      var owner = findBusinessKeyByWhatsAppPhoneNumberId(whatsappId);
+      if (owner && owner !== businessKey) {
+        return res.status(409).json({ error: "That WhatsApp number is already connected to a different business." });
+      }
+      config.whatsapp = { phoneNumberId: whatsappId };
+    }
   }
 
   // notifyEmail lives in the PRIVATE file, not the public config - see
@@ -342,6 +371,7 @@ async function handleAdminList(req, res) {
         // private file (see its own comment), so no extra read needed here.
         phone: config.phone || "",
         notifyEmail: config.notifyEmail || "",
+        whatsappPhoneNumberId: (config.whatsapp && config.whatsapp.phoneNumberId) || "",
         active: config.active !== false,
         stripeCustomerId: config.stripeCustomerId || "",
         subscriptionStatus: subscription.subscriptionStatus,
@@ -414,7 +444,7 @@ async function handleAdminEdit(req, res) {
   if (!targetBusinessKey) return res.status(400).json({ error: "businessKey is required" });
 
   var filtered = {};
-  ["businessName", "type", "phone", "notifyEmail"].forEach(function (field) {
+  ["businessName", "type", "phone", "notifyEmail", "whatsappPhoneNumberId"].forEach(function (field) {
     if (typeof body[field] === "string") filtered[field] = body[field];
   });
   return handleSave({ body: filtered }, res, targetBusinessKey);

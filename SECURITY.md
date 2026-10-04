@@ -193,6 +193,38 @@ upgrade once this is serving real paying clients rather than a handful of
 demos, and the provider-side spending cap is what actually bounds worst-
 case cost in the meantime.
 
+## WhatsApp channel
+
+A business can optionally also connect a WhatsApp number, so visitors
+can message it directly and reach the same AI receptionist, same FAQ
+knowledge, same hard rules (no medical advice, no instruction-following
+from message text, etc.) as the website widget - not a separate, less-
+guarded bot.
+
+- Runs on Meta's own WhatsApp Business Platform (Cloud API) - messages
+  are relayed through Meta's infrastructure, the same as any WhatsApp
+  Business integration, never through a third party beyond Meta and
+  Anthropic (the AI provider already used for the website widget).
+- Every incoming message is cryptographically signature-verified
+  (HMAC-SHA256 against Meta's own App Secret) before anything is
+  processed, the same discipline already applied to Stripe's webhook -
+  an unsigned or forged request is rejected outright.
+- Each inbound message is processed exactly once even if Meta's own
+  retry mechanism re-delivers it (a documented, normal part of how
+  webhook delivery works) - an atomic claim keyed on Meta's own message
+  id prevents a visitor ever receiving a duplicate reply, and prevents
+  a business ever receiving two notification emails for one lead.
+- A visitor's WhatsApp number is their own contact detail on that
+  platform already - unlike the website widget (which has to ask, and
+  only ever captures what's typed in reply), there's nothing additional
+  to "give" here; the number is only ever used to reply to that
+  conversation and, if the AI judges it a genuine enquiry, to notify the
+  business - never anything else.
+- Conversation history (so the AI has context across a sender's
+  messages - WhatsApp has no equivalent of the widget's own in-browser
+  history) is kept only as a short rolling window per sender, expiring
+  automatically after 48 hours of inactivity.
+
 ## Hosting
 
 Demo/static assets are served over HTTPS. The chat and lead-capture
