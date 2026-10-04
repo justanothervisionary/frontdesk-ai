@@ -20,7 +20,9 @@
   }
   nav { display: flex; align-items: center; justify-content: space-between; max-width: 1160px; margin: 0 auto; padding: 20px 20px; }
   .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
-  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); animation: dotPulse 2.4s ease-in-out infinite; }
+  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 12px rgba(53,214,143,.8); transform: scale(1); } 50% { box-shadow: 0 0 20px rgba(53,214,143,1); transform: scale(1.15); } }
+  @media (prefers-reduced-motion: reduce) { .logo .dot { animation: none; } }
   nav a.back { color: var(--muted); text-decoration: none; font-size: 13px; }
   nav a.back:hover { color: var(--text); }
 

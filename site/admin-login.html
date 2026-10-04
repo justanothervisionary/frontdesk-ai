@@ -19,7 +19,9 @@
   }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; max-width: 400px; width: 100%; }
   .logo { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; margin-bottom: 22px; }
-  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); animation: dotPulse 2.4s ease-in-out infinite; }
+  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 12px rgba(53,214,143,.8); transform: scale(1); } 50% { box-shadow: 0 0 20px rgba(53,214,143,1); transform: scale(1.15); } }
+  @media (prefers-reduced-motion: reduce) { .logo .dot { animation: none; } }
   h1 { font-size: 19px; margin: 0 0 8px; }
   p { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0 0 20px; }
   label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }

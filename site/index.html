@@ -76,7 +76,9 @@
     max-width: 880px; margin: 0 auto; padding: 22px 20px; position: relative;
   }
   .logo { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
-  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px color-mix(in srgb, var(--accent2) 80%, transparent); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px color-mix(in srgb, var(--accent2) 80%, transparent); animation: dotPulse 2.4s ease-in-out infinite; }
+  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 12px color-mix(in srgb, var(--accent2) 80%, transparent); transform: scale(1); } 50% { box-shadow: 0 0 20px color-mix(in srgb, var(--accent2) 100%, transparent); transform: scale(1.15); } }
+  @media (prefers-reduced-motion: reduce) { .logo .dot { animation: none; } }
   nav a { color: var(--muted); text-decoration: none; font-size: 13px; margin-left: 22px; }
   nav a:hover { color: var(--text); }
   @media (min-width: 641px) {

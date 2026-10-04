@@ -19,7 +19,9 @@
   .wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 70px; }
   nav { display: flex; align-items: center; justify-content: space-between; max-width: 720px; margin: 0 auto; padding: 22px 20px; }
   .logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
-  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); }
+  .logo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent2); box-shadow: 0 0 12px rgba(53,214,143,.8); animation: dotPulse 2.4s ease-in-out infinite; }
+  @keyframes dotPulse { 0%, 100% { box-shadow: 0 0 12px rgba(53,214,143,.8); transform: scale(1); } 50% { box-shadow: 0 0 20px rgba(53,214,143,1); transform: scale(1.15); } }
+  @media (prefers-reduced-motion: reduce) { .logo .dot { animation: none; } }
   #logout-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-family: inherit; }
   #logout-btn:hover { color: var(--text); }
   h1 { font-size: 22px; margin: 0 0 4px; }
