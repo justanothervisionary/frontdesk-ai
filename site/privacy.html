@@ -40,7 +40,7 @@
   </nav>
   <div class="wrap">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: 1 September 2026</p>
+    <p class="updated">Last updated: 4 October 2026</p>
 
     <p>This describes how Frontdesk ("we," "us") handles data when you use our website, our
     self-serve tools, and the AI receptionist widget installed on a client's website. We've
@@ -76,23 +76,31 @@
       <li>If a visitor chooses to leave their name and contact details (always their own
       choice, never collected automatically), that's emailed directly to the business along
       with the last few messages of the conversation, so the business has context on what was
-      asked. The name and contact (not the conversation) is also kept in a short-lived log,
-      deleted automatically after 35 days, so the business can get a weekly summary of new
-      leads and see recent ones in their dashboard.</li>
+      asked. The name, contact, and that short excerpt of the conversation are also kept in a
+      short-lived log, deleted automatically after 35 days, so the business can review it and
+      get a weekly summary of new leads in their dashboard.</li>
+      <li>If the AI couldn't answer a question from the business's own information, the
+      question itself (not who asked it) is logged separately so the business can see what's
+      missing from their FAQs - kept only as a short rolling list, not tied to any visitor's
+      identity.</li>
       <li>No cookies, no tracking scripts, no analytics on the widget itself.</li>
     </ul>
 
     <h2>How long we keep things</h2>
     <p>Business configs (what your AI receptionist knows) are kept for as long as your
-    subscription is active, in a version-controlled repository. Chat conversations aren't
-    stored beyond what's needed to generate a reply in the moment. Cancelling your
-    subscription takes your AI receptionist offline immediately.</p>
+    subscription is active, in a version-controlled repository. A lead's short conversation
+    excerpt is deleted automatically after 35 days. Unanswered-question entries are kept only
+    as a short rolling list (oldest dropped off automatically as new ones come in), and are
+    never tied to who asked. Cancelling your subscription takes your AI receptionist offline
+    immediately.</p>
 
     <h2>Who we share data with</h2>
     <ul>
       <li><strong>Stripe</strong> - payment processing.</li>
       <li><strong>Anthropic</strong> - powers the AI that answers chat messages.</li>
-      <li><strong>Resend</strong> - delivers lead-notification emails to businesses.</li>
+      <li><strong>Resend</strong> - delivers lead-notification and login emails.</li>
+      <li><strong>Upstash</strong> - stores usage counts and the unanswered-question list
+      mentioned above.</li>
       <li><strong>Vercel</strong> and <strong>GitHub</strong> - host the site and store configs.</li>
     </ul>
     <p>We don't sell data, and we don't share it with anyone beyond what's needed to actually

@@ -73,9 +73,21 @@ A lead's name and contact details are also logged to a small per-business
 file under `api/_private-configs/leads/{key}.json` - never publicly
 reachable, same as the notification address above - purely so
 `api/weekly-digest.js` can summarize the last 7 days back to the business
-each week. Entries older than 35 days are pruned automatically. No
-conversation transcripts are stored anywhere beyond what's needed to
-generate a reply in the moment - only the name/contact of an opted-in lead.
+each week, and so the business can review a lead again later from their
+own dashboard. Entries older than 35 days are pruned automatically. Each
+entry also carries a short excerpt of that conversation (capped at 4
+turns) alongside the name/contact - a deliberately tighter cap than the
+6 turns used for the one-time notification email, since this write (unlike
+that email) rewrites the business's entire accumulated 35-day file on
+every new lead.
+
+Separately, when the AI genuinely can't answer a question from the
+business's own information, the question text itself (never who asked
+it, never tied to a lead) is logged to a small rolling list in Upstash -
+the same store already used for usage counts - so the business can see
+what's missing from their FAQs. Capped at roughly 150 entries per
+business (oldest dropped automatically), not time-based like the lead
+log above.
 
 That notification address itself is stored in `api/_private-configs/{key}.json`,
 a separate file from the main `configs/{key}.json` the widget fetches
@@ -139,6 +151,16 @@ it:
   not touch billing or cancel a subscription. Actual billing changes still
   only ever happen in Stripe's own dashboard, which the admin page links
   to directly per business.
+- Admin can also edit a business's name/type/phone/notification email
+  directly (for support, e.g. fixing a typo), and can "view as" a
+  business to see their dashboard exactly as they do, for troubleshooting.
+  Both are logged (who, which business, when) and rate-limited separately
+  from everything else in the dashboard, specifically because a compromised
+  admin session is a categorically bigger risk than a compromised business
+  session - the latter can only ever touch its own data. Viewing as a
+  business is clearly flagged on that business's own dashboard while
+  active, and never changes or exposes anything the admin couldn't already
+  see through the admin list itself.
 
 ## How the live AI backend stays safe
 
@@ -156,10 +178,11 @@ if it isn't built carefully, so:
 - A hard monthly spending cap is set directly in the AI provider's own
   dashboard - the real backstop against runaway cost, independent of
   anything the widget or server code does.
-- No storage of full conversation transcripts by default; only aggregate
-  usage counts, unless a practice specifically opts in to transcript
-  logging (e.g. for reviewing missed questions) and that's documented
-  separately in writing before it's switched on.
+- Only a short excerpt of a conversation is ever stored, and only when a
+  visitor actually leaves contact details (see "Lead capture" above) - a
+  conversation that never results in a lead leaves no transcript anywhere.
+  Separately, a question the AI couldn't answer is logged on its own,
+  without any visitor identity attached to it.
 - HTTPS only, throughout.
 
 **Known limitation, stated plainly:** the per-minute rate limit currently
