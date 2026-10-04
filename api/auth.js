@@ -124,10 +124,14 @@ function confirmPageHtml(token, error, action) {
     "display:flex;align-items:center;justify-content:center;min-height:100vh;}" +
     ".card{background:#14161a;border:1px solid #22262d;border-radius:16px;padding:32px;max-width:360px;text-align:center;}" +
     "h1{font-size:18px;margin:0 0 12px;}p{color:#9aa1ac;font-size:14px;line-height:1.5;margin:0 0 20px;}" +
-    "button{background:#35d68f;color:#04160c;border:none;border-radius:9px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}" +
+    "button,a.btn{background:#35d68f;color:#04160c;border:none;border-radius:9px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}" +
     "</style></head><body><div class=\"card\">" +
     (error
-      ? "<h1>Link expired</h1><p>" + escapeHtml(error) + " Request a new login link from the login page.</p>"
+      // A real link back, not just instructional text - this used to be a
+      // dead end with no actual way forward short of the visitor manually
+      // retyping the login URL from memory.
+      ? "<h1>Link expired</h1><p>" + escapeHtml(error) + "</p>" +
+        "<a class=\"btn\" href=\"/site/" + (action === "admin-verify" ? "admin-login.html" : "login.html") + "\">Get a new login link</a>"
       : "<h1>Confirm it's you</h1><p>Click below to finish logging in to your Frontdesk dashboard.</p>" +
         "<form method=\"POST\" action=\"/api/auth?action=" + action + "\">" +
         "<input type=\"hidden\" name=\"token\" value=\"" + escapeHtml(token) + "\" />" +

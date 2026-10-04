@@ -96,6 +96,10 @@
   .start-btn:active { transform: scale(.98); }
   .terms { font-size: 11px; color: var(--muted2); margin-top: 10px; line-height: 1.5; }
   .status-line { font-size: 12px; color: var(--accent2); margin-top: 10px; min-height: 16px; }
+  .terms-check { display: flex; align-items: flex-start; gap: 9px; margin-top: 14px; }
+  .terms-check input[type=checkbox] { margin: 2px 0 0; flex-shrink: 0; width: 15px; height: 15px; accent-color: var(--accent2); cursor: pointer; }
+  .terms-check label { font-size: 12px; color: var(--muted); line-height: 1.5; cursor: pointer; }
+  .terms-check label a { color: var(--muted); text-decoration: underline; }
 
   /* Live mock-website preview */
   .preview-col { position: sticky; top: 20px; }
@@ -229,13 +233,17 @@
           </div>
         </div>
 
+        <div class="terms-check">
+          <input type="checkbox" id="su-agree-terms" />
+          <label for="su-agree-terms">I agree to the
+            <a href="terms.html" target="_blank" rel="noopener">Terms</a> and
+            <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</label>
+        </div>
         <button class="start-btn" id="start-trial-btn" type="button">Start your 7-day free trial &rarr;</button>
         <div class="status-line" id="trial-status"></div>
         <p class="terms">£45/mo after the trial - card required to start, cancel anytime before day 7 and you're
         not charged. This exact setup, including your photo if you added one, goes live on your own site once you
-        install one line of code. By continuing you agree to our
-        <a href="terms.html" style="color:var(--muted);text-decoration:underline;">Terms</a> and
-        <a href="privacy.html" style="color:var(--muted);text-decoration:underline;">Privacy Policy</a>.</p>
+        install one line of code.</p>
       </div>
 
       <div class="preview-col">
@@ -595,6 +603,11 @@
 
         if (!validEmail(email)) { statusEl.style.color = "#f2837a"; statusEl.textContent = "Enter a valid email first."; return; }
         if (!businessName) { statusEl.style.color = "#f2837a"; statusEl.textContent = "Enter your business name first."; return; }
+        if (!document.getElementById("su-agree-terms").checked) {
+          statusEl.style.color = "#f2837a";
+          statusEl.textContent = "Please agree to the Terms and Privacy Policy first.";
+          return;
+        }
 
         statusEl.style.color = "var(--accent2)";
         trialInFlight = true;
