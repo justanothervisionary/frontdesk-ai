@@ -5,7 +5,7 @@
   "theme": {
     "accentColor": "#12d6c5",
     "position": "right",
-    "assistantName": "Jade"
+    "assistantName": "Serena"
   },
   "greeting": "Hey, welcome to Swigable. is there anything I can help you with?",
   "fallbackAnswer": "Our chat services are currently down - would you like to leave your name and number so someone can get back to you?",
