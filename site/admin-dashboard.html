@@ -198,6 +198,9 @@
                 '<div><label>What do you do?</label><select class="edit-type">' + TYPE_OPTIONS_HTML + '</select></div>' +
                 '<div><label>Lead notification email</label><input type="email" class="edit-notify-email" /></div>' +
               '</div>' +
+              '<div class="edit-row">' +
+                '<div><label>WhatsApp phone number ID</label><input type="text" class="edit-whatsapp" placeholder="e.g. 1290944287445337" /></div>' +
+              '</div>' +
               '<div class="edit-actions"><button class="save-edit-btn" type="button">Save</button><button class="cancel-edit-btn" type="button">Cancel</button></div>' +
               '<div class="edit-status"></div>' +
             '</div>';
@@ -263,6 +266,7 @@
               card.querySelector(".edit-phone").value = row.phone || "";
               card.querySelector(".edit-type").value = row.type || "general";
               card.querySelector(".edit-notify-email").value = row.notifyEmail || "";
+              card.querySelector(".edit-whatsapp").value = row.whatsappPhoneNumberId || "";
               editStatus.className = "edit-status";
               editStatus.textContent = "";
             }
@@ -283,7 +287,8 @@
                 businessName: card.querySelector(".edit-name").value,
                 phone: card.querySelector(".edit-phone").value,
                 type: card.querySelector(".edit-type").value,
-                notifyEmail: card.querySelector(".edit-notify-email").value
+                notifyEmail: card.querySelector(".edit-notify-email").value,
+                whatsappPhoneNumberId: card.querySelector(".edit-whatsapp").value
               })
             })
               .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
