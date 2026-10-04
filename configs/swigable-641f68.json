@@ -27,5 +27,8 @@
   "stripeCustomerId": "cus_VAx24mSNgLS0DQ",
   "stripeSubscriptionId": "sub_1UAb8L1PzE19HBxHSWMs0lJZ",
   "stripeCheckoutSessionId": "cs_live_a1waE3j6P40m4cdngAcjY6zDAOy13MCUuac4xGwi1IG6stkes6N8Kl9BI0",
-  "phone": "07720497066"
+  "phone": "07720497066",
+  "whatsapp": {
+    "phoneNumberId": "1290944287445337"
+  }
 }
