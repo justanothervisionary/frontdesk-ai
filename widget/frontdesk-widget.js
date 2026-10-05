@@ -72,7 +72,6 @@
   function buildStyles(theme) {
     var side = theme.position === "left" ? "left" : "right";
     var other = side === "left" ? "right" : "left";
-    var radiusCorner = side === "left" ? "bottom-left" : "bottom-right";
     var offset = theme.offset || "20px";
 
     return (
@@ -153,33 +152,26 @@
       "}" +
       ".fd-panel-inner { display: flex; flex-direction: column; height: 100%; border-radius: 22px; overflow: hidden; background: #fff; }" +
       ".fd-panel.fd-open { display: flex; }" +
-      // Flat base color first (this is what most visitors register at a
-      // glance), then one deliberate "alive" touch layered on top: a
-      // slow, soft, multi-hue sheen derived entirely from the business's
-      // own accent color (never a fixed rainbow) - reads as quietly
-      // intelligent rather than a loud gradient background. Confined to
-      // this one spot on purpose - the rest of the panel stays flat.
+      // Kept flat and neutral on purpose - black, not the business's own
+      // accent color. An accent-colored header reads as "banner ad"; a
+      // plain dark one reads as a real product surface, and it's what
+      // most comparable chat widgets (Intercom, Crisp, Drift) actually
+      // do - the accent color is reserved for buttons and the visitor's
+      // own message bubbles instead, where it still gives the panel a
+      // branded feel without dominating the first thing a visitor sees.
       ".fd-header {" +
-      "  background: var(--fd-accent, #ff7a59);" +
-      "  color: var(--fd-on-accent, #fff); padding: 18px 18px 20px; display: flex; align-items: center; gap: 12px; position: relative; overflow: hidden;" +
+      "  background: #0a0b0d;" +
+      "  color: #fff; padding: 18px 18px 20px; display: flex; align-items: center; gap: 12px; position: relative;" +
       "}" +
-      ".fd-header::before {" +
-      "  content: ''; position: absolute; inset: -40%; z-index: 0; opacity: .55; mix-blend-mode: soft-light;" +
-      "  background: linear-gradient(120deg," +
-      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #7c5cff)," +
-      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #00d4c6)," +
-      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #ffb020)," +
-      "    color-mix(in srgb, var(--fd-accent, #ff7a59) 55%, #7c5cff));" +
-      "  background-size: 300% 300%; animation: fd-sheen 14s ease-in-out infinite;" +
-      "}" +
-      "@keyframes fd-sheen {" +
-      "  0%, 100% { background-position: 0% 50%; }" +
-      "  50% { background-position: 100% 50%; }" +
-      "}" +
-      "@media (prefers-reduced-motion: reduce) { .fd-header::before { animation: none; } }" +
-      ".fd-header > * { position: relative; z-index: 1; }" +
       ".fd-header img, .fd-face-sm { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex-shrink: 0; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.2); }" +
       ".fd-face-sm svg { width: 100%; height: 100%; display: block; }" +
+      ".fd-header-avatar-wrap { position: relative; flex-shrink: 0; display: block; }" +
+      // Same brand green as the site favicon's pulse dot - a small,
+      // deliberate consistency touch, not just "a green dot".
+      ".fd-online-dot {" +
+      "  position: absolute; bottom: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%;" +
+      "  background: #35d68f; border: 2px solid #0a0b0d; box-sizing: content-box;" +
+      "}" +
       ".fd-bubble { overflow: hidden; }" +
       // min-width: 0 is what actually lets a flex child shrink below its
       // content size - without it, text-overflow:ellipsis on the children
@@ -194,7 +186,6 @@
       "  display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0;" +
       "}" +
       ".fd-close:hover { background: rgba(255,255,255,.34); }" +
-      ".fd-leave-link { display: inline-flex; align-items: center; gap: 6px; }" +
       // A small face next to each bot reply reads as a real conversation
       // rather than a wall of unattributed text - the same avatar used in
       // the header, just small. User's own messages don't get one,
@@ -203,24 +194,88 @@
       ".fd-msg-row .fd-msg { margin-bottom: 0; }" +
       ".fd-msg-avatar { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }" +
       ".fd-msg-avatar svg, .fd-msg-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }" +
-      // The opening moment - just the name, no large avatar graphic taking
-      // up space above it (that's what the small header avatar is for).
-      ".fd-hero { text-align: center; padding: 18px 22px 4px; background: linear-gradient(180deg, color-mix(in srgb, var(--fd-accent, #ff7a59) 10%, #fff), #fff 70%); }" +
-      ".fd-hero-text { font-size: 16px; font-weight: 700; line-height: 1.35; color: #1a1a1a; }" +
       ".fd-messages { flex: 1; overflow-y: auto; padding: 12px; background: #f7f8fa; }" +
-      ".fd-msg { max-width: 85%; margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; animation: fd-msg-in .18s ease-out; }" +
+      // Flat, uniform rounded rectangles - no border, no asymmetric
+      // "speech-tail" corner-clip. That corner notch was a nice idea in
+      // theory but reads as a rendering glitch at a glance; a plain
+      // rounded bubble is calmer and matches what most comparable widgets
+      // actually ship.
+      ".fd-msg { max-width: 85%; margin-bottom: 8px; padding: 9px 13px; border-radius: 14px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; animation: fd-msg-in .18s ease-out; }" +
       "@keyframes fd-msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }" +
-      ".fd-msg.fd-bot { background: #fff; border: 1px solid #e5e7eb; border-" + radiusCorner + "-radius: 2px; }" +
-      ".fd-msg.fd-user { background: var(--fd-accent, #ff7a59); color: var(--fd-on-accent, #fff); margin-" + other + ": auto; border-bottom-" + other + "-radius: 2px; }" +
-      ".fd-feedback { display: flex; align-items: center; gap: 6px; margin: -4px 0 8px; }" +
-      ".fd-answered-by { font-size: 10px; color: #a8adb5; margin-right: auto; }" +
-      ".fd-feedback button { border: none; background: none; cursor: pointer; font-size: 12px; opacity: .35; padding: 2px 4px; }" +
-      ".fd-feedback button:hover { opacity: .8; }" +
+      ".fd-msg.fd-bot { background: #eef0f3; }" +
+      ".fd-msg.fd-user { background: var(--fd-accent, #ff7a59); color: var(--fd-on-accent, #fff); margin-" + other + ": auto; }" +
+      // Just two quiet thumbs, right-aligned under the bubble - no "Serena
+      // - AI Agent" label (the header already says who you're talking to,
+      // repeating it under every single message was the actual clutter).
+      // Near-invisible until hover so it doesn't compete with the message
+      // itself, which is the point of it being feedback, not a UI element.
+      ".fd-feedback { display: flex; justify-content: flex-end; gap: 2px; margin: -4px 2px 8px; }" +
+      ".fd-feedback button { border: none; background: none; cursor: pointer; font-size: 12px; opacity: .25; padding: 2px 4px; }" +
+      ".fd-feedback button:hover { opacity: .7; }" +
       ".fd-feedback button.fd-picked { opacity: 1; }" +
-      ".fd-inputrow { display: flex; border-top: 1px solid #eee; padding: 8px; gap: 6px; }" +
-      ".fd-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; }" +
-      ".fd-send { background: var(--fd-accent, #ff7a59); color: var(--fd-on-accent, #fff); border: none; border-radius: 8px; padding: 0 14px; font-size: 13px; font-weight: 600; cursor: pointer; }" +
-      ".fd-leave-link { border: none; background: none; color: var(--fd-accent, #ff7a59); font-size: 11px; text-decoration: underline; cursor: pointer; padding: 4px 12px 0; text-align: left; }" +
+      ".fd-inputrow { display: flex; align-items: center; border-top: 1px solid #eee; padding: 8px; gap: 4px; position: relative; }" +
+      ".fd-input { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; min-width: 0; }" +
+      // Icon-only, quiet - sits next to the send button but shouldn't
+      // compete with it for attention.
+      ".fd-emoji-btn {" +
+      "  border: none; background: none; color: #8a8f99; font-size: 17px; cursor: pointer;" +
+      "  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" +
+      "}" +
+      ".fd-emoji-btn:hover { background: #f0f1f3; }" +
+      ".fd-attach-btn {" +
+      "  border: none; background: none; color: #8a8f99; cursor: pointer;" +
+      "  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" +
+      "}" +
+      ".fd-attach-btn:hover { background: #f0f1f3; }" +
+      ".fd-attach-btn svg { width: 17px; height: 17px; display: block; }" +
+      // One row of small chips, each file/upload its own pill - sits
+      // above the input row, inside the same bordered area rather than
+      // floating, so it reads as "attached to what you're about to send".
+      ".fd-attach-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px 0; }" +
+      ".fd-attach-chips:empty { display: none; padding: 0; }" +
+      ".fd-attach-chip {" +
+      "  display: inline-flex; align-items: center; gap: 5px; max-width: 160px; background: #f0f1f3; border-radius: 999px;" +
+      "  padding: 4px 6px 4px 10px; font-size: 11px; color: #444;" +
+      "}" +
+      ".fd-attach-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }" +
+      ".fd-attach-chip.fd-err { background: #fdeceb; color: #a33; }" +
+      ".fd-attach-chip-remove {" +
+      "  border: none; background: none; color: inherit; opacity: .6; cursor: pointer; font-size: 10px; padding: 2px; line-height: 1;" +
+      "  width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" +
+      "}" +
+      ".fd-attach-chip-remove:hover { opacity: 1; }" +
+      "@keyframes fd-spin { to { transform: rotate(360deg); } }" +
+      ".fd-attach-chip-spinner {" +
+      "  width: 10px; height: 10px; border-radius: 50%; border: 2px solid #c6c9cf; border-top-color: #777;" +
+      "  animation: fd-spin .7s linear infinite; flex-shrink: 0;" +
+      "}" +
+      ".fd-emoji-popover {" +
+      "  display: none; position: absolute; bottom: calc(100% + 6px); right: 8px; background: #fff; border: 1px solid #e5e7eb;" +
+      "  border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 8px; z-index: 2;" +
+      "  grid-template-columns: repeat(6, 1fr); gap: 2px;" +
+      "}" +
+      ".fd-emoji-popover.fd-show { display: grid; }" +
+      ".fd-emoji-popover button {" +
+      "  border: none; background: none; font-size: 18px; cursor: pointer; width: 30px; height: 30px; border-radius: 6px; padding: 0;" +
+      "}" +
+      ".fd-emoji-popover button:hover { background: #f0f1f3; }" +
+      // Round, filled, icon-only - the "nice arrow to send" reference.
+      // Same accent color as the visitor's own message bubbles, so it
+      // reads as the same system rather than a mismatched extra color.
+      ".fd-send {" +
+      "  background: var(--fd-accent, #ff7a59); color: var(--fd-on-accent, #fff); border: none; border-radius: 50%;" +
+      "  width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;" +
+      "}" +
+      ".fd-send svg { width: 16px; height: 16px; display: block; }" +
+      // The callback request, restyled as a quiet pill rather than a
+      // full-width underlined link - still a real lead-capture path for
+      // a visitor who'd rather not type a question, just not shouting
+      // about it underneath every conversation.
+      ".fd-leave-link {" +
+      "  display: inline-flex; align-items: center; gap: 5px; margin: 8px 12px 0; border: 1px solid #e5e7eb; background: #fff;" +
+      "  color: #555; font-size: 11px; font-weight: 600; border-radius: 999px; cursor: pointer; padding: 5px 12px 5px 9px;" +
+      "}" +
+      ".fd-leave-link:hover { background: #f7f8fa; }" +
       ".fd-lead-form { display: none; padding: 10px 12px; border-top: 1px solid #eee; background: #fbfbfc; }" +
       ".fd-lead-form.fd-open { display: block; }" +
       ".fd-lead-form input { width: 100%; margin-bottom: 6px; border: 1px solid #ddd; border-radius: 7px; padding: 7px 9px; font-size: 12px; font-family: inherit; }" +
@@ -315,6 +370,23 @@
   // be a real absolute URL, not a relative path.
   var DEFAULT_AVATAR_URL = "https://frontdesk-ai-chi-ten.vercel.app/site/assets/images/sia-avatar.jpg";
 
+  // A small hardcoded set rather than a third-party emoji-picker library -
+  // keeps this a single, dependency-free file (no new network request, no
+  // bundle size hit) while still covering what a visitor actually reaches
+  // for in a short business chat.
+  var EMOJI_SET = ["😊", "👍", "🙂", "😂", "❤️", "🎉", "👋", "😅", "🤔", "👌", "😍", "👏", "✅", "😢", "🙏", "👀", "💡", "😮"];
+
+  // A paper-plane send icon, matching the "circular arrow button" look of
+  // most comparable chat widgets - an inline SVG so it stays crisp at any
+  // size and needs no icon font/library.
+  var SEND_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 11.5L20.5 3.5L13.5 21L10.8 13.9L3 11.5Z" fill="currentColor" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
+  var ATTACH_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 7.5L8.6 16.4a3 3 0 0 1-4.2-4.2l9-9a2 2 0 0 1 2.9 2.8l-8.6 8.6a1 1 0 0 1-1.4-1.4l7.9-7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Must match api/_lib/attachments.js's own allowlist - this is just the
+  // file picker's filter (a visitor can still override it in most OS file
+  // dialogs), the server re-validates the real content type regardless.
+  var ATTACH_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+  var ATTACH_MAX_BYTES = 6 * 1024 * 1024;
+
   // Back-compat: older configs set accentColor at the top level. Newer
   // configs use a theme object so more than just color is customizable
   // without touching widget code - just the per-business config.
@@ -396,10 +468,11 @@
       '<div class="fd-teaser-inner"><span class="fd-teaser-avatar">' + bubbleInner + '</span><span class="fd-teaser-text"></span></div>' +
       "</div>" +
       '<div class="fd-panel"><div class="fd-panel-inner">' +
-      '<div class="fd-header">' + headerAvatar + '<div class="fd-header-text"><div class="fd-name"></div><div class="fd-sub"></div></div>' +
+      '<div class="fd-header"><div class="fd-header-avatar-wrap">' + headerAvatar + '<span class="fd-online-dot"></span></div>' +
+      '<div class="fd-header-text"><div class="fd-name"></div><div class="fd-sub"></div></div>' +
       '<button class="fd-close" type="button" aria-label="Close chat">&#10005;</button></div>' +
       '<div class="fd-messages"></div>' +
-      '<button class="fd-leave-link" type="button">&#128197; Leave your details for a callback</button>' +
+      '<button class="fd-leave-link" type="button">&#128197; Request a callback</button>' +
       '<div class="fd-lead-form">' +
       '<input class="fd-lead-name" type="text" placeholder="Your name" />' +
       '<input class="fd-lead-contact" type="text" placeholder="Phone or email" />' +
@@ -409,12 +482,20 @@
       "</div>" +
       '<div class="fd-lead-status"></div>' +
       "</div>" +
-      '<div class="fd-inputrow"><input class="fd-input" type="text" placeholder="Type a question..." /><button class="fd-send" type="button">Send</button></div>' +
+      '<div class="fd-attach-chips"></div>' +
+      '<div class="fd-inputrow">' +
+      '<div class="fd-emoji-popover">' + EMOJI_SET.map(function (e) { return '<button type="button">' + e + "</button>"; }).join("") + "</div>" +
+      '<input class="fd-attach-input" type="file" accept="' + ATTACH_ACCEPT + '" hidden />' +
+      '<input class="fd-input" type="text" placeholder="Type a question..." />' +
+      '<button class="fd-attach-btn" type="button" aria-label="Attach a file">' + ATTACH_ICON_SVG + "</button>" +
+      '<button class="fd-emoji-btn" type="button" aria-label="Add emoji">&#128578;</button>' +
+      '<button class="fd-send" type="button" aria-label="Send">' + SEND_ICON_SVG + "</button>" +
+      "</div>" +
       "</div></div>";
     shadow.appendChild(root);
 
     root.querySelector(".fd-name").textContent = config.businessName || "Chat with us";
-    root.querySelector(".fd-sub").textContent = "Hi, I'm " + theme.assistantName + " - usually replies instantly";
+    root.querySelector(".fd-sub").textContent = theme.assistantName + " · usually replies instantly";
 
     var bubble = root.querySelector(".fd-bubble");
     var panel = root.querySelector(".fd-panel");
@@ -425,6 +506,11 @@
     var messages = root.querySelector(".fd-messages");
     var input = root.querySelector(".fd-input");
     var sendBtn = root.querySelector(".fd-send");
+    var emojiBtn = root.querySelector(".fd-emoji-btn");
+    var emojiPopover = root.querySelector(".fd-emoji-popover");
+    var attachBtn = root.querySelector(".fd-attach-btn");
+    var attachInput = root.querySelector(".fd-attach-input");
+    var attachChips = root.querySelector(".fd-attach-chips");
     var leaveLink = root.querySelector(".fd-leave-link");
     var leadForm = root.querySelector(".fd-lead-form");
     var leadName = root.querySelector(".fd-lead-name");
@@ -468,8 +554,7 @@
     function addFeedback(forQuestion, answerText) {
       var el = document.createElement("div");
       el.className = "fd-feedback";
-      el.innerHTML = '<span class="fd-answered-by">' + escapeHtml(theme.assistantName) + ' &middot; AI Agent</span>' +
-        '<button data-v="up" type="button" aria-label="Good answer">&#128077;</button>' +
+      el.innerHTML = '<button data-v="up" type="button" aria-label="Good answer">&#128077;</button>' +
         '<button data-v="down" type="button" aria-label="Not helpful">&#128078;</button>';
       messages.appendChild(el);
       el.addEventListener("click", function (e) {
@@ -501,6 +586,107 @@
     // redundant manual "leave your details" link below.
     var leadAlreadyCaptured = false;
 
+    // Every file ever attached this conversation, kept around (not cleared
+    // after each send) so a lead captured several turns after a photo was
+    // attached still includes it. Each entry: { id, name, status: 'uploading'
+    // | 'done' | 'error', url }. Capped at 3 - plenty for "here's a photo of
+    // the issue", not an open-ended upload queue.
+    var attachments = [];
+    var ATTACH_LIMIT = 3;
+
+    function doneAttachmentPayload() {
+      return attachments.filter(function (a) { return a.status === "done"; }).map(function (a) { return { url: a.url, name: a.name }; });
+    }
+
+    function renderAttachChips() {
+      attachChips.innerHTML = "";
+      attachments.forEach(function (a) {
+        var chip = document.createElement("span");
+        chip.className = "fd-attach-chip" + (a.status === "error" ? " fd-err" : "");
+        var nameEl = document.createElement("span");
+        nameEl.className = "fd-attach-chip-name";
+        nameEl.textContent = a.status === "error" ? a.name + " - failed" : a.name;
+        chip.appendChild(nameEl);
+        if (a.status === "uploading") {
+          var spinner = document.createElement("span");
+          spinner.className = "fd-attach-chip-spinner";
+          chip.appendChild(spinner);
+        }
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "fd-attach-chip-remove";
+        removeBtn.setAttribute("aria-label", "Remove " + a.name);
+        removeBtn.innerHTML = "&#10005;";
+        removeBtn.addEventListener("click", function () {
+          attachments = attachments.filter(function (x) { return x.id !== a.id; });
+          renderAttachChips();
+        });
+        chip.appendChild(removeBtn);
+        attachChips.appendChild(chip);
+      });
+    }
+
+    function uploadAttachment(file) {
+      var id = Math.random().toString(36).slice(2);
+      var entry = { id: id, name: file.name, status: "uploading", url: null };
+      attachments.push(entry);
+      renderAttachChips();
+
+      if (!instanceLeadApiUrl) {
+        entry.status = "error";
+        entry.name = file.name + " (not available in this preview)";
+        renderAttachChips();
+        return;
+      }
+      if (file.size > ATTACH_MAX_BYTES) {
+        entry.status = "error";
+        renderAttachChips();
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function () {
+        fetch(instanceLeadApiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upload-attachment",
+            businessKey: instanceKey,
+            filename: file.name,
+            dataUri: reader.result
+          })
+        })
+          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+          .then(function (data) {
+            entry.status = "done";
+            entry.url = data.url;
+            entry.name = data.name || file.name;
+            renderAttachChips();
+          })
+          .catch(function () {
+            entry.status = "error";
+            renderAttachChips();
+          });
+      };
+      reader.onerror = function () {
+        entry.status = "error";
+        renderAttachChips();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    attachBtn.addEventListener("click", function () {
+      if (attachments.length >= ATTACH_LIMIT) return;
+      attachInput.click();
+    });
+    attachInput.addEventListener("change", function () {
+      Array.prototype.forEach.call(attachInput.files || [], function (file) {
+        if (attachments.length >= ATTACH_LIMIT) return;
+        uploadAttachment(file);
+      });
+      attachInput.value = ""; // lets the same file be re-selected after a remove
+    });
+
     function askBackend(text) {
       var controller = new AbortController();
       var timeout = setTimeout(function () { controller.abort(); }, 8000);
@@ -513,6 +699,8 @@
       var body = { businessKey: instanceKey, message: text, history: history };
       if (opts.sendConfigInline) body.previewConfig = config;
       if (leadAlreadyCaptured) body.leadAlreadyCaptured = true;
+      var pendingAttachments = doneAttachmentPayload();
+      if (pendingAttachments.length) body.attachments = pendingAttachments;
 
       return fetch(instanceApiUrl, {
         method: "POST",
@@ -600,7 +788,8 @@
           businessKey: instanceKey,
           name: name,
           contact: contact,
-          transcript: history.slice(-6)
+          transcript: history.slice(-6),
+          attachments: doneAttachmentPayload()
         })
       })
         .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
@@ -629,18 +818,6 @@
       bubble.classList.add("fd-settled");
     }
 
-    // Just the name, deliberately - no large avatar graphic here (that's
-    // what the small header avatar is for; a second big one ate up too
-    // much space for what it added).
-    function renderHeroGreeting(text) {
-      var el = document.createElement("div");
-      el.className = "fd-hero";
-      el.innerHTML = '<div class="fd-hero-text"></div>';
-      el.querySelector(".fd-hero-text").textContent = text; // textContent only, same rule as addMessage
-      messages.appendChild(el);
-      messages.scrollTop = messages.scrollHeight;
-    }
-
     var greeted = false;
     function showGreeting() {
       if (greeted) return;
@@ -649,19 +826,10 @@
       var greeting = (openNow === false && config.afterHoursGreeting)
         ? config.afterHoursGreeting
         : (config.greeting || "Hi! How can I help you today?");
-      // Short, bold hero line first (the actual "moment"), then the fuller
-      // informational greeting as a normal message below it - existing
-      // configs already write greeting as a helpful paragraph, which reads
-      // badly blown up to headline size. This way nothing in configs.json
-      // needs rewriting to get the better opening moment.
-      renderHeroGreeting("Hi! I'm " + theme.assistantName + " 👋");
+      // The header already carries the assistant's name and identity, so
+      // this one message is the conversation's only greeting - no separate
+      // hero line duplicating "Hi, I'm ___" above it.
       addMessage(greeting, "bot");
-      // Both of the above auto-scroll to the bottom as they're appended,
-      // which would scroll straight past the hero the instant the second
-      // message lands - defeating the point of it. Show from the top for
-      // this opening moment instead; normal back-and-forth after this
-      // still scrolls to bottom as expected.
-      messages.scrollTop = 0;
     }
 
     function hideTeaser() {
@@ -693,6 +861,32 @@
     sendBtn.addEventListener("click", send);
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") send();
+    });
+
+    emojiBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      emojiPopover.classList.toggle("fd-show");
+    });
+    emojiPopover.addEventListener("click", function (e) {
+      var btn = e.target.closest("button");
+      if (!btn) return;
+      // Insert at the cursor position, not just appended - a visitor
+      // picking an emoji mid-sentence expects it to land where they were
+      // typing, not get shoved to the end.
+      var start = input.selectionStart == null ? input.value.length : input.selectionStart;
+      var end = input.selectionEnd == null ? input.value.length : input.selectionEnd;
+      input.value = input.value.slice(0, start) + btn.textContent + input.value.slice(end);
+      input.focus();
+      input.selectionStart = input.selectionEnd = start + btn.textContent.length;
+      emojiPopover.classList.remove("fd-show");
+    });
+    // Listens on our own root rather than document - keeps every event
+    // binding self-contained inside the shadow tree, matching the rest
+    // of this file, rather than reaching out to the host page's document.
+    root.addEventListener("click", function (e) {
+      if (emojiPopover.classList.contains("fd-show") && !emojiPopover.contains(e.target) && e.target !== emojiBtn) {
+        emojiPopover.classList.remove("fd-show");
+      }
     });
 
     // The chime can only actually play once the browser considers the

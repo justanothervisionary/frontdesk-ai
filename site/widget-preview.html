@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Widget design preview (local)</title>
+<style>
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #eef0f3; }
+  .note { max-width: 520px; margin: 40px auto; padding: 20px 24px; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p { font-size: 13px; color: #555; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="note">
+    <h1>Widget design preview</h1>
+    <p>Loads the <strong>local</strong> widget.js (not the deployed one) against Swigable's real
+    config, so styling changes show up on refresh without a deploy. No <code>data-api-url</code> is
+    set, so replies use the local keyword matcher, not the live AI - fine for design work, not for
+    testing actual AI behavior.</p>
+  </div>
+  <script>
+    // Cache-busted so every reload picks up the latest edit to
+    // widget.js - a plain <script src> here was serving a stale cached
+    // copy across reloads during iteration.
+    var s = document.createElement("script");
+    s.src = "../widget/frontdesk-widget.js?t=" + Date.now();
+    s.setAttribute("data-business", "swigable-641f68");
+    s.setAttribute("data-config-url", "../configs/swigable-641f68.json");
+    s.defer = true;
+    document.body.appendChild(s);
+  </script>
+
+</body>
+</html>

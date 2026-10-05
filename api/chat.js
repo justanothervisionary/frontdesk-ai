@@ -10,6 +10,7 @@ const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
 const { buildSystemPrompt, buildCaptureLeadTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
+const { sanitizeAttachments } = require("./_lib/attachments");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -46,6 +47,10 @@ module.exports = async function handler(req, res) {
   var message = (body.message || "").toString().slice(0, 1000); // hard cap on input length
   var history = Array.isArray(body.history) ? body.history.slice(-6) : []; // last 6 turns only - keeps cost bounded
   var leadAlreadyCaptured = body.leadAlreadyCaptured === true;
+  // Never shown to Claude - these are only for the lead notification/log
+  // if a lead actually gets captured this turn, same as the visitor's
+  // contact details never go into the prompt either.
+  var attachments = sanitizeAttachments(body.attachments);
 
   // File-based config (a real, reviewed business) takes priority. Only
   // falls back to the visitor-supplied previewConfig (sanitized above) when
@@ -176,8 +181,8 @@ module.exports = async function handler(req, res) {
           { role: "assistant", content: reply }
         ]).slice(-6);
         var captureResults = await Promise.all([
-          sendNotification(config, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript }),
-          appendLead(businessKey, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript }).catch(function (err) {
+          sendNotification(config, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript, attachments: attachments }),
+          appendLead(businessKey, { name: capturedName || "Website visitor", contact: capturedContact, transcript: transcript, attachments: attachments }).catch(function (err) {
             console.error("[frontdesk chat] failed to log captured lead for digest:", businessKey, err.message);
           })
         ]);

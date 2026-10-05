@@ -47,6 +47,8 @@ async function appendLead(businessKey, lead) {
   // Unset means "web" (the original, still-default channel); cheap to
   // add now rather than retrofit once a second channel actually exists.
   if (lead.source) entry.source = lead.source;
+  // Already validated (api/_lib/attachments.js) before reaching here.
+  if (Array.isArray(lead.attachments) && lead.attachments.length) entry.attachments = lead.attachments;
   entries.push(entry);
   await putFile(logPath(businessKey), entries, "Log lead for " + businessKey + "'s weekly digest", existing && existing.sha);
 }

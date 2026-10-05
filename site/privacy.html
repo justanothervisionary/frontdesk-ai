@@ -43,7 +43,7 @@
   </nav>
   <div class="wrap">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: 4 October 2026</p>
+    <p class="updated">Last updated: 5 October 2026</p>
 
     <p>This describes how Frontdesk ("we," "us") handles data when you use our website, our
     self-serve tools, and the AI receptionist widget installed on a client's website. We've
@@ -86,6 +86,10 @@
       question itself (not who asked it) is logged separately so the business can see what's
       missing from their FAQs - kept only as a short rolling list, not tied to any visitor's
       identity.</li>
+      <li>If a visitor chooses to attach a photo or PDF (for example, a picture of the issue
+      they're asking about), that file is stored and a link to it is included in the lead
+      notification sent to the business, the same as the name/contact details above - always
+      the visitor's own choice, never required to use the chat.</li>
       <li>No cookies, no tracking scripts, no analytics on the widget itself.</li>
     </ul>
 
@@ -118,7 +122,8 @@
       <li><strong>Meta</strong> - relays messages for businesses using the WhatsApp channel.</li>
       <li><strong>Upstash</strong> - stores usage counts, the unanswered-question list
       mentioned above, and the short-lived WhatsApp conversation window.</li>
-      <li><strong>Vercel</strong> and <strong>GitHub</strong> - host the site and store configs.</li>
+      <li><strong>Vercel</strong> and <strong>GitHub</strong> - host the site and store configs.
+      Vercel Blob storage also holds any file a visitor chooses to attach to a conversation.</li>
     </ul>
     <p>We don't sell data, and we don't share it with anyone beyond what's needed to actually
     run the service.</p>

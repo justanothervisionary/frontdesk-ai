@@ -41,6 +41,16 @@ async function sendNotification(config, lead) {
     .map(function (m) { return "<p><strong>" + escapeHtml(m.role) + ":</strong> " + escapeHtml(m.content) + "</p>"; })
     .join("");
 
+  // lead.attachments is already validated (api/_lib/attachments.js) before
+  // it ever reaches here - url is confirmed to be our own Blob storage
+  // domain, never visitor-controlled, so it's safe to use directly in an
+  // href rather than just as escaped text.
+  var attachmentsHtml = (lead.attachments || []).length
+    ? "<p><strong>Attachments:</strong><br/>" +
+      lead.attachments.map(function (a) { return '<a href="' + a.url + '">' + escapeHtml(a.name) + "</a>"; }).join("<br/>") +
+      "</p>"
+    : "";
+
   var controller = new AbortController();
   var timeout = setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT_MS);
   try {
@@ -60,6 +70,7 @@ async function sendNotification(config, lead) {
           "<p>New lead from your Frontdesk " + (isWhatsApp ? "WhatsApp AI receptionist" : "chat widget") + " (" + escapeHtml(config.businessName) + "):</p>" +
           "<p><strong>Name:</strong> " + escapeHtml(lead.name) + "<br/>" +
           "<strong>Contact:</strong> " + escapeHtml(lead.contact) + "</p>" +
+          attachmentsHtml +
           (transcriptHtml ? "<p>Recent conversation:</p>" + transcriptHtml : "")
       })
     });
