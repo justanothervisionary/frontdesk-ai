@@ -26,5 +26,16 @@
         "content": "Thanks - I've got that, someone from the team will be in touch."
       }
     ]
+  },
+  {
+    "name": "TEST - attachment feature check (ignore)",
+    "contact": "test@example.com",
+    "at": "2026-10-05T11:53:52.968Z",
+    "attachments": [
+      {
+        "url": "https://wvsagkswbdbtck3n.public.blob.vercel-storage.com/lead-attachments/swigable-641f68/48037ca5203f35ce9321.jpg",
+        "name": "test-upload.jpg"
+      }
+    ]
   }
 ]
