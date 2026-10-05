@@ -42,5 +42,28 @@
     "name": "x",
     "contact": "x",
     "at": "2026-10-05T13:31:17.587Z"
+  },
+  {
+    "name": "Bob",
+    "contact": "bob1965@gmail.com",
+    "at": "2026-10-05T15:54:04.949Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "Hey, I bought a bottle on Kickstarter. Can I change the colours and what colours do you do? also is it stainless steel and keep things hot?"
+      },
+      {
+        "role": "assistant",
+        "content": "Great! Yes, we do stainless steel bottles - they're designed to keep drinks at the right temperature. We come in 4 colours: Teal, Candy, Carbon, and Forest.\n\nAs for changing the colour on your existing bottle - I'm not sure if that's possible with the one you already have from Kickstarter. That's a good question for the team though, so let me pass that on to them. Can I grab your name and number so someone can follow up with you about swapping colours?"
+      },
+      {
+        "role": "user",
+        "content": "Thanks so much. Bob and my email is bob1965@gmail.com"
+      },
+      {
+        "role": "assistant",
+        "content": "Perfect, Bob - I've got that down for you. The team will be in touch about your colour options soon!"
+      }
+    ]
   }
 ]
