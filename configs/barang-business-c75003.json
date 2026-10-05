@@ -52,7 +52,7 @@
       "answer": "Give us a call on 07593009486 for directions and parking info."
     }
   ],
-  "active": false,
+  "active": true,
   "stripeCustomerId": "cus_VLNaSrP7j7K8ec",
   "stripeSubscriptionId": "sub_1UKgot1PzE19HBxHCk3v0i16",
   "stripeCheckoutSessionId": "cs_live_a19UCdyK6NnIsYcfHRMwNM27yZRinRqyaTJ3ega8KSscLHThwyN5psT3bA"
