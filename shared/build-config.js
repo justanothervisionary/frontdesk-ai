@@ -31,7 +31,7 @@
   // points at wherever this is actually deployed.
   function siteBaseUrl() {
     if (typeof process !== "undefined" && process.env && process.env.SITE_BASE_URL) return process.env.SITE_BASE_URL;
-    return "https://frontdesk-ai-chi-ten.vercel.app";
+    return "https://www.frontdesksuite.co.uk";
   }
 
   // A business's own domain, once they've told us (or we already know it,

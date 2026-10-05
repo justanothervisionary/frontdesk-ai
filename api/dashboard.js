@@ -27,7 +27,7 @@ const isAdminActionRateLimited = createRateLimiter(20, 60 * 1000);
 // Lazy, not eager - see api/create-checkout.js for why: an unset
 // STRIPE_SECRET_KEY should fail one request cleanly, not crash the module.
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
-const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://frontdesk-ai-chi-ten.vercel.app";
+const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.co.uk";
 
 async function handleGetData(req, res, businessKey) {
   var result = await loadConfigLive(businessKey);

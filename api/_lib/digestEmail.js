@@ -128,7 +128,7 @@ function buildDigestEmail(config, thisWeek, installWarning) {
             '<tr><td style="padding:28px 32px 24px 32px;">' +
               '<table role="presentation" cellpadding="0" cellspacing="0" style="border-radius:9px;background:' + COLORS.accent + ';">' +
                 '<tr><td style="padding:11px 20px;font-family:' + FONT + ';font-size:13px;font-weight:700;color:' + COLORS.onAccent + ';">' +
-                  '<a href="https://frontdesk-ai-chi-ten.vercel.app" style="color:' + COLORS.onAccent + ';text-decoration:none;">See Frontdesk in action &rarr;</a>' +
+                  '<a href="https://www.frontdesksuite.co.uk" style="color:' + COLORS.onAccent + ';text-decoration:none;">See Frontdesk in action &rarr;</a>' +
                 '</td></tr>' +
               '</table>' +
             '</td></tr>' +

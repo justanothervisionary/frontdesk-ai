@@ -22,7 +22,7 @@ function privateFilePath(businessKey) {
   return "api/_private-configs/" + businessKey + ".json";
 }
 
-const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://frontdesk-ai-chi-ten.vercel.app";
+const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.co.uk";
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_ADDRESS = process.env.LEAD_FROM_ADDRESS || "Frontdesk <leads@YOUR-DOMAIN>";
 

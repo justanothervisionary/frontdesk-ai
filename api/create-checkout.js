@@ -30,7 +30,7 @@ const isCaptureEmailRateLimited = createRateLimiter(15, 60 * 1000);
 // defaults to a locked-down origin rather than "*" - set ALLOWED_ORIGIN to
 // the real site origin before going live.
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
-const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://frontdesk-ai-chi-ten.vercel.app";
+const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.co.uk";
 
 function capStr(v, max) {
   return (v == null ? "" : String(v)).slice(0, max);

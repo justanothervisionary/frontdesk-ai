@@ -368,7 +368,7 @@
   // hosted on our own domain since the widget itself gets embedded on
   // arbitrary third-party sites via a single script tag, so this needs to
   // be a real absolute URL, not a relative path.
-  var DEFAULT_AVATAR_URL = "https://frontdesk-ai-chi-ten.vercel.app/site/assets/images/sia-avatar.jpg";
+  var DEFAULT_AVATAR_URL = "https://www.frontdesksuite.co.uk/site/assets/images/sia-avatar.jpg";
 
   // A small hardcoded set rather than a third-party emoji-picker library -
   // keeps this a single, dependency-free file (no new network request, no

@@ -51,7 +51,7 @@ async function fetchPageText(url) {
     var res = await fetch(url, {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; FrontdeskBot/1.0; +https://frontdesk-ai-chi-ten.vercel.app)" }
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; FrontdeskBot/1.0; +https://www.frontdesksuite.co.uk)" }
     });
     if (!res.ok) throw new Error("Site responded with " + res.status);
     var html = (await res.text()).slice(0, MAX_HTML_CHARS);
