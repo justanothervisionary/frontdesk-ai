@@ -65,5 +65,34 @@
         "content": "Perfect, Bob - I've got that down for you. The team will be in touch about your colour options soon!"
       }
     ]
+  },
+  {
+    "name": "Darren",
+    "contact": "darren213@outlook.com",
+    "at": "2026-10-05T15:56:50.052Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "hey"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey! Welcome to Swigable 👋 \n\nI'm here to help - what would you like to know about our smart water bottles?"
+      },
+      {
+        "role": "user",
+        "content": "I need to refund here is my invoice - name is Darren and email is darren213@outlook.com"
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks for getting in touch, Darren. I appreciate you providing that info, but refunds are something I'll need to pass on to the team directly - they'll have access to your invoice and account details to help you properly.\n\nLet me grab your email so they can follow up with you about this."
+      }
+    ],
+    "attachments": [
+      {
+        "url": "https://wvsagkswbdbtck3n.public.blob.vercel-storage.com/lead-attachments/swigable-641f68/eaecd053d2808e2ea7d5.png",
+        "name": "c54bfda5-63e4-416c-8565-293cd113d0e7.png"
+      }
+    ]
   }
 ]
