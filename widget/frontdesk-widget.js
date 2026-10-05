@@ -592,10 +592,17 @@
     // | 'done' | 'error', url }. Capped at 3 - plenty for "here's a photo of
     // the issue", not an open-ended upload queue.
     var attachments = [];
+    // Everything actually included in a message already sent this
+    // conversation - separate from `attachments` (the pending chip row)
+    // so a lead captured several turns after a photo was sent still
+    // includes it, while the chip row itself clears once sent instead
+    // of sitting there looking unsent forever (see send() below).
+    var sentAttachments = [];
     var ATTACH_LIMIT = 3;
 
     function doneAttachmentPayload() {
-      return attachments.filter(function (a) { return a.status === "done"; }).map(function (a) { return { url: a.url, name: a.name }; });
+      var pendingDone = attachments.filter(function (a) { return a.status === "done"; });
+      return sentAttachments.concat(pendingDone).map(function (a) { return { url: a.url, name: a.name }; });
     }
 
     function renderAttachChips() {
@@ -718,11 +725,35 @@
 
     function send() {
       var text = input.value.trim();
-      if (!text) return;
+      var pendingDone = attachments.filter(function (a) { return a.status === "done"; });
+      // The actual bug report this fixes: attaching a file with no typed
+      // text made this return here immediately, before ever looking at
+      // whether there was an attachment - clicking Send just silently did
+      // nothing. A visitor attaching a photo of the issue with nothing
+      // typed is a completely normal thing to do.
+      if (!text && !pendingDone.length) return;
+      // No typed text but a real attachment - synthesize something to
+      // show/send rather than sending an empty message (which the server
+      // rejects, and which Claude would have nothing to respond to).
+      if (!text) {
+        text = pendingDone.length === 1
+          ? "Sent a file: " + pendingDone[0].name
+          : "Sent " + pendingDone.length + " files: " + pendingDone.map(function (a) { return a.name; }).join(", ");
+      }
       addMessage(text, "user");
       input.value = "";
       input.disabled = true;
       sendBtn.disabled = true;
+
+      // Move anything pending into "sent" and clear the chip row - it's
+      // now part of the conversation that just got sent, not still
+      // waiting to go out. Done before the request so doneAttachmentPayload()
+      // (called inside askBackend below) already reflects it.
+      if (pendingDone.length) {
+        sentAttachments = sentAttachments.concat(pendingDone);
+        attachments = attachments.filter(function (a) { return a.status !== "done"; });
+        renderAttachChips();
+      }
 
       var typingEl = showTyping();
 
