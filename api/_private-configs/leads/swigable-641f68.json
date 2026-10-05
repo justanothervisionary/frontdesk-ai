@@ -109,5 +109,38 @@
         "content": "Hi there! Thanks for leaving your number – I'll make sure the team has it. Just to check, is there something specific about Swigable I can help you with, or would you like someone to give you a call back?"
       }
     ]
+  },
+  {
+    "name": "Daniel",
+    "contact": "07749309128",
+    "at": "2026-10-05T19:24:19.934Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "can you se whats on the file?"
+      },
+      {
+        "role": "assistant",
+        "content": "I'm not able to view files directly, but the team will be able to see it when they process your return request. To make sure they can get back to you about it, what's the best phone number or email to reach you on?"
+      },
+      {
+        "role": "user",
+        "content": "DAniel - 07749309128"
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks - I've got that, someone from the team will be in touch."
+      }
+    ],
+    "attachments": [
+      {
+        "url": "https://wvsagkswbdbtck3n.public.blob.vercel-storage.com/lead-attachments/swigable-641f68/8afbc92dfc0129e483fa.pdf",
+        "name": "bill-20261002 (1).pdf"
+      },
+      {
+        "url": "https://wvsagkswbdbtck3n.public.blob.vercel-storage.com/lead-attachments/swigable-641f68/5ade605fa9ebde4bc013.pdf",
+        "name": "bill-20261002 (1).pdf"
+      }
+    ]
   }
 ]
