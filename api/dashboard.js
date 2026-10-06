@@ -6,16 +6,17 @@
 // the original three files - just merged into one, routed by
 // method/action.
 const Stripe = require("stripe");
-const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId } = require("./_lib/config");
+const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId, isValidHours } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
 const { findBusinessKeyByWhatsAppPhoneNumberId } = require("./_lib/loginLookup");
-const { getSessionBusinessKey, getSessionAdminEmail, getSessionImpersonator, setSessionCookie } = require("./_lib/session");
+const { getSessionBusinessKey, getSessionAdminEmail, getSessionImpersonator, setSessionCookie, signGoogleOAuthState, verifyGoogleOAuthState } = require("./_lib/session");
 const { isTrustedOrigin } = require("./_lib/cors");
 const { getFile, putFile } = require("./_lib/github");
 const { getUsage } = require("./_lib/usage");
 const { getMissedQuestions } = require("./_lib/missedQuestions");
 const { checkInstallation } = require("./_lib/installCheck");
 const { createRateLimiter } = require("./_lib/rateLimit");
+const { exchangeAuthCode } = require("./_lib/googleCalendar");
 
 // Scoped specifically to admin-edit/admin-impersonate, not the rest of this
 // file: a business's own actions (save, toggle-active) can only ever touch
@@ -28,6 +29,24 @@ const isAdminActionRateLimited = createRateLimiter(20, 60 * 1000);
 // STRIPE_SECRET_KEY should fail one request cleanly, not crash the module.
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.co.uk";
+
+// Private-config sidecar (api/_private-configs/{key}.json) is read-merge-
+// write, never a blind overwrite. This used to be inlined at the one call
+// site that needed it (handleSave, for notifyEmail) as
+// putFile(path, { notifyEmail }, ...) - that REPLACES the whole file
+// rather than merging into it, which only ever "worked" because
+// notifyEmail was the sole field ever stored there. The moment a second
+// field (a Google Calendar refresh token) lives in the same sidecar, that
+// pattern would silently wipe it on the next unrelated save. mutateFn
+// receives the existing object (or {} if the file doesn't exist yet) and
+// mutates it in place.
+async function updatePrivateConfig(businessKey, mutateFn) {
+  var path = `api/_private-configs/${businessKey}.json`;
+  var existing = await getFile(path);
+  var json = (existing && JSON.parse(existing.content)) || {};
+  mutateFn(json);
+  await putFile(path, json, `Update private config for ${businessKey}`, existing && existing.sha);
+}
 
 async function handleGetData(req, res, businessKey) {
   var result = await loadConfigLive(businessKey);
@@ -53,6 +72,8 @@ async function handleGetData(req, res, businessKey) {
     assistantName: (result.config.theme && result.config.theme.assistantName) || "Sia",
     avatarUrl: (result.config.theme && result.config.theme.avatarUrl) || "",
     whatsappPhoneNumberId: (result.config.whatsapp && result.config.whatsapp.phoneNumberId) || "",
+    googleCalendarConnected: !!(result.config.googleCalendar && result.config.googleCalendar.connected),
+    hours: result.config.hours || null,
     active: result.config.active !== false,
     // Non-null only when this session was minted by an admin "viewing as"
     // this business (see handleAdminImpersonate) - drives the dashboard's
@@ -177,6 +198,20 @@ async function handleSave(req, res, businessKey) {
       config.whatsapp = { phoneNumberId: whatsappId };
     }
   }
+  // null explicitly clears hours (back to "not set"); omitted leaves
+  // whatever's there alone - same convention every other optional field
+  // here uses. Needed for Google Calendar's slot computation
+  // (api/_lib/googleCalendar.js reuses this exact field, the same shape
+  // widget/frontdesk-widget.js's own isOpenNow() already reads).
+  if (body.hours !== undefined) {
+    if (body.hours === null) {
+      delete config.hours;
+    } else if (!isValidHours(body.hours)) {
+      return res.status(400).json({ error: "Those don't look like valid business hours." });
+    } else {
+      config.hours = body.hours;
+    }
+  }
 
   // notifyEmail lives in the PRIVATE file, not the public config - see
   // api/_lib/config.js's loadConfig()/loadConfigLive() for why (it's
@@ -188,9 +223,7 @@ async function handleSave(req, res, businessKey) {
   try {
     await putFile(`configs/${businessKey}.json`, config, `Dashboard update for ${businessKey}`, result.sha);
     if (notifyEmailToSave) {
-      var privFile = await getFile(`api/_private-configs/${businessKey}.json`);
-      await putFile(`api/_private-configs/${businessKey}.json`, { notifyEmail: notifyEmailToSave },
-        `Update contact email for ${businessKey}`, privFile && privFile.sha);
+      await updatePrivateConfig(businessKey, function (priv) { priv.notifyEmail = notifyEmailToSave; });
     }
   } catch (err) {
     console.error("[frontdesk dashboard] save error:", err.message);
@@ -478,7 +511,124 @@ async function handleAdminImpersonate(req, res, adminEmail, ip) {
   return res.status(200).json({ impersonating: targetBusinessKey });
 }
 
+// Same dark-card visual shape as api/auth.js's own confirmPageHtml - this
+// is a browser navigation (Google's redirect-back lands here directly),
+// never a fetch, so it needs a real page, not a JSON error.
+function calendarResultPage(message, isError) {
+  return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />" +
+    "<title>Google Calendar - Frontdesk</title><style>" +
+    "body{margin:0;background:#0a0b0d;color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+    "display:flex;align-items:center;justify-content:center;min-height:100vh;}" +
+    ".card{background:#14161a;border:1px solid #22262d;border-radius:16px;padding:32px;max-width:360px;text-align:center;}" +
+    "h1{font-size:18px;margin:0 0 12px;}p{color:#9aa1ac;font-size:14px;line-height:1.5;margin:0 0 20px;}" +
+    "a.btn{background:#35d68f;color:#04160c;border:none;border-radius:9px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;}" +
+    "</style></head><body><div class=\"card\">" +
+    "<h1>" + (isError ? "Couldn't connect" : "Connected") + "</h1><p>" + message + "</p>" +
+    "<a class=\"btn\" href=\"/site/dashboard.html\">Back to dashboard</a>" +
+    "</div></body></html>";
+}
+
+// The connect-INITIATE step - a same-origin <a href> click from an
+// already-logged-in dashboard page, so isTrustedOrigin's own Referer
+// fallback already covers it (same mechanism that already makes the
+// plain #export-csv-link anchor work). Redirects the browser away to
+// Google's own consent screen with a signed state param carrying which
+// business this is for.
+async function handleGoogleCalendarConnect(req, res, businessKey) {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_REDIRECT_URI) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(calendarResultPage("Calendar connection isn't set up on our end yet - check back soon.", true));
+  }
+  var params = new URLSearchParams({
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+    response_type: "code",
+    access_type: "offline",
+    // Always forces re-consent, even on a reconnect - Google only issues
+    // a NEW refresh token when consent is actually (re-)granted, so
+    // omitting this on a reconnect could silently come back with no
+    // refresh token at all.
+    prompt: "consent",
+    scope: "https://www.googleapis.com/auth/calendar.freebusy https://www.googleapis.com/auth/calendar.events",
+    state: signGoogleOAuthState(businessKey)
+  });
+  res.setHeader("Location", "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString());
+  return res.status(302).end();
+}
+
+// The callback - genuinely Google-initiated, so this is special-cased
+// BEFORE isTrustedOrigin in the module handler below (same bypass shape
+// api/auth.js already uses for its own verify/admin-verify actions).
+// businessKey comes from the signed state param, never the session
+// cookie (which can't be relied on across this kind of redirect - see
+// the matching comment on signGoogleOAuthState in api/_lib/session.js).
+async function handleGoogleCalendarCallback(req, res) {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  var businessKey = verifyGoogleOAuthState((req.query && req.query.state) || "");
+  if (!businessKey) {
+    return res.status(400).send(calendarResultPage("That connection link expired - please try connecting again from your dashboard.", true));
+  }
+  if (req.query.error || !req.query.code) {
+    return res.status(200).send(calendarResultPage("Calendar connection was cancelled.", true));
+  }
+
+  try {
+    var tokens = await exchangeAuthCode(req.query.code, process.env.GOOGLE_REDIRECT_URI);
+    if (!tokens.refreshToken) {
+      return res.status(502).send(calendarResultPage("Google didn't grant lasting access - please try connecting again.", true));
+    }
+
+    var result = await loadConfigLive(businessKey);
+    if (!result) return res.status(404).send(calendarResultPage("Business not found.", true));
+    var config = result.config;
+    // Public: boolean only - calendarId/refreshToken never go here (for
+    // most Google accounts the "primary" calendar id IS the account's
+    // own email address, and this file is fetched directly by any
+    // visitor's browser).
+    config.googleCalendar = { connected: true };
+    delete config.notifyEmail; // same guard every other write here applies
+    await putFile(`configs/${businessKey}.json`, config, `Connect Google Calendar for ${businessKey}`, result.sha);
+
+    await updatePrivateConfig(businessKey, function (priv) {
+      priv.googleCalendar = { refreshToken: tokens.refreshToken, calendarId: "primary" };
+    });
+  } catch (err) {
+    console.error("[frontdesk dashboard] google-calendar-callback error:", err.message);
+    return res.status(502).send(calendarResultPage("Something went wrong connecting your calendar - please try again.", true));
+  }
+
+  res.setHeader("Location", "/site/dashboard.html?calendar=connected");
+  return res.status(302).end();
+}
+
+async function handleGoogleCalendarDisconnect(req, res, businessKey) {
+  var result = await loadConfigLive(businessKey);
+  if (!result) return res.status(404).json({ error: "Business not found" });
+  var config = result.config;
+  delete config.googleCalendar;
+  delete config.notifyEmail;
+
+  try {
+    await putFile(`configs/${businessKey}.json`, config, `Disconnect Google Calendar for ${businessKey}`, result.sha);
+    await updatePrivateConfig(businessKey, function (priv) { delete priv.googleCalendar; });
+  } catch (err) {
+    console.error("[frontdesk dashboard] google-calendar-disconnect error:", err.message);
+    if (err.conflict) return res.status(409).json({ error: "This was just updated elsewhere - please refresh and try again." });
+    return res.status(502).json({ error: "Could not disconnect - please try again." });
+  }
+  return res.status(200).json({ disconnected: true });
+}
+
 module.exports = async function handler(req, res) {
+  // Google's redirect-back has no Origin and a Referer pointing at
+  // Google (or none) - same non-same-origin-navigation problem
+  // api/auth.js's own verify/admin-verify bypass already solves, same
+  // fix shape: special-cased and returned before isTrustedOrigin below.
+  if (req.query && req.query.action === "google-calendar-callback") {
+    if (req.method !== "GET") return res.status(405).end();
+    return handleGoogleCalendarCallback(req, res);
+  }
+
   if (!isTrustedOrigin(req)) return res.status(403).json({ error: "Forbidden" });
 
   var action = (req.query && req.query.action) || "";
@@ -505,6 +655,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "GET") {
     if (action === "leads-export") return handleLeadsExport(req, res, businessKey);
+    if (action === "google-calendar-connect") return handleGoogleCalendarConnect(req, res, businessKey);
     return handleGetData(req, res, businessKey);
   }
 
@@ -512,6 +663,7 @@ module.exports = async function handler(req, res) {
     if (action === "billing-portal") return handleBillingPortal(req, res, businessKey);
     if (action === "toggle-active") return handleToggleActive(req, res, businessKey);
     if (action === "check-install") return handleCheckInstall(req, res, businessKey);
+    if (action === "google-calendar-disconnect") return handleGoogleCalendarDisconnect(req, res, businessKey);
     if (action === "save" || !action) return handleSave(req, res, businessKey);
     return res.status(400).json({ error: "Unknown action" });
   }

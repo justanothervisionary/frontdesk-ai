@@ -49,6 +49,7 @@ async function appendLead(businessKey, lead) {
   if (lead.source) entry.source = lead.source;
   // Already validated (api/_lib/attachments.js) before reaching here.
   if (Array.isArray(lead.attachments) && lead.attachments.length) entry.attachments = lead.attachments;
+  if (lead.bookingTime) entry.bookingTime = lead.bookingTime;
   entries.push(entry);
   await putFile(logPath(businessKey), entries, "Log lead for " + businessKey + "'s weekly digest", existing && existing.sha);
 }

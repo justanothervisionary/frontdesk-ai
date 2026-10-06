@@ -17,6 +17,7 @@ const SESSION_COOKIE_NAME = "__Host-session";
 const ADMIN_SESSION_COOKIE_NAME = "__Host-admin-session";
 const LOGIN_TOKEN_TTL_SECONDS = 15 * 60;
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+const GOOGLE_OAUTH_STATE_TTL_SECONDS = 10 * 60;
 
 function base64url(str) {
   return Buffer.from(str, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -66,6 +67,23 @@ function signLoginToken(businessKey) {
 function verifyLoginToken(token) {
   var payload = verify(token);
   return (payload && payload.purpose === "login" && payload.businessKey) ? payload.businessKey : null;
+}
+
+// Google's OAuth redirect-back has no reliable session cookie to lean on
+// (cross-site navigation edge cases, the session could expire mid-flow) -
+// same problem the emailed magic-link token already solves, same fix:
+// sign businessKey into the `state` param Google round-trips back
+// verbatim, verify it on the callback instead of trusting the cookie.
+// Short TTL since this only ever needs to survive one redirect, not sit
+// in an inbox - `purpose` keeps it from ever being replayed as a login
+// token or session cookie.
+function signGoogleOAuthState(businessKey) {
+  return sign({ businessKey: businessKey, purpose: "google-oauth-state" }, GOOGLE_OAUTH_STATE_TTL_SECONDS);
+}
+
+function verifyGoogleOAuthState(token) {
+  var payload = verify(token);
+  return (payload && payload.purpose === "google-oauth-state" && payload.businessKey) ? payload.businessKey : null;
 }
 
 function parseCookies(req) {
@@ -161,5 +179,6 @@ function clearAdminSessionCookie(res) {
 
 module.exports = {
   signLoginToken, verifyLoginToken, setSessionCookie, getSessionBusinessKey, getSessionImpersonator, clearSessionCookie,
-  isAdminEmail, signAdminLoginToken, verifyAdminLoginToken, setAdminSessionCookie, getSessionAdminEmail, clearAdminSessionCookie
+  isAdminEmail, signAdminLoginToken, verifyAdminLoginToken, setAdminSessionCookie, getSessionAdminEmail, clearAdminSessionCookie,
+  signGoogleOAuthState, verifyGoogleOAuthState
 };

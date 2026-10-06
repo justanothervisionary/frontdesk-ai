@@ -43,7 +43,7 @@
   </nav>
   <div class="wrap">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: 5 October 2026</p>
+    <p class="updated">Last updated: 6 October 2026</p>
 
     <p>This describes how Frontdesk ("we," "us") handles data when you use our website, our
     self-serve tools, and the AI receptionist widget installed on a client's website. We've
@@ -69,6 +69,11 @@
       <li>Payment is handled entirely by Stripe - we never see or store your card details.
       Stripe's own <a href="https://stripe.com/privacy" target="_blank" rel="noopener">privacy policy</a>
       covers what they hold.</li>
+      <li>If you choose to connect Google Calendar, Google asks you to approve access limited
+      to checking free/busy times and creating events - never reading your existing event
+      details. The access this grants is stored securely on our servers, never in anything
+      a visitor's browser can reach, and you can disconnect it at any time from your
+      dashboard or from your own Google Account settings.</li>
     </ul>
 
     <h2>What we collect from a visitor chatting with a client's widget</h2>
@@ -106,6 +111,17 @@
       deleted automatically after 48 hours of inactivity.</li>
     </ul>
 
+    <h2>What we collect from a visitor booking an appointment</h2>
+    <ul>
+      <li>Where a business has connected Google Calendar, the AI can offer real appointment
+      times and book one directly. Confirming a time sends your name and contact details
+      (whatever you've given in the conversation) to that business's calendar as the event's
+      details, and to the business by email - the same as the lead-capture description above,
+      just with a specific time attached.</li>
+      <li>We don't read, store, or share anything else on the business's calendar - access is
+      limited to checking which times are free and creating the one event your booking needs.</li>
+    </ul>
+
     <h2>How long we keep things</h2>
     <p>Business configs (what your AI receptionist knows) are kept for as long as your
     subscription is active, in a version-controlled repository. A lead's short conversation
@@ -120,6 +136,8 @@
       <li><strong>Anthropic</strong> - powers the AI that answers chat messages.</li>
       <li><strong>Resend</strong> - delivers lead-notification and login emails.</li>
       <li><strong>Meta</strong> - relays messages for businesses using the WhatsApp channel.</li>
+      <li><strong>Google</strong> - checks calendar availability and creates events for
+      businesses that connect Google Calendar.</li>
       <li><strong>Upstash</strong> - stores usage counts, the unanswered-question list
       mentioned above, and the short-lived WhatsApp conversation window.</li>
       <li><strong>Vercel</strong> and <strong>GitHub</strong> - host the site and store configs.

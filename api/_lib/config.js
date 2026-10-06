@@ -49,6 +49,12 @@ function loadConfig(businessKey) {
   if (fs.existsSync(privatePath)) {
     const priv = JSON.parse(fs.readFileSync(privatePath, "utf8"));
     if (priv.notifyEmail) config.notifyEmail = priv.notifyEmail;
+    // Same split as notifyEmail, for the same reason: refreshToken/
+    // calendarId must never land in the publicly-served configs/{key}.json
+    // (that file's googleCalendar only ever holds { connected: true }).
+    // Merged into the SAME config.googleCalendar object the public file
+    // may already have a `connected` flag on, not a replacement of it.
+    if (priv.googleCalendar) config.googleCalendar = Object.assign({}, config.googleCalendar, priv.googleCalendar);
   }
   return config;
 }
@@ -72,6 +78,7 @@ async function loadConfigLive(businessKey) {
   if (privFile) {
     const priv = JSON.parse(privFile.content);
     if (priv.notifyEmail) config.notifyEmail = priv.notifyEmail;
+    if (priv.googleCalendar) config.googleCalendar = Object.assign({}, config.googleCalendar, priv.googleCalendar);
   }
   return { config, sha: file.sha };
 }
@@ -123,6 +130,32 @@ function isPhoneShaped(v) {
 // which validates an actual dialable phone number in a different shape.
 function isWhatsAppPhoneNumberId(v) {
   return typeof v === "string" && /^[0-9]{5,30}$/.test(v);
+}
+
+// Google's calendar ids are either "primary" or an email-shaped string (a
+// real Google account address) or an opaque id ending in
+// "@group.calendar.google.com" - not worth a precise shape regex, just a
+// sane length bound so nothing absurd ever gets written.
+function isCalendarIdShaped(v) {
+  return typeof v === "string" && v.length > 0 && v.length <= 255;
+}
+
+// config.hours - the SAME shape widget/frontdesk-widget.js's client-side
+// isOpenNow() already reads ({mon: ["09:00","18:00"]|null, ..., sun: ...}),
+// reused here as the source of bookable hours for Google Calendar slot
+// computation rather than inventing a second hours field. A day key can be
+// omitted entirely (treated as closed, same as an explicit null) - lets a
+// business only fill in the days they actually work.
+var HOURS_DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+var HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+function isValidHours(raw) {
+  if (!raw || typeof raw !== "object") return false;
+  return HOURS_DAY_KEYS.every(function (day) {
+    if (!(day in raw)) return true;
+    var v = raw[day];
+    if (v === null) return true;
+    return Array.isArray(v) && v.length === 2 && HHMM_RE.test(v[0]) && HHMM_RE.test(v[1]) && v[0] < v[1];
+  });
 }
 
 // A bare hostname, e.g. "dentistw4.co.uk" - no protocol, no path. This is
@@ -214,5 +247,6 @@ function buildConfigFromDraft(draft) {
 
 module.exports = {
   loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft,
-  isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId, KNOWN_TYPES
+  isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId,
+  isCalendarIdShaped, isValidHours, KNOWN_TYPES
 };

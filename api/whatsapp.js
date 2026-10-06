@@ -17,18 +17,35 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { loadConfig } = require("./_lib/config");
 const { createRateLimiter } = require("./_lib/rateLimit");
 const { buffer } = require("./_lib/rawBody");
-const { buildSystemPrompt, buildCaptureLeadTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
+const { buildSystemPrompt, buildCaptureLeadTool, buildBookAppointmentTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
 const { findBusinessKeyByWhatsAppPhoneNumberId } = require("./_lib/loginLookup");
 const { getHistory, appendTurns, claimMessageId } = require("./_lib/whatsappHistory");
 const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
+const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_API_VERSION = process.env.WHATSAPP_API_VERSION || "v21.0";
+
+// Same shape as api/chat.js's own withTimeout - resolves null on either a
+// slow or a rejecting promise, never throws. Duplicated rather than
+// shared: it's eight lines, and keeping each webhook/endpoint file's own
+// dependencies minimal is the pattern this codebase already follows
+// (each rate limiter instance below is its own copy too, not shared).
+function withTimeout(promise, ms) {
+  return new Promise(function (resolve) {
+    var done = false;
+    var timer = setTimeout(function () { if (!done) { done = true; resolve(null); } }, ms);
+    promise.then(
+      function (v) { if (!done) { done = true; clearTimeout(timer); resolve(v); } },
+      function () { if (!done) { done = true; clearTimeout(timer); resolve(null); } }
+    );
+  });
+}
 
 // Keyed by senderWaId, not IP - req.headers["x-forwarded-for"] on a
 // webhook is Meta's own calling IP, not the end visitor's, so an IP-keyed
@@ -167,14 +184,31 @@ async function handleOneMessage(config, businessKey, phoneNumberId, message) {
   var userMessage = message.text.body.toString().slice(0, 1000);
   var history = await getHistory(businessKey, senderWaId);
 
+  // Every WhatsApp sender is, by construction, a real file-backed
+  // business (no free-preview path on this channel) - so unlike
+  // api/chat.js, no fileConfig gate is needed here, just the calendar's
+  // own connected/hours check.
+  var calendarReady = !!(config.googleCalendar && config.googleCalendar.connected && config.hours);
+  var availability = calendarReady
+    ? await withTimeout(getAvailableSlots(businessKey, config.googleCalendar.refreshToken, config.googleCalendar.calendarId, config.hours), 4500)
+    : null;
+
+  var systemBlocks = [
+    { type: "text", text: buildSystemPrompt(config, "whatsapp"), cache_control: { type: "ephemeral" } }
+  ];
+  if (availability && availability.slots.length) {
+    systemBlocks.push({ type: "text", text: availability.promptText });
+  }
+
+  var tools = [buildCaptureLeadTool("whatsapp"), FLAG_UNANSWERED_TOOL];
+  if (availability && availability.slots.length) tools.push(buildBookAppointmentTool("whatsapp"));
+
   var requestOptions = {
     model: "claude-haiku-4-5-20251001",
     max_tokens: 300,
-    system: [
-      { type: "text", text: buildSystemPrompt(config, "whatsapp"), cache_control: { type: "ephemeral" } }
-    ],
+    system: systemBlocks,
     messages: history.concat([{ role: "user", content: userMessage }]),
-    tools: [buildCaptureLeadTool("whatsapp"), FLAG_UNANSWERED_TOOL],
+    tools: tools,
     tool_choice: { type: "auto", disable_parallel_tool_use: true }
   };
 
@@ -183,10 +217,45 @@ async function handleOneMessage(config, businessKey, phoneNumberId, message) {
   var textBlock = content.find(function (b) { return b.type === "text"; });
   var captureToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "capture_lead"; });
   var flagToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "flag_unanswered"; });
+  var bookToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "book_appointment"; });
+
+  var appointmentBooked = false;
+  var bookedSlotLabel = "";
+  if (bookToolUse && calendarReady) {
+    var requestedIso = ((bookToolUse.input && bookToolUse.input.datetime) || "").toString().trim();
+    var validRequest = requestedIso && isKnownOfferedSlot(config.hours, requestedIso);
+    if (validRequest) {
+      var requestedEndIso = new Date(new Date(requestedIso).getTime() + SLOT_DURATION_MINUTES * 60000).toISOString();
+      var locked = await claimBookingSlot(businessKey, requestedIso);
+      var stillFree = locked && await withTimeout(
+        isSlotStillFree(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, requestedIso, requestedEndIso),
+        4000
+      );
+      if (stillFree) {
+        try {
+          await createEvent(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, {
+            startIso: requestedIso,
+            endIso: requestedEndIso,
+            summary: "Appointment: " + (((bookToolUse.input && bookToolUse.input.name) || "").toString().trim() || "WhatsApp contact"),
+            description: "Booked via Frontdesk AI receptionist (Sia) over WhatsApp. Contact: " + senderWaId
+          });
+          appointmentBooked = true;
+          var matchedSlot = (availability && availability.slots || []).find(function (s) { return s.startIso === requestedIso; });
+          bookedSlotLabel = matchedSlot ? matchedSlot.label : requestedIso;
+        } catch (err) {
+          console.error("[frontdesk whatsapp] calendar event creation failed:", businessKey, err.message);
+        }
+      }
+    }
+  }
 
   var reply;
   if (textBlock && textBlock.text.trim()) {
     reply = textBlock.text.trim();
+  } else if (bookToolUse) {
+    reply = appointmentBooked
+      ? "You're booked in for " + bookedSlotLabel + " - see you then!"
+      : "Sorry, that slot's just been taken - I'll pass your details to the team and they'll sort a time with you directly.";
   } else if (captureToolUse) {
     reply = "Thanks - I've got that, someone from the team will be in touch.";
   } else {
@@ -213,6 +282,27 @@ async function handleOneMessage(config, businessKey, phoneNumberId, message) {
       sendNotification(config, { name: capturedName || "WhatsApp contact", contact: senderWaId, transcript: transcript, source: "whatsapp" }),
       appendLead(businessKey, { name: capturedName || "WhatsApp contact", contact: senderWaId, transcript: transcript, source: "whatsapp" }).catch(function (err) {
         console.error("[frontdesk whatsapp] failed to log captured lead:", businessKey, err.message);
+      })
+    ]);
+  }
+
+  if (bookToolUse) {
+    var bookedName = ((bookToolUse.input && bookToolUse.input.name) || "").toString().trim().slice(0, 200);
+    var bookingTranscript = history.concat([
+      { role: "user", content: userMessage },
+      { role: "assistant", content: reply }
+    ]).slice(-6);
+    var bookingLead = {
+      name: bookedName || "WhatsApp contact",
+      contact: senderWaId,
+      transcript: bookingTranscript,
+      source: appointmentBooked ? "whatsapp-booking" : "whatsapp-booking-attempt",
+      bookingTime: appointmentBooked ? bookedSlotLabel : undefined
+    };
+    await Promise.all([
+      sendNotification(config, bookingLead),
+      appendLead(businessKey, bookingLead).catch(function (err) {
+        console.error("[frontdesk whatsapp] failed to log booking:", businessKey, err.message);
       })
     ]);
   }

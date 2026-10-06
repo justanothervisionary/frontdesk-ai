@@ -225,6 +225,34 @@ guarded bot.
   history) is kept only as a short rolling window per sender, expiring
   automatically after 48 hours of inactivity.
 
+## Google Calendar booking
+
+A business can optionally connect their own Google Calendar, so the AI
+can offer real appointment availability and book directly instead of
+just taking a message.
+
+- Access is scoped to the two narrowest Google OAuth permissions that
+  support this (checking free/busy and creating events) - never the
+  broader scopes that would let anything here read event details,
+  titles, or guest lists on the business's calendar.
+- The OAuth refresh token this grants is never written to the public
+  `configs/{key}.json` file the widget itself fetches - it's stored only
+  in the same server-side-only private file already used for a
+  business's notification email address, genuinely unreachable from the
+  internet (nothing under `api/` is ever served as a static file).
+- The connect flow is protected the same way the magic-link login
+  already is: a short-lived, cryptographically signed token (not the
+  session cookie) carries which business a Google redirect belongs to,
+  expiring in 10 minutes.
+- A visitor confirming a time slot is re-checked against the real
+  calendar immediately before booking (not just trusted from what was
+  shown a few messages earlier), with a short lock preventing two
+  visitors from both being given the same slot in the same few seconds.
+- If a business revokes Frontdesk's access from their own Google
+  Account at any time, the integration fails closed - the AI simply
+  stops offering times and falls back to normal lead-capture, rather
+  than erroring or guessing.
+
 ## Hosting
 
 Demo/static assets are served over HTTPS. The chat and lead-capture

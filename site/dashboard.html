@@ -44,6 +44,15 @@
   }
   textarea { resize: vertical; }
   .field-tip { font-size: 12px; color: var(--muted2); margin: -8px 0 14px; line-height: 1.5; }
+  .hours-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .hours-row:last-child { border-bottom: none; }
+  .hours-row .hours-day { width: 42px; flex-shrink: 0; font-size: 13px; font-weight: 600; }
+  .hours-row label.hours-closed { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); flex-shrink: 0; width: 76px; }
+  .hours-row input[type="time"] { margin: 0; padding: 6px 8px; font-size: 13px; width: 110px; }
+  .hours-row.is-closed input[type="time"] { visibility: hidden; }
+  .calendar-status-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .calendar-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted2); flex-shrink: 0; }
+  .calendar-status-dot.connected { background: #35d68f; }
   .faq-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; background: var(--bg2); }
   .faq-row input, .faq-row textarea { margin-bottom: 8px; }
   .faq-row button.remove {
@@ -209,6 +218,12 @@
     </div>
 
     <div class="card">
+      <h2>Business hours</h2>
+      <p class="field-tip" style="margin-top:0;">Used for appointment booking (below) - leave a day unticked if you don't work it.</p>
+      <div id="hours-list"></div>
+    </div>
+
+    <div class="card">
       <h2>How it talks</h2>
       <div class="avatar-row">
         <label class="avatar-uploader" for="d-avatar-upload" id="d-avatar-uploader">
@@ -252,6 +267,15 @@
     <div class="card">
       <h2>Try it yourself</h2>
       <p class="field-tip" style="margin-top:0;">Your real AI receptionist - look for the chat bubble in the bottom-right corner of this page.</p>
+    </div>
+
+    <div class="card">
+      <h2>Google Calendar</h2>
+      <p class="field-tip" style="margin-top:0;">Connect your calendar so Sia can offer real appointment times and book them directly, instead of just taking a message. Set your business hours above first.</p>
+      <div class="calendar-status-line"><span class="calendar-status-dot" id="calendar-status-dot"></span><span id="calendar-status-text">Not connected</span></div>
+      <a class="copy-btn" id="calendar-connect-link" href="/api/dashboard?action=google-calendar-connect">Connect Google Calendar</a>
+      <button class="copy-btn" id="calendar-disconnect-btn" type="button" style="display:none;">Disconnect</button>
+      <div class="save-status" id="calendar-status"></div>
     </div>
 
     <div class="card">
@@ -504,6 +528,52 @@
         document.getElementById("snippet-out").textContent = snippet;
       }
 
+      // Same day-key order/shape api/_lib/config.js's isValidHours and
+      // widget/frontdesk-widget.js's own isOpenNow() already use -
+      // {mon: ["09:00","18:00"]|null, ...}. null/missing = closed.
+      var HOURS_DAYS = [
+        ["mon", "Mon"], ["tue", "Tue"], ["wed", "Wed"], ["thu", "Thu"],
+        ["fri", "Fri"], ["sat", "Sat"], ["sun", "Sun"]
+      ];
+      function renderHoursList(hours) {
+        hours = hours || {};
+        var list = document.getElementById("hours-list");
+        list.innerHTML = "";
+        HOURS_DAYS.forEach(function (pair) {
+          var key = pair[0], label = pair[1];
+          var range = hours[key];
+          var row = document.createElement("div");
+          row.className = "hours-row" + (range ? "" : " is-closed");
+          row.setAttribute("data-day", key);
+          row.innerHTML =
+            '<span class="hours-day">' + label + '</span>' +
+            '<label class="hours-closed"><input type="checkbox" class="hours-open-toggle"' + (range ? " checked" : "") + ' /> Open</label>' +
+            '<input type="time" class="hours-start" value="' + (range ? range[0] : "09:00") + '" />' +
+            '<span style="color:var(--muted2);font-size:12px;">to</span>' +
+            '<input type="time" class="hours-end" value="' + (range ? range[1] : "17:00") + '" />';
+          row.querySelector(".hours-open-toggle").addEventListener("change", function (e) {
+            row.classList.toggle("is-closed", !e.target.checked);
+          });
+          list.appendChild(row);
+        });
+      }
+      function collectHours() {
+        var out = {};
+        Array.prototype.forEach.call(document.querySelectorAll("#hours-list .hours-row"), function (row) {
+          var key = row.getAttribute("data-day");
+          var open = row.querySelector(".hours-open-toggle").checked;
+          out[key] = open ? [row.querySelector(".hours-start").value, row.querySelector(".hours-end").value] : null;
+        });
+        return out;
+      }
+
+      function setCalendarState(connected) {
+        document.getElementById("calendar-status-dot").classList.toggle("connected", !!connected);
+        document.getElementById("calendar-status-text").textContent = connected ? "Connected" : "Not connected";
+        document.getElementById("calendar-connect-link").style.display = connected ? "none" : "inline-block";
+        document.getElementById("calendar-disconnect-btn").style.display = connected ? "inline-block" : "none";
+      }
+
       fetch("/api/dashboard", { credentials: "same-origin" })
         .then(function (r) {
           if (r.status === 401) { window.location.href = "login.html"; return null; }
@@ -526,6 +596,14 @@
           document.getElementById("d-greeting").value = data.greeting || "";
           document.getElementById("d-fallback").value = data.fallbackAnswer || "";
           document.getElementById("d-notify-email").value = data.notifyEmail || "";
+          renderHoursList(data.hours);
+          setCalendarState(data.googleCalendarConnected);
+          if (/[?&]calendar=connected\b/.test(window.location.search)) {
+            var calStatus = document.getElementById("calendar-status");
+            calStatus.className = "save-status ok";
+            calStatus.textContent = "Calendar connected!";
+            history.replaceState(null, "", window.location.pathname);
+          }
           (data.faqs || []).forEach(function (f) { addFaqRow(f.keywords, f.answer); });
           if (!data.faqs || !data.faqs.length) addFaqRow([], "");
           document.getElementById("stat-conversations").textContent = data.messagesThisPeriod || 0;
@@ -605,7 +683,8 @@
               greeting: document.getElementById("d-greeting").value,
               fallbackAnswer: document.getElementById("d-fallback").value,
               notifyEmail: document.getElementById("d-notify-email").value,
-              faqs: collectFaqs()
+              faqs: collectFaqs(),
+              hours: collectHours()
             };
             if (avatarReset) {
               payload.avatarUrl = "";
@@ -840,6 +919,33 @@
             }
             statusEl.className = "save-status" + (result.data.installed === true ? " ok" : result.data.installed === false ? " err" : "");
             statusEl.textContent = result.data.message;
+          })
+          .catch(function () {
+            btn.disabled = false;
+            statusEl.className = "save-status err";
+            statusEl.textContent = "Something went wrong - please try again.";
+          });
+      });
+
+      document.getElementById("calendar-disconnect-btn").addEventListener("click", function () {
+        var btn = this;
+        var statusEl = document.getElementById("calendar-status");
+        if (!window.confirm("Disconnect Google Calendar? Sia will go back to just taking a message instead of booking directly.")) return;
+        btn.disabled = true;
+        statusEl.className = "save-status";
+        statusEl.textContent = "Disconnecting...";
+        fetch("/api/dashboard?action=google-calendar-disconnect", { method: "POST", credentials: "same-origin" })
+          .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (result) {
+            btn.disabled = false;
+            if (!result.ok) {
+              statusEl.className = "save-status err";
+              statusEl.textContent = result.data.error || "Something went wrong - please try again.";
+              return;
+            }
+            setCalendarState(false);
+            statusEl.className = "save-status ok";
+            statusEl.textContent = "Disconnected.";
           })
           .catch(function () {
             btn.disabled = false;

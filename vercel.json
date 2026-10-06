@@ -8,6 +8,9 @@
   "functions": {
     "api/whatsapp.js": {
       "maxDuration": 60
+    },
+    "api/chat.js": {
+      "maxDuration": 25
     }
   }
 }

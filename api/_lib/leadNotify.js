@@ -35,7 +35,24 @@ async function sendNotification(config, lead) {
     return { delivered: false, configured: false };
   }
 
-  var isWhatsApp = lead.source === "whatsapp";
+  // lead.source combines channel + event type (e.g. "whatsapp-booking") -
+  // covers every real combination explicitly rather than nested ternaries,
+  // so a WhatsApp booking confirmation doesn't silently fall back to
+  // generic "website lead" wording the way a flat isWhatsApp boolean would
+  // once a second event type (booking) exists alongside the original one
+  // (a plain captured lead).
+  var COPY_BY_SOURCE = {
+    "whatsapp": { channelLabel: "WhatsApp AI receptionist", subjectPrefix: "New WhatsApp lead: " },
+    "whatsapp-booking": { channelLabel: "WhatsApp AI receptionist", subjectPrefix: "New appointment booked (WhatsApp): " },
+    "whatsapp-booking-attempt": { channelLabel: "WhatsApp AI receptionist", subjectPrefix: "Booking attempt, slot taken (WhatsApp): " },
+    "booking": { channelLabel: "chat widget", subjectPrefix: "New appointment booked: " },
+    "booking-attempt": { channelLabel: "chat widget", subjectPrefix: "Booking attempt, slot taken: " }
+  };
+  var copy = COPY_BY_SOURCE[lead.source] || { channelLabel: "chat widget", subjectPrefix: "New website lead: " };
+
+  var bookingTimeHtml = lead.bookingTime
+    ? "<p><strong>Appointment time:</strong> " + escapeHtml(lead.bookingTime) + "</p>"
+    : "";
 
   var transcriptHtml = (lead.transcript || [])
     .map(function (m) { return "<p><strong>" + escapeHtml(m.role) + ":</strong> " + escapeHtml(m.content) + "</p>"; })
@@ -65,11 +82,12 @@ async function sendNotification(config, lead) {
         from: FROM_ADDRESS,
         to: config.notifyEmail,
         bcc: process.env.LEAD_BCC_ADDRESS || undefined, // optional - our own visibility/safety net, not required
-        subject: (isWhatsApp ? "New WhatsApp lead: " : "New website lead: ") + lead.name,
+        subject: copy.subjectPrefix + lead.name,
         html:
-          "<p>New lead from your Frontdesk " + (isWhatsApp ? "WhatsApp AI receptionist" : "chat widget") + " (" + escapeHtml(config.businessName) + "):</p>" +
+          "<p>New activity from your Frontdesk " + copy.channelLabel + " (" + escapeHtml(config.businessName) + "):</p>" +
           "<p><strong>Name:</strong> " + escapeHtml(lead.name) + "<br/>" +
           "<strong>Contact:</strong> " + escapeHtml(lead.contact) + "</p>" +
+          bookingTimeHtml +
           attachmentsHtml +
           (transcriptHtml ? "<p>Recent conversation:</p>" + transcriptHtml : "")
       })

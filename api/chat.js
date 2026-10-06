@@ -9,8 +9,28 @@ const { recordUsage } = require("./_lib/usage");
 const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
-const { buildSystemPrompt, buildCaptureLeadTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
+const { buildSystemPrompt, buildCaptureLeadTool, buildBookAppointmentTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
 const { sanitizeAttachments } = require("./_lib/attachments");
+const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
+
+// Bounds the WHOLE availability lookup (refresh + freeBusy, two
+// sequential Google calls), not just one of them - googleCalendar.js's
+// own per-call FETCH_TIMEOUT_MS (2.5s) already bounds each leg, this is
+// the outer safety net so a slow chain still leaves room for the Claude
+// call itself inside the widget's 8s client-side abort budget. Any
+// failure here - timeout, revoked token, network - resolves to null,
+// which is exactly "skip injection, behave like no calendar is
+// connected."
+function withTimeout(promise, ms) {
+  return new Promise(function (resolve) {
+    var done = false;
+    var timer = setTimeout(function () { if (!done) { done = true; resolve(null); } }, ms);
+    promise.then(
+      function (v) { if (!done) { done = true; clearTimeout(timer); resolve(v); } },
+      function () { if (!done) { done = true; clearTimeout(timer); resolve(null); } }
+    );
+  });
+}
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -77,19 +97,41 @@ module.exports = async function handler(req, res) {
   }
   if (!message.trim()) return res.status(400).json({ error: "Empty message" });
 
+  // Only ever for a real, file-backed, calendar-connected business with
+  // hours actually set - see api/_lib/config.js's loadConfig() for the
+  // public/private merge that puts refreshToken/calendarId on
+  // config.googleCalendar. Any failure (timeout, revoked token, no
+  // hours configured yet) resolves availability to null below, which is
+  // exactly "behave like no calendar is connected" - never blocks or
+  // errors the turn.
+  var calendarReady = !!(fileConfig && config.googleCalendar && config.googleCalendar.connected && config.hours);
+  var availability = calendarReady
+    ? await withTimeout(getAvailableSlots(businessKey, config.googleCalendar.refreshToken, config.googleCalendar.calendarId, config.hours), 4500)
+    : null;
+
   try {
-    var requestOptions = {
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+    var systemBlocks = [
       // Cached: the system prompt is identical for every visitor to the
       // same business within the cache window, so this is the single
       // biggest lever on cost once a business's training text gets long -
       // cache reads run at a 90% discount vs. a fresh input token. Safe to
       // mark cacheable even for a one-off preview config: it still pays off
       // across turns within that same conversation.
-      system: [
-        { type: "text", text: buildSystemPrompt(config), cache_control: { type: "ephemeral" } }
-      ],
+      { type: "text", text: buildSystemPrompt(config), cache_control: { type: "ephemeral" } }
+    ];
+    // Deliberately a SEPARATE, non-cached block - this changes every few
+    // minutes (new Upstash cache window, slots filling up), so marking it
+    // cacheable would either stale-serve old availability or thrash the
+    // FAQ block's own cache on every single turn. Only added when there's
+    // actually something to offer.
+    if (availability && availability.slots.length) {
+      systemBlocks.push({ type: "text", text: availability.promptText });
+    }
+
+    var requestOptions = {
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      system: systemBlocks,
       messages: history.concat([{ role: "user", content: message }])
     };
 
@@ -109,6 +151,10 @@ module.exports = async function handler(req, res) {
     if (fileConfig) {
       if (!leadAlreadyCaptured) tools.push(buildCaptureLeadTool());
       tools.push(FLAG_UNANSWERED_TOOL);
+      // Only offered on a turn where a real slot list was actually
+      // injected above - never offered blind, since the model would
+      // have nothing real to confirm against.
+      if (availability && availability.slots.length) tools.push(buildBookAppointmentTool());
     }
     if (tools.length) {
       requestOptions.tools = tools;
@@ -125,10 +171,59 @@ module.exports = async function handler(req, res) {
     var textBlock = content.find(function (b) { return b.type === "text"; });
     var captureToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "capture_lead"; });
     var flagToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "flag_unanswered"; });
+    var bookToolUse = content.find(function (b) { return b.type === "tool_use" && b.name === "book_appointment"; });
+
+    // Booking resolution happens before reply-text selection below, since
+    // whether it actually succeeded changes which canned fallback (if the
+    // model gave no prose of its own) is correct.
+    var appointmentBooked = false;
+    var bookedSlotLabel = "";
+    if (bookToolUse && calendarReady) {
+      var requestedIso = ((bookToolUse.input && bookToolUse.input.datetime) || "").toString().trim();
+      // Re-derived fresh from config.hours, not trusted from the
+      // (possibly stale, possibly cache-expired) availability object
+      // computed earlier this request - see googleCalendar.js's
+      // isKnownOfferedSlot for why.
+      var validRequest = requestedIso && isKnownOfferedSlot(config.hours, requestedIso);
+      if (validRequest) {
+        var requestedEndIso = new Date(new Date(requestedIso).getTime() + SLOT_DURATION_MINUTES * 60000).toISOString();
+        // Lock first (cheap, no Google round-trip) - if another visitor's
+        // request already claimed this exact slot in the last 30s, don't
+        // even bother re-checking Google, just treat it as taken.
+        var locked = await claimBookingSlot(businessKey, requestedIso);
+        var stillFree = locked && await withTimeout(
+          isSlotStillFree(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, requestedIso, requestedEndIso),
+          4000
+        );
+        if (stillFree) {
+          try {
+            await createEvent(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, {
+              startIso: requestedIso,
+              endIso: requestedEndIso,
+              summary: "Appointment: " + (((bookToolUse.input && bookToolUse.input.name) || "").toString().trim() || "Website visitor"),
+              description: "Booked via Frontdesk AI receptionist (Sia). Contact: " +
+                (((bookToolUse.input && bookToolUse.input.contact) || "").toString().trim() || "not given")
+            });
+            appointmentBooked = true;
+            var matchedSlot = (availability && availability.slots || []).find(function (s) { return s.startIso === requestedIso; });
+            bookedSlotLabel = matchedSlot ? matchedSlot.label : requestedIso;
+          } catch (err) {
+            console.error("[frontdesk chat] calendar event creation failed:", businessKey, err.message);
+          }
+        }
+      }
+    }
 
     var reply;
     if (textBlock && textBlock.text.trim()) {
       reply = textBlock.text.trim();
+    } else if (bookToolUse) {
+      // Same discipline as captureToolUse below - built from what the
+      // server itself just validated, never from unvalidated model text,
+      // so a visitor is never told they're booked when they aren't.
+      reply = appointmentBooked
+        ? "You're booked in for " + bookedSlotLabel + " - see you then!"
+        : "Sorry, that slot's just been taken - I'll pass your details to the team and they'll sort a time with you directly.";
     } else if (captureToolUse) {
       // Claude sometimes calls the tool without also producing prose -
       // config.fallbackAnswer ("I'll pass that on to the team...") is the
@@ -191,7 +286,36 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ reply: reply, leadCaptured: leadCaptured });
+    // A confirmed OR attempted-but-missed booking still reaches the
+    // business the same way a captured lead does - whether or not the
+    // calendar write itself succeeded, this must never silently vanish.
+    // Reuses the exact same notification/log pipeline capture_lead uses
+    // (no parallel "bookings" system for v1), tagged with source so the
+    // email copy and dashboard can tell the two apart.
+    if (bookToolUse) {
+      var bookedName = ((bookToolUse.input && bookToolUse.input.name) || "").toString().trim().slice(0, 200);
+      var bookedContact = ((bookToolUse.input && bookToolUse.input.contact) || "").toString().trim().slice(0, 200);
+      var bookingTranscript = history.concat([
+        { role: "user", content: message },
+        { role: "assistant", content: reply }
+      ]).slice(-6);
+      var bookingLead = {
+        name: bookedName || "Website visitor",
+        contact: bookedContact || "(not given)",
+        transcript: bookingTranscript,
+        attachments: attachments,
+        source: appointmentBooked ? "booking" : "booking-attempt",
+        bookingTime: appointmentBooked ? bookedSlotLabel : undefined
+      };
+      await Promise.all([
+        sendNotification(config, bookingLead),
+        appendLead(businessKey, bookingLead).catch(function (err) {
+          console.error("[frontdesk chat] failed to log booking for digest:", businessKey, err.message);
+        })
+      ]);
+    }
+
+    return res.status(200).json({ reply: reply, leadCaptured: leadCaptured, appointmentBooked: appointmentBooked });
   } catch (err) {
     console.error("[frontdesk chat] provider error:", err.message);
     // A non-2xx here (not the generic fallback text with a 200) is
