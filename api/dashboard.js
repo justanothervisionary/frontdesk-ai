@@ -601,6 +601,17 @@ async function handleGoogleCalendarCallback(req, res) {
     var precheck = await loadConfigLive(businessKey);
     if (!precheck) return res.status(404).send(calendarResultPage("Business not found.", true));
 
+    // Private (the actual refresh token) is written FIRST, public
+    // ("connected: true") SECOND - these two writes aren't atomic, and
+    // if a run dies between them, this ordering means the business is
+    // just left not-yet-connected (safe, fixed by trying again) rather
+    // than showing "Connected" in the dashboard with no real token
+    // behind it, which is exactly the broken, silent state a prior
+    // run of this callback left live in production.
+    await updatePrivateConfig(businessKey, function (priv) {
+      priv.googleCalendar = { refreshToken: tokens.refreshToken, calendarId: "primary" };
+    });
+
     // Re-reads fresh on each attempt (not reusing precheck's sha) - this
     // is what fixes the real "putFile conflict - file changed since it
     // was last read" error seen in production: something else (most
@@ -618,10 +629,6 @@ async function handleGoogleCalendarCallback(req, res) {
       config.googleCalendar = { connected: true };
       delete config.notifyEmail; // same guard every other write here applies
       await putFile(`configs/${businessKey}.json`, config, `Connect Google Calendar for ${businessKey}`, result.sha);
-    });
-
-    await updatePrivateConfig(businessKey, function (priv) {
-      priv.googleCalendar = { refreshToken: tokens.refreshToken, calendarId: "primary" };
     });
   } catch (err) {
     console.error("[frontdesk dashboard] google-calendar-callback error:", err.message);
