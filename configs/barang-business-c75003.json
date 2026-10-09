@@ -80,5 +80,8 @@
     ],
     "sun": null
   },
-  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen"
+  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen",
+  "googleCalendar": {
+    "connected": true
+  }
 }
