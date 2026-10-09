@@ -142,5 +142,28 @@
         "name": "bill-20261002 (1).pdf"
       }
     ]
+  },
+  {
+    "name": "Bill",
+    "contact": "07860860501",
+    "at": "2026-10-07T22:34:53.858Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "It’s about Kickstarter"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it. For Kickstarter-related questions, I'd be happy to pass that on to the team so they can follow up with you properly. Can I grab your name and phone number?"
+      },
+      {
+        "role": "user",
+        "content": "Bill - 07860860501"
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks - I've got that, someone from the team will be in touch."
+      }
+    ]
   }
 ]
