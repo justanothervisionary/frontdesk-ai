@@ -46,6 +46,8 @@ async function putRawFile(filePath, base64Content, message, sha) {
 
   var res = await fetch(repoContentsUrl(filePath), { method: "PUT", headers: ghHeaders(), body: JSON.stringify(body) });
   if (res.status === 409) {
+    var conflictBody = await res.text().catch(function () { return ""; });
+    console.error(`[frontdesk github] 409 on ${filePath}, sent sha=${sha}, response: ${conflictBody}`);
     var conflictErr = new Error("GitHub putFile conflict - file changed since it was last read");
     conflictErr.conflict = true;
     throw conflictErr;

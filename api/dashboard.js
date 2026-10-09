@@ -47,13 +47,20 @@ const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.c
 // the Google OAuth callback below) are the tail end of a one-shot
 // external redirect with no "try again" button short of redoing the
 // whole consent flow, so those retry with a fresh read instead.
-async function withConflictRetry(fn, attempts) {
+async function withConflictRetry(fn, label, attempts) {
   attempts = attempts || 4;
   for (var i = 0; i < attempts; i++) {
     try {
-      return await fn();
+      var out = await fn();
+      if (i > 0) console.error(`[frontdesk dashboard] conflict retry succeeded on attempt ${i + 1}/${attempts} - ${label}`);
+      return out;
     } catch (err) {
-      if (!err.conflict || i === attempts - 1) throw err;
+      if (!err.conflict) throw err;
+      if (i === attempts - 1) {
+        console.error(`[frontdesk dashboard] conflict retry EXHAUSTED after ${attempts} attempts - ${label}`);
+        throw err;
+      }
+      console.error(`[frontdesk dashboard] conflict on attempt ${i + 1}/${attempts} - ${label}, retrying after backoff`);
       // Random backoff, not a fixed delay - two requests retrying in
       // lockstep with no jitter can keep re-colliding on every single
       // attempt (seen in production: the same conflict survived 3
@@ -68,10 +75,11 @@ async function updatePrivateConfig(businessKey, mutateFn) {
   var path = `api/_private-configs/${businessKey}.json`;
   return withConflictRetry(async function () {
     var existing = await getFile(path);
+    console.error(`[frontdesk dashboard] read ${path} sha=${existing && existing.sha}`);
     var json = (existing && JSON.parse(existing.content)) || {};
     mutateFn(json);
     await putFile(path, json, `Update private config for ${businessKey}`, existing && existing.sha);
-  });
+  }, `private:${businessKey}`);
 }
 
 async function handleGetData(req, res, businessKey) {
@@ -627,6 +635,7 @@ async function handleGoogleCalendarCallback(req, res) {
     // again" the way a normal dashboard save does.
     await withConflictRetry(async function () {
       var result = await loadConfigLive(businessKey);
+      console.error(`[frontdesk dashboard] read configs/${businessKey}.json sha=${result.sha}`);
       var config = result.config;
       // Public: boolean only - calendarId/refreshToken never go here (for
       // most Google accounts the "primary" calendar id IS the account's
@@ -635,7 +644,7 @@ async function handleGoogleCalendarCallback(req, res) {
       config.googleCalendar = { connected: true };
       delete config.notifyEmail; // same guard every other write here applies
       await putFile(`configs/${businessKey}.json`, config, `Connect Google Calendar for ${businessKey}`, result.sha);
-    });
+    }, `public:${businessKey}`);
   } catch (err) {
     console.error("[frontdesk dashboard] google-calendar-callback error:", err.message);
     return res.status(502).send(calendarResultPage("Something went wrong connecting your calendar - please try again.", true));
