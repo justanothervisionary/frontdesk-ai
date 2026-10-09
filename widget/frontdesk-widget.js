@@ -716,7 +716,7 @@
       attachInput.value = ""; // lets the same file be re-selected after a remove
     });
 
-    function askBackend(text) {
+    function askBackend(text, newAttachments) {
       var controller = new AbortController();
       var timeout = setTimeout(function () { controller.abort(); }, 8000);
 
@@ -730,6 +730,13 @@
       if (leadAlreadyCaptured) body.leadAlreadyCaptured = true;
       var pendingAttachments = doneAttachmentPayload();
       if (pendingAttachments.length) body.attachments = pendingAttachments;
+      // Separate from `attachments` above (which re-sends this whole
+      // conversation's full attachment history every turn, for the lead-
+      // notification use case) - this is just what's newly attached THIS
+      // message, so the backend can offer a photo for the AI to actually
+      // look at without re-analyzing something already shown earlier in
+      // the same conversation.
+      if (newAttachments && newAttachments.length) body.newAttachments = newAttachments;
 
       return fetch(instanceApiUrl, {
         method: "POST",
@@ -768,6 +775,11 @@
       sendBtn.disabled = true;
       scheduleIdleEnd();
 
+      // Snapshot before the merge below folds pendingDone into
+      // sentAttachments - this is specifically what's new THIS turn, as
+      // opposed to doneAttachmentPayload()'s full accumulated history.
+      var newAttachmentsPayload = pendingDone.map(function (a) { return { url: a.url, name: a.name }; });
+
       // Move anything pending into "sent" and clear the chip row - it's
       // now part of the conversation that just got sent, not still
       // waiting to go out. Done before the request so doneAttachmentPayload()
@@ -798,7 +810,7 @@
       }
 
       if (instanceApiUrl) {
-        askBackend(text).then(function (result) {
+        askBackend(text, newAttachmentsPayload).then(function (result) {
           finish(result.reply, result.leadCaptured);
         }).catch(function () {
           // Backend down/slow/misconfigured - degrade to local matching

@@ -49,4 +49,14 @@ function sanitizeAttachments(list) {
   return out;
 }
 
-module.exports = { ALLOWED_TYPES, MAX_BYTES, MAX_ATTACHMENTS_PER_LEAD, isAllowedContentType, extensionFor, sanitizeAttachments };
+// Used by the smart-quoting path (api/chat.js) to decide which of a
+// sanitized attachment's {url, name} is actually vision-eligible - PDFs
+// pass the same upload allowlist but aren't an image. The sanitized
+// shape carries no content-type, only the URL, which does carry the
+// original extension (blob paths are built via extensionFor() above).
+var IMAGE_EXTENSION_RE = /\.(jpe?g|png|webp)$/i;
+function isImageAttachment(attachment) {
+  return !!(attachment && IMAGE_EXTENSION_RE.test((attachment.url || "")));
+}
+
+module.exports = { ALLOWED_TYPES, MAX_BYTES, MAX_ATTACHMENTS_PER_LEAD, isAllowedContentType, extensionFor, sanitizeAttachments, isImageAttachment };

@@ -107,6 +107,7 @@ async function handleGetData(req, res, businessKey) {
     whatsappPhoneNumberId: (result.config.whatsapp && result.config.whatsapp.phoneNumberId) || "",
     googleCalendarConnected: !!(result.config.googleCalendar && result.config.googleCalendar.connected),
     hours: result.config.hours || null,
+    pricingInfo: result.config.pricingInfo || "",
     active: result.config.active !== false,
     // Non-null only when this session was minted by an admin "viewing as"
     // this business (see handleAdminImpersonate) - drives the dashboard's
@@ -244,6 +245,17 @@ async function handleSave(req, res, businessKey) {
     } else {
       config.hours = body.hours;
     }
+  }
+
+  // Optional - a business only gets photo-based rough quoting
+  // (api/chat.js) once this is actually filled in; api/chat.js never
+  // sends a visitor's photo to Claude as vision input otherwise. Empty
+  // string explicitly clears it back to "not configured", same
+  // convention every other optional text field here uses.
+  if (typeof body.pricingInfo === "string") {
+    var pricingInfo = body.pricingInfo.trim().slice(0, 2000);
+    if (!pricingInfo) delete config.pricingInfo;
+    else config.pricingInfo = pricingInfo;
   }
 
   // notifyEmail lives in the PRIVATE file, not the public config - see

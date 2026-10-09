@@ -10,7 +10,7 @@ const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
 const { buildSystemPrompt, buildCaptureLeadTool, buildBookAppointmentTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
-const { sanitizeAttachments } = require("./_lib/attachments");
+const { sanitizeAttachments, isImageAttachment } = require("./_lib/attachments");
 const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, getGoogleCalendarAuth, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
 
 // Bounds the WHOLE availability lookup (refresh + freeBusy, two
@@ -131,11 +131,31 @@ module.exports = async function handler(req, res) {
       systemBlocks.push({ type: "text", text: availability.promptText });
     }
 
+    // Only ever for a real, file-backed business with pricing info
+    // actually configured (see aiPrompt.js's matching gate on
+    // config.pricingInfo) - an unconfigured business never has a photo
+    // sent to Claude as vision input at all, byte-identical to today.
+    // Further filtered to NEW-this-turn attachments only (body.newAttachments,
+    // separate from `attachments` above, which re-arrives in full every
+    // turn for the lead-notification use case) so an image already shown
+    // to Claude in an earlier turn of this conversation is never re-sent
+    // as vision input, and to actual images only (PDFs pass the same
+    // upload allowlist but aren't vision-eligible).
+    var newImageAttachments = (fileConfig && config.pricingInfo)
+      ? sanitizeAttachments(body.newAttachments).filter(isImageAttachment)
+      : [];
+
+    var userContent = newImageAttachments.length
+      ? newImageAttachments.map(function (a) {
+          return { type: "image", source: { type: "url", url: a.url } };
+        }).concat([{ type: "text", text: message }])
+      : message;
+
     var requestOptions = {
       model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
       system: systemBlocks,
-      messages: history.concat([{ role: "user", content: message }])
+      messages: history.concat([{ role: "user", content: userContent }])
     };
 
     // Both only ever offered to a real, file-backed business - never the

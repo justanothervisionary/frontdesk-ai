@@ -261,6 +261,12 @@
       <button id="add-faq" type="button">+ Add another</button>
     </div>
 
+    <div class="card">
+      <h2>Pricing (for photo quotes)</h2>
+      <p class="field-tip" style="margin-top:0;">Optional. If a visitor attaches a photo of a job (e.g. a damaged fence, a leaking pipe), your AI can give a rough estimate - but only using the prices you write here, and only once this is filled in. Leave blank to keep it from ever estimating prices from photos.</p>
+      <textarea id="d-pricing-info" rows="4" placeholder="e.g. Callout fee: £45. Fence panel replacement: from £120 per panel depending on size/material. Leaking pipe repair: £90-180 depending on access. Final price confirmed after an in-person look."></textarea>
+    </div>
+
     <button class="save-btn" id="save-btn" type="button">Save changes</button>
     <div class="save-status" id="save-status"></div>
 
@@ -595,6 +601,7 @@
           document.getElementById("d-assistant-name").value = data.assistantName || "";
           document.getElementById("d-greeting").value = data.greeting || "";
           document.getElementById("d-fallback").value = data.fallbackAnswer || "";
+          document.getElementById("d-pricing-info").value = data.pricingInfo || "";
           document.getElementById("d-notify-email").value = data.notifyEmail || "";
           renderHoursList(data.hours);
           setCalendarState(data.googleCalendarConnected);
@@ -682,6 +689,7 @@
               assistantName: document.getElementById("d-assistant-name").value,
               greeting: document.getElementById("d-greeting").value,
               fallbackAnswer: document.getElementById("d-fallback").value,
+              pricingInfo: document.getElementById("d-pricing-info").value,
               notifyEmail: document.getElementById("d-notify-email").value,
               faqs: collectFaqs(),
               hours: collectHours()
