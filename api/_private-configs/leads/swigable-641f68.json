@@ -165,5 +165,30 @@
         "content": "Thanks - I've got that, someone from the team will be in touch."
       }
     ]
+  },
+  {
+    "name": "dave",
+    "contact": "07860608403",
+    "at": "2026-10-09T19:16:07.412Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "ok 1pm"
+      },
+      {
+        "role": "assistant",
+        "content": "Perfect! To confirm your appointment at 1:00 pm on Tuesday 13th October, I'll need your name and contact number or email."
+      },
+      {
+        "role": "user",
+        "content": "dave - 07860608403"
+      },
+      {
+        "role": "assistant",
+        "content": "You're booked in for Tue 13 Oct, 1:00 pm - see you then!"
+      }
+    ],
+    "source": "booking",
+    "bookingTime": "Tue 13 Oct, 1:00 pm"
   }
 ]
