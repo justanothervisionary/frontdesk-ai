@@ -348,7 +348,14 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ reply: reply, leadCaptured: leadCaptured, appointmentBooked: appointmentBooked });
   } catch (err) {
     console.error("[frontdesk chat] provider error:", err.message);
-    // TEMP DEBUG - diagnosing the smart-quoting 503, reverting right after.
-    return res.status(503).json({ error: "AI backend unavailable", degraded: true, debugMessage: err.message, debugStack: (err.stack || "").split("\n").slice(0, 5) });
+    // A non-2xx here (not the generic fallback text with a 200) is
+    // deliberate: it's what makes the widget's own .catch() handler kick
+    // in and fall back to real local FAQ matching, instead of everyone
+    // silently getting the same canned non-answer regardless of what they
+    // asked. Found this the hard way testing the live deployment - a 200
+    // here reads as "success" to the client, so real answers were being
+    // replaced by a generic one even for questions with a perfect FAQ
+    // match.
+    return res.status(503).json({ error: "AI backend unavailable", degraded: true });
   }
 };
