@@ -16,7 +16,7 @@ const { getUsage } = require("./_lib/usage");
 const { getMissedQuestions } = require("./_lib/missedQuestions");
 const { checkInstallation } = require("./_lib/installCheck");
 const { createRateLimiter } = require("./_lib/rateLimit");
-const { exchangeAuthCode } = require("./_lib/googleCalendar");
+const { exchangeAuthCode, saveGoogleCalendarAuth, deleteGoogleCalendarAuth } = require("./_lib/googleCalendar");
 
 // Scoped specifically to admin-edit/admin-impersonate, not the rest of this
 // file: a business's own actions (save, toggle-active) can only ever touch
@@ -75,7 +75,6 @@ async function updatePrivateConfig(businessKey, mutateFn) {
   var path = `api/_private-configs/${businessKey}.json`;
   return withConflictRetry(async function () {
     var existing = await getFile(path);
-    console.error(`[frontdesk dashboard] read ${path} sha=${existing && existing.sha}`);
     var json = (existing && JSON.parse(existing.content)) || {};
     mutateFn(json);
     await putFile(path, json, `Update private config for ${businessKey}`, existing && existing.sha);
@@ -615,27 +614,21 @@ async function handleGoogleCalendarCallback(req, res) {
     var precheck = await loadConfigLive(businessKey);
     if (!precheck) return res.status(404).send(calendarResultPage("Business not found.", true));
 
-    // Private (the actual refresh token) is written FIRST, public
-    // ("connected: true") SECOND - these two writes aren't atomic, and
-    // if a run dies between them, this ordering means the business is
-    // just left not-yet-connected (safe, fixed by trying again) rather
-    // than showing "Connected" in the dashboard with no real token
-    // behind it, which is exactly the broken, silent state a prior
-    // run of this callback left live in production.
-    await updatePrivateConfig(businessKey, function (priv) {
-      priv.googleCalendar = { refreshToken: tokens.refreshToken, calendarId: "primary" };
-    });
+    // Refresh token written FIRST (Upstash, never git - see
+    // googleCalendar.js's comment: GitHub's push protection rejects any
+    // commit containing one outright), public "connected: true" flag
+    // SECOND. These two writes aren't atomic, and this ordering means a
+    // failure between them leaves the business honestly not-yet-
+    // connected (safe, fixed by trying again) rather than showing
+    // "Connected" with no real token behind it.
+    await saveGoogleCalendarAuth(businessKey, tokens.refreshToken, "primary");
 
-    // Re-reads fresh on each attempt (not reusing precheck's sha) - this
-    // is what fixes the real "putFile conflict - file changed since it
-    // was last read" error seen in production: something else (most
-    // likely the dashboard's own weekly-digest/admin writes touching the
-    // same file) can land a write in the gap between this handler's read
-    // and its write, and a one-shot OAuth redirect has no "click Save
-    // again" the way a normal dashboard save does.
+    // Re-reads fresh on each attempt (not reusing precheck's sha) - a
+    // genuine stale-sha race against another dashboard write is still
+    // possible here (this one DOES go through git), unlike the token
+    // write above.
     await withConflictRetry(async function () {
       var result = await loadConfigLive(businessKey);
-      console.error(`[frontdesk dashboard] read configs/${businessKey}.json sha=${result.sha}`);
       var config = result.config;
       // Public: boolean only - calendarId/refreshToken never go here (for
       // most Google accounts the "primary" calendar id IS the account's
@@ -663,7 +656,7 @@ async function handleGoogleCalendarDisconnect(req, res, businessKey) {
 
   try {
     await putFile(`configs/${businessKey}.json`, config, `Disconnect Google Calendar for ${businessKey}`, result.sha);
-    await updatePrivateConfig(businessKey, function (priv) { delete priv.googleCalendar; });
+    await deleteGoogleCalendarAuth(businessKey);
   } catch (err) {
     console.error("[frontdesk dashboard] google-calendar-disconnect error:", err.message);
     if (err.conflict) return res.status(409).json({ error: "This was just updated elsewhere - please refresh and try again." });

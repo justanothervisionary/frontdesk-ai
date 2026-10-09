@@ -23,7 +23,7 @@ const { getHistory, appendTurns, claimMessageId } = require("./_lib/whatsappHist
 const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
-const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
+const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, getGoogleCalendarAuth, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -189,8 +189,13 @@ async function handleOneMessage(config, businessKey, phoneNumberId, message) {
   // api/chat.js, no fileConfig gate is needed here, just the calendar's
   // own connected/hours check.
   var calendarReady = !!(config.googleCalendar && config.googleCalendar.connected && config.hours);
+  // Refresh token lives in Upstash, not config - see googleCalendar.js's
+  // getGoogleCalendarAuth comment (GitHub's push protection rejects a
+  // refresh token committed via the Contents API outright).
+  var calendarAuth = calendarReady ? await getGoogleCalendarAuth(businessKey) : null;
+  calendarReady = calendarReady && !!(calendarAuth && calendarAuth.refreshToken);
   var availability = calendarReady
-    ? await withTimeout(getAvailableSlots(businessKey, config.googleCalendar.refreshToken, config.googleCalendar.calendarId, config.hours), 4500)
+    ? await withTimeout(getAvailableSlots(businessKey, calendarAuth.refreshToken, calendarAuth.calendarId, config.hours), 4500)
     : null;
 
   var systemBlocks = [
@@ -228,12 +233,12 @@ async function handleOneMessage(config, businessKey, phoneNumberId, message) {
       var requestedEndIso = new Date(new Date(requestedIso).getTime() + SLOT_DURATION_MINUTES * 60000).toISOString();
       var locked = await claimBookingSlot(businessKey, requestedIso);
       var stillFree = locked && await withTimeout(
-        isSlotStillFree(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, requestedIso, requestedEndIso),
+        isSlotStillFree(calendarAuth.refreshToken, calendarAuth.calendarId, requestedIso, requestedEndIso),
         4000
       );
       if (stillFree) {
         try {
-          await createEvent(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, {
+          await createEvent(calendarAuth.refreshToken, calendarAuth.calendarId, {
             startIso: requestedIso,
             endIso: requestedEndIso,
             summary: "Appointment: " + (((bookToolUse.input && bookToolUse.input.name) || "").toString().trim() || "WhatsApp contact"),

@@ -236,10 +236,13 @@ just taking a message.
   broader scopes that would let anything here read event details,
   titles, or guest lists on the business's calendar.
 - The OAuth refresh token this grants is never written to the public
-  `configs/{key}.json` file the widget itself fetches - it's stored only
-  in the same server-side-only private file already used for a
-  business's notification email address, genuinely unreachable from the
-  internet (nothing under `api/` is ever served as a static file).
+  `configs/{key}.json` file the widget itself fetches, and never
+  committed to git at all (GitHub's own push protection rejects that
+  outright, and a long-lived secret like this has no business sitting
+  in permanent, unrevocable git history even where that's allowed). It's
+  stored server-side only, in the same Redis store this codebase already
+  uses for other server-side-only state, never reachable from the
+  internet.
 - The connect flow is protected the same way the magic-link login
   already is: a short-lived, cryptographically signed token (not the
   session cookie) carries which business a Google redirect belongs to,

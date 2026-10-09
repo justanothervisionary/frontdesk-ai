@@ -31,6 +31,45 @@ function fetchWithTimeout(url, options) {
     .finally(function () { clearTimeout(timer); });
 }
 
+// --- Credential storage (Upstash, NOT git) ---
+//
+// A refresh token can never be committed via the GitHub Contents API -
+// confirmed in production, GitHub's push protection rejects the write
+// outright ("Secret detected in content", tagged GOOGLE_OAUTH_REFRESH_
+// TOKEN) on every single attempt, not just occasionally. Even without
+// that hard block, a long-lived secret like this has no business sitting
+// in permanent, unrevocable git history. Stored here instead, with no
+// TTL - this persists until disconnectGoogleCalendar's delete clears it,
+// unlike every other Upstash key in this codebase (which are all
+// deliberately short-lived caches/locks).
+
+function authKey(businessKey) { return "calendar-auth:" + businessKey; }
+
+async function saveGoogleCalendarAuth(businessKey, refreshToken, calendarId) {
+  if (!isConfigured()) throw new Error("Upstash not configured - cannot store calendar credentials");
+  await pipeline([["SET", authKey(businessKey), JSON.stringify({ refreshToken: refreshToken, calendarId: calendarId })]]);
+}
+
+// Never throws - same "read side degrades to null, never breaks the
+// caller" contract as getCachedAvailability below.
+async function getGoogleCalendarAuth(businessKey) {
+  if (!isConfigured()) return null;
+  try {
+    var result = await pipeline([["GET", authKey(businessKey)]]);
+    var raw = result[0] && result[0].result;
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function deleteGoogleCalendarAuth(businessKey) {
+  if (!isConfigured()) return;
+  try {
+    await pipeline([["DEL", authKey(businessKey)]]);
+  } catch (err) { /* best-effort - worst case a stale credential sits unused, harmless */ }
+}
+
 // --- OAuth ---
 
 async function exchangeAuthCode(code, redirectUri) {
@@ -314,5 +353,6 @@ async function createEvent(refreshToken, calendarId, opts) {
 
 module.exports = {
   exchangeAuthCode, refreshAccessToken, getAvailableSlots, isSlotStillFree, claimBookingSlot, createEvent,
-  isKnownOfferedSlot, computeCandidateSlots, SLOT_DURATION_MINUTES
+  isKnownOfferedSlot, computeCandidateSlots, SLOT_DURATION_MINUTES,
+  saveGoogleCalendarAuth, getGoogleCalendarAuth, deleteGoogleCalendarAuth
 };

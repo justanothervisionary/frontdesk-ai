@@ -49,13 +49,17 @@ function loadConfig(businessKey) {
   if (fs.existsSync(privatePath)) {
     const priv = JSON.parse(fs.readFileSync(privatePath, "utf8"));
     if (priv.notifyEmail) config.notifyEmail = priv.notifyEmail;
-    // Same split as notifyEmail, for the same reason: refreshToken/
-    // calendarId must never land in the publicly-served configs/{key}.json
-    // (that file's googleCalendar only ever holds { connected: true }).
-    // Merged into the SAME config.googleCalendar object the public file
-    // may already have a `connected` flag on, not a replacement of it.
-    if (priv.googleCalendar) config.googleCalendar = Object.assign({}, config.googleCalendar, priv.googleCalendar);
   }
+  // The Google Calendar refresh token does NOT live here - GitHub's push
+  // protection rejects any commit containing one outright ("Secret
+  // detected in content", confirmed in production), and a long-lived
+  // secret like this shouldn't sit in permanent git history even where
+  // that's allowed. It lives in Upstash instead - see
+  // googleCalendar.js's getGoogleCalendarAuth, fetched separately by
+  // whichever caller needs it (chat.js/whatsapp.js), since that's an
+  // async call this function can't make. config.googleCalendar here is
+  // just the public { connected: true/false } flag, already on the
+  // object from configs/{key}.json itself.
   return config;
 }
 
@@ -78,8 +82,9 @@ async function loadConfigLive(businessKey) {
   if (privFile) {
     const priv = JSON.parse(privFile.content);
     if (priv.notifyEmail) config.notifyEmail = priv.notifyEmail;
-    if (priv.googleCalendar) config.googleCalendar = Object.assign({}, config.googleCalendar, priv.googleCalendar);
   }
+  // See loadConfig()'s comment above - the refresh token lives in
+  // Upstash, not here.
   return { config, sha: file.sha };
 }
 

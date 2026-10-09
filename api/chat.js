@@ -11,7 +11,7 @@ const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
 const { buildSystemPrompt, buildCaptureLeadTool, buildBookAppointmentTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
 const { sanitizeAttachments } = require("./_lib/attachments");
-const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
+const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, getGoogleCalendarAuth, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
 
 // Bounds the WHOLE availability lookup (refresh + freeBusy, two
 // sequential Google calls), not just one of them - googleCalendar.js's
@@ -98,15 +98,18 @@ module.exports = async function handler(req, res) {
   if (!message.trim()) return res.status(400).json({ error: "Empty message" });
 
   // Only ever for a real, file-backed, calendar-connected business with
-  // hours actually set - see api/_lib/config.js's loadConfig() for the
-  // public/private merge that puts refreshToken/calendarId on
-  // config.googleCalendar. Any failure (timeout, revoked token, no
-  // hours configured yet) resolves availability to null below, which is
-  // exactly "behave like no calendar is connected" - never blocks or
-  // errors the turn.
+  // hours actually set. The refresh token itself lives in Upstash, not
+  // in config - see googleCalendar.js's getGoogleCalendarAuth comment
+  // for why (GitHub's push protection rejects a refresh token committed
+  // via the Contents API outright). Any failure (timeout, revoked
+  // token, no hours configured yet, Upstash miss) resolves availability
+  // to null below, which is exactly "behave like no calendar is
+  // connected" - never blocks or errors the turn.
   var calendarReady = !!(fileConfig && config.googleCalendar && config.googleCalendar.connected && config.hours);
+  var calendarAuth = calendarReady ? await getGoogleCalendarAuth(businessKey) : null;
+  calendarReady = calendarReady && !!(calendarAuth && calendarAuth.refreshToken);
   var availability = calendarReady
-    ? await withTimeout(getAvailableSlots(businessKey, config.googleCalendar.refreshToken, config.googleCalendar.calendarId, config.hours), 4500)
+    ? await withTimeout(getAvailableSlots(businessKey, calendarAuth.refreshToken, calendarAuth.calendarId, config.hours), 4500)
     : null;
 
   try {
@@ -192,12 +195,12 @@ module.exports = async function handler(req, res) {
         // even bother re-checking Google, just treat it as taken.
         var locked = await claimBookingSlot(businessKey, requestedIso);
         var stillFree = locked && await withTimeout(
-          isSlotStillFree(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, requestedIso, requestedEndIso),
+          isSlotStillFree(calendarAuth.refreshToken, calendarAuth.calendarId, requestedIso, requestedEndIso),
           4000
         );
         if (stillFree) {
           try {
-            await createEvent(config.googleCalendar.refreshToken, config.googleCalendar.calendarId, {
+            await createEvent(calendarAuth.refreshToken, calendarAuth.calendarId, {
               startIso: requestedIso,
               endIso: requestedEndIso,
               summary: "Appointment: " + (((bookToolUse.input && bookToolUse.input.name) || "").toString().trim() || "Website visitor"),
