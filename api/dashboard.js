@@ -48,12 +48,18 @@ const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.c
 // external redirect with no "try again" button short of redoing the
 // whole consent flow, so those retry with a fresh read instead.
 async function withConflictRetry(fn, attempts) {
-  attempts = attempts || 3;
+  attempts = attempts || 4;
   for (var i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err) {
       if (!err.conflict || i === attempts - 1) throw err;
+      // Random backoff, not a fixed delay - two requests retrying in
+      // lockstep with no jitter can keep re-colliding on every single
+      // attempt (seen in production: the same conflict survived 3
+      // straight retries), since both re-read and re-write at roughly
+      // the same instant every round.
+      await new Promise(function (resolve) { setTimeout(resolve, 150 + Math.floor(Math.random() * 350)); });
     }
   }
 }

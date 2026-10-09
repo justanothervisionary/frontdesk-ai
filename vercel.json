@@ -11,6 +11,9 @@
     },
     "api/chat.js": {
       "maxDuration": 25
+    },
+    "api/dashboard.js": {
+      "maxDuration": 20
     }
   }
 }
