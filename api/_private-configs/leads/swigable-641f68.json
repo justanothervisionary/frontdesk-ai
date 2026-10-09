@@ -165,5 +165,80 @@
         "content": "Thanks - I've got that, someone from the team will be in touch."
       }
     ]
+  },
+  {
+    "name": "dave",
+    "contact": "07860608403",
+    "at": "2026-10-09T19:16:07.412Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "ok 1pm"
+      },
+      {
+        "role": "assistant",
+        "content": "Perfect! To confirm your appointment at 1:00 pm on Tuesday 13th October, I'll need your name and contact number or email."
+      },
+      {
+        "role": "user",
+        "content": "dave - 07860608403"
+      },
+      {
+        "role": "assistant",
+        "content": "You're booked in for Tue 13 Oct, 1:00 pm - see you then!"
+      }
+    ],
+    "source": "booking",
+    "bookingTime": "Tue 13 Oct, 1:00 pm"
+  },
+  {
+    "name": "dave",
+    "contact": "07860608403",
+    "at": "2026-10-09T19:41:05.532Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "sorry can we move that meeting"
+      },
+      {
+        "role": "assistant",
+        "content": "Of course! What time works better for you instead?"
+      },
+      {
+        "role": "user",
+        "content": "2pm"
+      },
+      {
+        "role": "assistant",
+        "content": "You're booked in for Tue 13 Oct, 2:00 pm - see you then!"
+      }
+    ],
+    "source": "booking",
+    "bookingTime": "Tue 13 Oct, 2:00 pm"
+  },
+  {
+    "name": "bob",
+    "contact": "077856033210",
+    "at": "2026-10-09T19:43:39.854Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "you have my contact already"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it - just to double-check, could you confirm the contact details you'd like me to use for the booking?"
+      },
+      {
+        "role": "user",
+        "content": "bob - 077856033210"
+      },
+      {
+        "role": "assistant",
+        "content": "You're booked in for Wed 14 Oct, 9:00 am - see you then!"
+      }
+    ],
+    "source": "booking",
+    "bookingTime": "Wed 14 Oct, 9:00 am"
   }
 ]

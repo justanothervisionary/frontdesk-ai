@@ -30,5 +30,29 @@
   "phone": "07720497066",
   "whatsapp": {
     "phoneNumberId": "1290944287445337"
+  },
+  "googleCalendar": {
+    "connected": true
+  },
+  "hours": {
+    "mon": null,
+    "tue": [
+      "09:00",
+      "17:00"
+    ],
+    "wed": [
+      "09:00",
+      "17:00"
+    ],
+    "thu": [
+      "09:00",
+      "17:00"
+    ],
+    "fri": [
+      "09:00",
+      "17:00"
+    ],
+    "sat": null,
+    "sun": null
   }
 }
