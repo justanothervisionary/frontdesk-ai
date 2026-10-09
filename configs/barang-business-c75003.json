@@ -8,7 +8,7 @@
     "assistantName": "George",
     "avatarUrl": "https://www.frontdesksuite.co.uk/configs/avatars/a2a9b5143139f8be7ee3a7d4.jpg"
   },
-  "greeting": "Hi! Welcome to Spearson's Group. Ask me about appointments, treatments, or opening times - or leave your details and we'll call you back.",
+  "greeting": "Hey Welcome to Spearson's, George here. Anything i can help with?",
   "fallbackAnswer": "I'll pass that on to the team - would you like to leave your name and number, or call 07593009486?",
   "faqs": [
     {
@@ -55,5 +55,30 @@
   "active": true,
   "stripeCustomerId": "cus_VLNaSrP7j7K8ec",
   "stripeSubscriptionId": "sub_1UKgot1PzE19HBxHCk3v0i16",
-  "stripeCheckoutSessionId": "cs_live_a19UCdyK6NnIsYcfHRMwNM27yZRinRqyaTJ3ega8KSscLHThwyN5psT3bA"
+  "stripeCheckoutSessionId": "cs_live_a19UCdyK6NnIsYcfHRMwNM27yZRinRqyaTJ3ega8KSscLHThwyN5psT3bA",
+  "hours": {
+    "mon": [
+      "09:00",
+      "17:00"
+    ],
+    "tue": [
+      "09:00",
+      "17:00"
+    ],
+    "wed": [
+      "09:00",
+      "17:00"
+    ],
+    "thu": null,
+    "fri": [
+      "09:00",
+      "17:00"
+    ],
+    "sat": [
+      "09:00",
+      "17:00"
+    ],
+    "sun": null
+  },
+  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen"
 }
