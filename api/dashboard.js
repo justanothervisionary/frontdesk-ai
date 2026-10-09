@@ -40,12 +40,32 @@ const SITE_BASE_URL = process.env.SITE_BASE_URL || "https://www.frontdesksuite.c
 // pattern would silently wipe it on the next unrelated save. mutateFn
 // receives the existing object (or {} if the file doesn't exist yet) and
 // mutates it in place.
+// Retries a read-modify-write `fn` when GitHub rejects the write because
+// the file moved since it was last read (putFile's `.conflict = true`,
+// see github.js). Most callers in this file surface a conflict to the
+// user and let them just click Save again - but a few writes (notably
+// the Google OAuth callback below) are the tail end of a one-shot
+// external redirect with no "try again" button short of redoing the
+// whole consent flow, so those retry with a fresh read instead.
+async function withConflictRetry(fn, attempts) {
+  attempts = attempts || 3;
+  for (var i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!err.conflict || i === attempts - 1) throw err;
+    }
+  }
+}
+
 async function updatePrivateConfig(businessKey, mutateFn) {
   var path = `api/_private-configs/${businessKey}.json`;
-  var existing = await getFile(path);
-  var json = (existing && JSON.parse(existing.content)) || {};
-  mutateFn(json);
-  await putFile(path, json, `Update private config for ${businessKey}`, existing && existing.sha);
+  return withConflictRetry(async function () {
+    var existing = await getFile(path);
+    var json = (existing && JSON.parse(existing.content)) || {};
+    mutateFn(json);
+    await putFile(path, json, `Update private config for ${businessKey}`, existing && existing.sha);
+  });
 }
 
 async function handleGetData(req, res, businessKey) {
@@ -578,16 +598,27 @@ async function handleGoogleCalendarCallback(req, res) {
       return res.status(502).send(calendarResultPage("Google didn't grant lasting access - please try connecting again.", true));
     }
 
-    var result = await loadConfigLive(businessKey);
-    if (!result) return res.status(404).send(calendarResultPage("Business not found.", true));
-    var config = result.config;
-    // Public: boolean only - calendarId/refreshToken never go here (for
-    // most Google accounts the "primary" calendar id IS the account's
-    // own email address, and this file is fetched directly by any
-    // visitor's browser).
-    config.googleCalendar = { connected: true };
-    delete config.notifyEmail; // same guard every other write here applies
-    await putFile(`configs/${businessKey}.json`, config, `Connect Google Calendar for ${businessKey}`, result.sha);
+    var precheck = await loadConfigLive(businessKey);
+    if (!precheck) return res.status(404).send(calendarResultPage("Business not found.", true));
+
+    // Re-reads fresh on each attempt (not reusing precheck's sha) - this
+    // is what fixes the real "putFile conflict - file changed since it
+    // was last read" error seen in production: something else (most
+    // likely the dashboard's own weekly-digest/admin writes touching the
+    // same file) can land a write in the gap between this handler's read
+    // and its write, and a one-shot OAuth redirect has no "click Save
+    // again" the way a normal dashboard save does.
+    await withConflictRetry(async function () {
+      var result = await loadConfigLive(businessKey);
+      var config = result.config;
+      // Public: boolean only - calendarId/refreshToken never go here (for
+      // most Google accounts the "primary" calendar id IS the account's
+      // own email address, and this file is fetched directly by any
+      // visitor's browser).
+      config.googleCalendar = { connected: true };
+      delete config.notifyEmail; // same guard every other write here applies
+      await putFile(`configs/${businessKey}.json`, config, `Connect Google Calendar for ${businessKey}`, result.sha);
+    });
 
     await updatePrivateConfig(businessKey, function (priv) {
       priv.googleCalendar = { refreshToken: tokens.refreshToken, calendarId: "primary" };
