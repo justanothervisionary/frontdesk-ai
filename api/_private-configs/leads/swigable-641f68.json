@@ -215,5 +215,30 @@
     ],
     "source": "booking",
     "bookingTime": "Tue 13 Oct, 2:00 pm"
+  },
+  {
+    "name": "bob",
+    "contact": "077856033210",
+    "at": "2026-10-09T19:43:39.854Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "you have my contact already"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it - just to double-check, could you confirm the contact details you'd like me to use for the booking?"
+      },
+      {
+        "role": "user",
+        "content": "bob - 077856033210"
+      },
+      {
+        "role": "assistant",
+        "content": "You're booked in for Wed 14 Oct, 9:00 am - see you then!"
+      }
+    ],
+    "source": "booking",
+    "bookingTime": "Wed 14 Oct, 9:00 am"
   }
 ]
