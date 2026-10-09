@@ -580,6 +580,28 @@
     // trusted as an access-control boundary; the server independently caps
     // input length, history length, and requests per minute.
     var history = [];
+
+    // If the visitor goes quiet for a while, the conversation ends and
+    // the next message starts fresh rather than carrying a long-stale
+    // history forward indefinitely - a conversation picked back up after
+    // several minutes away is realistically a different context, and
+    // most chat widgets reset on an idle gap like this for exactly that
+    // reason. Rescheduled on every message the visitor actually sends;
+    // only fires if there was a live conversation to end.
+    var IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+    var idleTimer = null;
+    function scheduleIdleEnd() {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(function () {
+        if (!history.length) return;
+        history = [];
+        leadAlreadyCaptured = false;
+        attachments = [];
+        sentAttachments = [];
+        renderAttachChips();
+        addMessage("It's been a little while, so I've started a fresh conversation - just say hi again whenever you're ready!", "bot");
+      }, IDLE_TIMEOUT_MS);
+    }
     // True once the AI has captured a lead directly from the conversation
     // (see api/chat.js's capture_lead tool) - stops the server from even
     // offering the tool again this conversation, and hides the now-
@@ -744,6 +766,7 @@
       input.value = "";
       input.disabled = true;
       sendBtn.disabled = true;
+      scheduleIdleEnd();
 
       // Move anything pending into "sent" and clear the chip row - it's
       // now part of the conversation that just got sent, not still
