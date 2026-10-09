@@ -10,7 +10,7 @@ const { recordMissedQuestion } = require("./_lib/missedQuestions");
 const { sendNotification } = require("./_lib/leadNotify");
 const { appendLead } = require("./_lib/leadLog");
 const { buildSystemPrompt, buildCaptureLeadTool, buildBookAppointmentTool, FLAG_UNANSWERED_TOOL } = require("./_lib/aiPrompt");
-const { sanitizeAttachments, isImageAttachment } = require("./_lib/attachments");
+const { sanitizeAttachments, isImageAttachment, fetchImageContentBlock } = require("./_lib/attachments");
 const { getAvailableSlots, isKnownOfferedSlot, isSlotStillFree, claimBookingSlot, createEvent, getGoogleCalendarAuth, SLOT_DURATION_MINUTES } = require("./_lib/googleCalendar");
 
 // Bounds the WHOLE availability lookup (refresh + freeBusy, two
@@ -145,10 +145,17 @@ module.exports = async function handler(req, res) {
       ? sanitizeAttachments(body.newAttachments).filter(isImageAttachment)
       : [];
 
-    var userContent = newImageAttachments.length
-      ? newImageAttachments.map(function (a) {
-          return { type: "image", source: { type: "url", url: a.url } };
-        }).concat([{ type: "text", text: message }])
+    // fetchImageContentBlock fetches each Blob URL's bytes and inlines them
+    // as base64 - the installed SDK's stable API has no url-source image
+    // block, only base64 (confirmed against its own type definitions).
+    // Never throws; a failed fetch just drops that image rather than
+    // failing the whole turn.
+    var imageBlocks = newImageAttachments.length
+      ? (await Promise.all(newImageAttachments.map(function (a) { return fetchImageContentBlock(a); }))).filter(Boolean)
+      : [];
+
+    var userContent = imageBlocks.length
+      ? imageBlocks.concat([{ type: "text", text: message }])
       : message;
 
     var requestOptions = {

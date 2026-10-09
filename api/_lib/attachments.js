@@ -59,4 +59,34 @@ function isImageAttachment(attachment) {
   return !!(attachment && IMAGE_EXTENSION_RE.test((attachment.url || "")));
 }
 
-module.exports = { ALLOWED_TYPES, MAX_BYTES, MAX_ATTACHMENTS_PER_LEAD, isAllowedContentType, extensionFor, sanitizeAttachments, isImageAttachment };
+var IMAGE_MEDIA_TYPE_BY_EXT = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
+
+// Turns an already-validated, vision-eligible attachment into an
+// Anthropic image content block. The installed SDK's stable Messages
+// API only accepts base64 image sources (confirmed directly against
+// its type definitions - there is no url-source variant), so this
+// fetches the Blob URL's bytes server-side and inlines them, rather
+// than passing the URL straight through as originally assumed. Never
+// throws - returns null on any failure (timeout, fetch error, oversized,
+// unrecognized extension), which callers should treat as "skip this
+// image" rather than fatal.
+async function fetchImageContentBlock(attachment, timeoutMs) {
+  var ext = (attachment.url.match(/\.([a-z0-9]+)$/i) || [])[1];
+  var mediaType = IMAGE_MEDIA_TYPE_BY_EXT[(ext || "").toLowerCase()];
+  if (!mediaType) return null;
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, timeoutMs || 4000);
+  try {
+    var res = await fetch(attachment.url, { signal: controller.signal });
+    if (!res.ok) return null;
+    var buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > MAX_BYTES) return null;
+    return { type: "image", source: { type: "base64", media_type: mediaType, data: buf.toString("base64") } };
+  } catch (err) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+module.exports = { ALLOWED_TYPES, MAX_BYTES, MAX_ATTACHMENTS_PER_LEAD, isAllowedContentType, extensionFor, sanitizeAttachments, isImageAttachment, fetchImageContentBlock };
