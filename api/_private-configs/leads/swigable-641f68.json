@@ -240,5 +240,28 @@
     ],
     "source": "booking",
     "bookingTime": "Wed 14 Oct, 9:00 am"
+  },
+  {
+    "name": "Website visitor",
+    "contact": "juliacharen@gmail.com",
+    "at": "2026-10-10T23:02:07.216Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "When will my order ship out?"
+      },
+      {
+        "role": "assistant",
+        "content": "I don't have access to order information or shipping details - that's something the team will need to look up for you directly. Can I grab your phone number or email so someone can follow up with your shipping status?"
+      },
+      {
+        "role": "user",
+        "content": "Yes my email is juliacharen@gmail.com"
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks - I've got that, someone from the team will be in touch."
+      }
+    ]
   }
 ]
