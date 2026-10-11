@@ -596,17 +596,37 @@
     // whenever Stay is pressed; only fires if there was a live
     // conversation to prompt about.
     var IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+    // No response to the prompt itself (no click, no typing) within this
+    // further grace period means the visitor has actually left, not just
+    // stepped away to think - auto-ends the same way End chat would,
+    // just with nobody there to press it. Total time from last activity
+    // to auto-end is IDLE_TIMEOUT_MS + this.
+    var IDLE_AUTO_END_MS = 2 * 60 * 1000;
     var idleTimer = null;
+    var idleAutoEndTimer = null;
     // The two elements the prompt is made of (the bot-bubble row +
     // its button row) - tracked together so either Stay, End, or the
     // visitor just typing a new message can cleanly remove both.
     var idlePromptEls = null;
 
     function clearIdlePrompt() {
+      if (idleAutoEndTimer) {
+        clearTimeout(idleAutoEndTimer);
+        idleAutoEndTimer = null;
+      }
       if (idlePromptEls) {
         idlePromptEls.forEach(function (el) { el.remove(); });
         idlePromptEls = null;
       }
+    }
+
+    function endChat() {
+      history = [];
+      leadAlreadyCaptured = false;
+      attachments = [];
+      sentAttachments = [];
+      renderAttachChips();
+      addMessage("Chat ended - say hi anytime to start a new one!", "bot");
     }
 
     function showIdlePrompt() {
@@ -623,18 +643,18 @@
       messages.scrollTop = messages.scrollHeight;
       idlePromptEls = [row, actions];
 
+      idleAutoEndTimer = setTimeout(function () {
+        clearIdlePrompt();
+        endChat();
+      }, IDLE_AUTO_END_MS);
+
       actions.querySelector(".fd-idle-stay").addEventListener("click", function () {
         clearIdlePrompt();
         scheduleIdleEnd();
       });
       actions.querySelector(".fd-idle-end").addEventListener("click", function () {
         clearIdlePrompt();
-        history = [];
-        leadAlreadyCaptured = false;
-        attachments = [];
-        sentAttachments = [];
-        renderAttachChips();
-        addMessage("Chat ended - say hi anytime to start a new one!", "bot");
+        endChat();
       });
     }
 
