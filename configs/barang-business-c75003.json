@@ -17,39 +17,9 @@
     },
     {
       "keywords": [
-        "hour",
-        "open",
-        "close",
-        "time"
+        "when someone says they need a "
       ],
-      "answer": "For exact hours it's best to call 07593009486 - the team can confirm and fit you in."
-    },
-    {
-      "keywords": [
-        "price",
-        "cost",
-        "how much",
-        "quote"
-      ],
-      "answer": "Pricing depends on what you need - call 07593009486 or leave your details for a quote."
-    },
-    {
-      "keywords": [
-        "book",
-        "appointment",
-        "callout",
-        "viewing",
-        "available"
-      ],
-      "answer": "You can book by calling 07593009486, or leave your details here and we'll be in touch."
-    },
-    {
-      "keywords": [
-        "where",
-        "location",
-        "address"
-      ],
-      "answer": "Give us a call on 07593009486 for directions and parking info."
+      "answer": "you should immediately try to warm them and ask more details about their project, make them feel listened to like you genuinely want to understand their exact needs. Ask for ideas, drawings, images of the area or inspiration. Say they can upload something to show you. This way you can do the job of a Tradesperson in terms of quoting and warming the lead and then booking them in for a visit."
     }
   ],
   "active": true,
@@ -80,7 +50,7 @@
     ],
     "sun": null
   },
-  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen",
+  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen\n\nOuthouses - start fom 3000 - 200 per SQ foot",
   "googleCalendar": {
     "connected": true
   }
