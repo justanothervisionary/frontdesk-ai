@@ -301,6 +301,15 @@
       "  .fd-panel { right: 8px; left: 8px; width: auto; bottom: 84px; height: 70vh; max-height: 70vh; }" +
       "  .fd-bubble { " + side + ": 14px; bottom: 14px; }" +
       "  .fd-teaser { " + side + ": 14px; bottom: 82px; max-width: calc(100vw - 100px); }" +
+      // iOS Safari auto-zooms the whole page on focus for any text input
+      // under 16px, which is what was actually causing the "crops off,
+      // have to pinch back out, everything's out of line" report - the
+      // zoom itself, not a layout bug, throws off the fixed-position
+      // panel underneath it. 16px is the documented threshold that
+      // suppresses it; can't rely on the host page's own viewport meta
+      // tag to do this instead, since the widget is embedded into
+      // whatever third-party site it's dropped into, not a page we own.
+      "  .fd-input, .fd-lead-form input { font-size: 16px; }" +
       "}" +
       // Trial ended / subscription cancelled - a muted, non-interactive
       // bubble instead of the full chat. No click handler is ever attached
