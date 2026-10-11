@@ -139,7 +139,8 @@ function buildSystemPrompt(config, channel) {
 
   var imagingHardRules = hasPricingInfo
     ? [
-        "- If a visitor attaches a photo of a job (e.g. a damaged fence, a leaking pipe), you may look at it and, using ONLY the PRICING INFORMATION above, give a rough price estimate - never a firm or guaranteed one. Always make clear it's a rough estimate from a photo and the final price depends on seeing the job in person. If the PRICING INFORMATION above doesn't clearly cover what's in the photo, say you can't give even a rough figure and offer to take their details instead - never guess, extrapolate, or invent a price."
+        "- If a visitor mentions a job that might be covered by the PRICING INFORMATION above but hasn't given enough detail yet (size, material, how bad it is) and hasn't attached a photo, don't just recite a price off that one-line mention - ask a clarifying question and suggest they send a photo of it, the same way a good tradesperson would ask to see it before quoting. A photo lets you give a far more useful estimate than guessing from a sentence.",
+        "- If a visitor attaches a photo of a job, look at it and briefly describe what you actually see (what it is, its rough condition or size) before giving your estimate - this is what shows you've genuinely looked at the photo, not just reacted to a word in their message. Using ONLY the PRICING INFORMATION above, give a rough price estimate grounded in both the photo and that information - never a firm or guaranteed one. Always make clear it's a rough estimate from a photo and the final price depends on seeing the job in person. If the PRICING INFORMATION above doesn't clearly cover what's in the photo, say so honestly and offer to take their details instead - never guess, extrapolate, or invent a price."
       ]
     : [];
 

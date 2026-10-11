@@ -621,6 +621,15 @@
     // of sitting there looking unsent forever (see send() below).
     var sentAttachments = [];
     var ATTACH_LIMIT = 3;
+    // Every in-flight upload's promise (always resolves, never rejects -
+    // a failed upload just settles as entry.status = "error"). send()
+    // waits for whatever's in here at the moment it's called, so a
+    // visitor who attaches a photo and asks their question right away
+    // (completely normal - most people don't wait for the upload
+    // spinner) still has that photo actually included, instead of it
+    // silently missing the request with no error and no sign anything
+    // went wrong.
+    var pendingUploadPromises = [];
 
     function doneAttachmentPayload() {
       var pendingDone = attachments.filter(function (a) { return a.status === "done"; });
@@ -673,35 +682,44 @@
         return;
       }
 
-      var reader = new FileReader();
-      reader.onload = function () {
-        fetch(instanceLeadApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "upload-attachment",
-            businessKey: instanceKey,
-            filename: file.name,
-            dataUri: reader.result
+      var uploadPromise = new Promise(function (resolve) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          fetch(instanceLeadApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upload-attachment",
+              businessKey: instanceKey,
+              filename: file.name,
+              dataUri: reader.result
+            })
           })
-        })
-          .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
-          .then(function (data) {
-            entry.status = "done";
-            entry.url = data.url;
-            entry.name = data.name || file.name;
-            renderAttachChips();
-          })
-          .catch(function () {
-            entry.status = "error";
-            renderAttachChips();
-          });
-      };
-      reader.onerror = function () {
-        entry.status = "error";
-        renderAttachChips();
-      };
-      reader.readAsDataURL(file);
+            .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
+            .then(function (data) {
+              entry.status = "done";
+              entry.url = data.url;
+              entry.name = data.name || file.name;
+              renderAttachChips();
+              resolve();
+            })
+            .catch(function () {
+              entry.status = "error";
+              renderAttachChips();
+              resolve();
+            });
+        };
+        reader.onerror = function () {
+          entry.status = "error";
+          renderAttachChips();
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
+      pendingUploadPromises.push(uploadPromise);
+      uploadPromise.then(function () {
+        pendingUploadPromises = pendingUploadPromises.filter(function (p) { return p !== uploadPromise; });
+      });
     }
 
     attachBtn.addEventListener("click", function () {
@@ -754,20 +772,24 @@
 
     function send() {
       var text = input.value.trim();
-      var pendingDone = attachments.filter(function (a) { return a.status === "done"; });
+      // Includes "uploading" as well as "done" - a visitor who attaches a
+      // photo and hits Send right away (completely normal - most people
+      // don't wait for the upload spinner) still counts as having
+      // attached something, even though it hasn't settled yet.
+      var pendingAttachments = attachments.filter(function (a) { return a.status === "done" || a.status === "uploading"; });
       // The actual bug report this fixes: attaching a file with no typed
       // text made this return here immediately, before ever looking at
       // whether there was an attachment - clicking Send just silently did
       // nothing. A visitor attaching a photo of the issue with nothing
       // typed is a completely normal thing to do.
-      if (!text && !pendingDone.length) return;
+      if (!text && !pendingAttachments.length) return;
       // No typed text but a real attachment - synthesize something to
       // show/send rather than sending an empty message (which the server
       // rejects, and which Claude would have nothing to respond to).
       if (!text) {
-        text = pendingDone.length === 1
-          ? "Sent a file: " + pendingDone[0].name
-          : "Sent " + pendingDone.length + " files: " + pendingDone.map(function (a) { return a.name; }).join(", ");
+        text = pendingAttachments.length === 1
+          ? "Sent a file: " + pendingAttachments[0].name
+          : "Sent " + pendingAttachments.length + " files: " + pendingAttachments.map(function (a) { return a.name; }).join(", ");
       }
       addMessage(text, "user");
       input.value = "";
@@ -775,50 +797,65 @@
       sendBtn.disabled = true;
       scheduleIdleEnd();
 
-      // Snapshot before the merge below folds pendingDone into
-      // sentAttachments - this is specifically what's new THIS turn, as
-      // opposed to doneAttachmentPayload()'s full accumulated history.
-      var newAttachmentsPayload = pendingDone.map(function (a) { return { url: a.url, name: a.name }; });
-
-      // Move anything pending into "sent" and clear the chip row - it's
-      // now part of the conversation that just got sent, not still
-      // waiting to go out. Done before the request so doneAttachmentPayload()
-      // (called inside askBackend below) already reflects it.
-      if (pendingDone.length) {
-        sentAttachments = sentAttachments.concat(pendingDone);
-        attachments = attachments.filter(function (a) { return a.status !== "done"; });
-        renderAttachChips();
-      }
-
       var typingEl = showTyping();
 
-      function finish(replyText, leadCaptured) {
-        typingEl.remove();
-        addMessage(replyText, "bot");
-        addFeedback(text, replyText);
-        history.push({ role: "user", content: text });
-        history.push({ role: "assistant", content: replyText });
-        input.disabled = false;
-        sendBtn.disabled = false;
-        input.focus();
+      // Waits for anything still uploading at the moment Send was
+      // clicked (a no-op, resolving immediately, when nothing is in
+      // flight) - the actual fix: without this, a photo attached right
+      // before the question was typed would silently never make it into
+      // the request at all, no error, nothing - the AI would have no
+      // photo to look at but no sign anything went wrong either. Snapshot
+      // pendingUploadPromises now, not pendingAttachments' own promises
+      // directly - a second attachment started during this wait belongs
+      // to the NEXT send, not this one.
+      Promise.all(pendingUploadPromises.slice()).then(function () {
+        // Re-read fresh - status may have flipped from "uploading" to
+        // "done" or "error" during the wait above.
+        var settledDone = pendingAttachments.filter(function (a) { return a.status === "done"; });
+        var newAttachmentsPayload = settledDone.map(function (a) { return { url: a.url, name: a.name }; });
 
-        if (leadCaptured && !leadAlreadyCaptured) {
-          leadAlreadyCaptured = true;
-          setLeadFormOpen(false);
-          leaveLink.style.display = "none";
+        // Move anything pending into "sent" and clear the chip row - it's
+        // now part of the conversation that just got sent, not still
+        // waiting to go out. Done before the request so doneAttachmentPayload()
+        // (called inside askBackend below) already reflects it.
+        if (settledDone.length) {
+          sentAttachments = sentAttachments.concat(settledDone);
+          attachments = attachments.filter(function (a) { return a.status !== "done"; });
+          renderAttachChips();
         }
-      }
 
-      if (instanceApiUrl) {
-        askBackend(text, newAttachmentsPayload).then(function (result) {
-          finish(result.reply, result.leadCaptured);
-        }).catch(function () {
-          // Backend down/slow/misconfigured - degrade to local matching
-          // rather than leaving the visitor with a broken widget.
-          finish(matchAnswer(config, text));
-        });
-      } else {
-        setTimeout(function () { finish(matchAnswer(config, text)); }, 400);
+        continueSend(newAttachmentsPayload);
+      });
+
+      function continueSend(newAttachmentsPayload) {
+        function finish(replyText, leadCaptured) {
+          typingEl.remove();
+          addMessage(replyText, "bot");
+          addFeedback(text, replyText);
+          history.push({ role: "user", content: text });
+          history.push({ role: "assistant", content: replyText });
+          input.disabled = false;
+          sendBtn.disabled = false;
+          input.focus();
+
+          if (leadCaptured && !leadAlreadyCaptured) {
+            leadAlreadyCaptured = true;
+            setLeadFormOpen(false);
+            leaveLink.style.display = "none";
+          }
+        }
+
+        if (instanceApiUrl) {
+          askBackend(text, newAttachmentsPayload).then(function (result) {
+            finish(result.reply, result.leadCaptured);
+          }).catch(function () {
+            // Backend down/slow/misconfigured - degrade to local matching
+            // rather than leaving the visitor with a broken widget.
+            finish(matchAnswer(config, text));
+          });
+        } else {
+          setTimeout(function () { finish(matchAnswer(config, text)); }, 400);
+        }
       }
     }
 
