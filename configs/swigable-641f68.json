@@ -31,9 +31,6 @@
   "whatsapp": {
     "phoneNumberId": "1290944287445337"
   },
-  "googleCalendar": {
-    "connected": true
-  },
   "hours": {
     "mon": null,
     "tue": [
