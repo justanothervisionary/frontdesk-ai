@@ -14,42 +14,6 @@
     {
       "keywords": [],
       "answer": "Spearson's Group is a construction and home improvement company located at 31a Church Street, Gamlingay, Sandy SG19 3JH. They offer services including bathrooms, kitchen renovations, extensions, loft conversions, carpentry and joinery, plumbing and heating, and electrical work. The company provides bespoke CAD drawings and 3D visualizations for projects. Business hours are Monday to Friday 7:30am to 5:00pm, Saturday 7:30am to 2:00pm, and closed Sundays. Contact them at 07827445900 or info@spearsons.co.uk."
-    },
-    {
-      "keywords": [
-        "hour",
-        "open",
-        "close",
-        "time"
-      ],
-      "answer": "For exact hours it's best to call 07593009486 - the team can confirm and fit you in."
-    },
-    {
-      "keywords": [
-        "price",
-        "cost",
-        "how much",
-        "quote"
-      ],
-      "answer": "Pricing depends on what you need - call 07593009486 or leave your details for a quote."
-    },
-    {
-      "keywords": [
-        "book",
-        "appointment",
-        "callout",
-        "viewing",
-        "available"
-      ],
-      "answer": "You can book by calling 07593009486, or leave your details here and we'll be in touch."
-    },
-    {
-      "keywords": [
-        "where",
-        "location",
-        "address"
-      ],
-      "answer": "Give us a call on 07593009486 for directions and parking info."
     }
   ],
   "active": true,
@@ -80,7 +44,7 @@
     ],
     "sun": null
   },
-  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen",
+  "pricingInfo": "Call out fee is £45. \n\nFences around 100 per square meter\n\nExstentions 500 per square meter \n\nCupboards start at 800 upwards and can be largely priced on size and detail. However most popular mid range cupbaords are between 900 & 1.5k\n\nKitchen fitting is roughly 30 per square meter and average around 1.5k for an average kitchen\n\nOuthouses - start fom 3000 - 200 per SQ foot",
   "googleCalendar": {
     "connected": true
   }
