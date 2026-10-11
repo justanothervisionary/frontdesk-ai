@@ -286,6 +286,12 @@
       ".fd-lead-status { font-size: 11px; margin-top: 6px; min-height: 14px; }" +
       ".fd-lead-status.fd-err { color: #c00; }" +
       ".fd-lead-status.fd-ok { color: #1a7f37; }" +
+      // Reuses .fd-lead-submit/.fd-lead-cancel for color (those two rules
+      // aren't scoped to .fd-lead-form), just needs its own base button
+      // treatment and layout - margin-left roughly lines up under a bot
+      // bubble's avatar (24px + 8px gap).
+      ".fd-idle-actions { display: flex; gap: 6px; margin: -2px 0 10px 32px; }" +
+      ".fd-idle-actions button { border: none; border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }" +
       ".fd-typing { display: flex; gap: 3px; padding: 10px 12px; }" +
       ".fd-typing span { width: 6px; height: 6px; border-radius: 50%; background: #bbb; animation: fd-bounce 1.2s infinite; }" +
       ".fd-typing span:nth-child(2) { animation-delay: .15s; }" +
@@ -581,25 +587,63 @@
     // input length, history length, and requests per minute.
     var history = [];
 
-    // If the visitor goes quiet for a while, the conversation ends and
-    // the next message starts fresh rather than carrying a long-stale
-    // history forward indefinitely - a conversation picked back up after
-    // several minutes away is realistically a different context, and
-    // most chat widgets reset on an idle gap like this for exactly that
-    // reason. Rescheduled on every message the visitor actually sends;
-    // only fires if there was a live conversation to end.
-    var IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+    // If the visitor goes quiet for a while, they're asked whether to
+    // keep going or end the chat - never silently wiped. A visitor who
+    // stepped away to think and comes back a few minutes later (e.g. to
+    // discuss a real project) still has their full context if they just
+    // keep typing or tap Stay; only an explicit End actually clears it.
+    // Rescheduled on every message the visitor actually sends, and again
+    // whenever Stay is pressed; only fires if there was a live
+    // conversation to prompt about.
+    var IDLE_TIMEOUT_MS = 5 * 60 * 1000;
     var idleTimer = null;
-    function scheduleIdleEnd() {
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(function () {
-        if (!history.length) return;
+    // The two elements the prompt is made of (the bot-bubble row +
+    // its button row) - tracked together so either Stay, End, or the
+    // visitor just typing a new message can cleanly remove both.
+    var idlePromptEls = null;
+
+    function clearIdlePrompt() {
+      if (idlePromptEls) {
+        idlePromptEls.forEach(function (el) { el.remove(); });
+        idlePromptEls = null;
+      }
+    }
+
+    function showIdlePrompt() {
+      clearIdlePrompt();
+      var bubbleEl = addMessage("Still there? It's been a few minutes since your last message.", "bot");
+      var row = bubbleEl.parentNode;
+
+      var actions = document.createElement("div");
+      actions.className = "fd-idle-actions";
+      actions.innerHTML =
+        '<button type="button" class="fd-lead-submit fd-idle-stay">Stay</button>' +
+        '<button type="button" class="fd-lead-cancel fd-idle-end">End chat</button>';
+      messages.appendChild(actions);
+      messages.scrollTop = messages.scrollHeight;
+      idlePromptEls = [row, actions];
+
+      actions.querySelector(".fd-idle-stay").addEventListener("click", function () {
+        clearIdlePrompt();
+        scheduleIdleEnd();
+      });
+      actions.querySelector(".fd-idle-end").addEventListener("click", function () {
+        clearIdlePrompt();
         history = [];
         leadAlreadyCaptured = false;
         attachments = [];
         sentAttachments = [];
         renderAttachChips();
-        addMessage("It's been a little while, so I've started a fresh conversation - just say hi again whenever you're ready!", "bot");
+        addMessage("Chat ended - say hi anytime to start a new one!", "bot");
+      });
+    }
+
+    function scheduleIdleEnd() {
+      if (idleTimer) clearTimeout(idleTimer);
+      clearIdlePrompt();
+      idleTimer = setTimeout(function () {
+        if (!history.length) return;
+        showIdlePrompt();
       }, IDLE_TIMEOUT_MS);
     }
     // True once the AI has captured a lead directly from the conversation
