@@ -1,0 +1,33 @@
+[
+  {
+    "name": "Daniella",
+    "contact": "077823671098",
+    "at": "2026-10-11T18:06:44.884Z",
+    "transcript": [
+      {
+        "role": "user",
+        "content": "2pm monday then"
+      },
+      {
+        "role": "assistant",
+        "content": "Great, Monday 12 October at 2:00 pm. I'll just need your name and phone number to confirm that booking."
+      },
+      {
+        "role": "user",
+        "content": "Daniella - 077823671098"
+      },
+      {
+        "role": "assistant",
+        "content": "You're booked in for Mon 12 Oct, 2:00 pm - see you then!"
+      }
+    ],
+    "source": "booking",
+    "attachments": [
+      {
+        "url": "https://wvsagkswbdbtck3n.public.blob.vercel-storage.com/lead-attachments/barang-business-c75003/bd6e0e732e6a026bafe4.png",
+        "name": "Screenshot 2026-10-11 190232.png"
+      }
+    ],
+    "bookingTime": "Mon 12 Oct, 2:00 pm"
+  }
+]
