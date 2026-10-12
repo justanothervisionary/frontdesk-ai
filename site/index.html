@@ -545,11 +545,11 @@
   <script src="../shared/avatar-presets.js"></script>
   <script src="../shared/build-config.js"></script>
   <script src="../shared/onboarding-scan.js"></script>
-  <script src="../widget/frontdesk-widget.js"
-          data-business="demo-example"
-          data-config-url="../configs/demo-example.json"
-          data-api-url="/api/chat"
-          defer></script>
+  <!-- No auto-init attributes - this page mounts its own instance below,
+       starting as a blank-slate "not built yet" placeholder rather than
+       a fixed example business, so the very first thing a visitor sees
+       is an invitation to build their own, not someone else's company. -->
+  <script src="../widget/frontdesk-widget.js" defer></script>
 
   <script>
     (function () {
@@ -665,6 +665,21 @@
       // preview mechanism.
       var currentDemoWidget = null;
       var demoUpdateTimer = null;
+      var demoStarted = false; // true once a real business name has been typed - the blank slate never comes back after that
+
+      // Deliberately not a real business - "not built yet" is the point,
+      // so the first thing a visitor sees is an invitation to build
+      // their own rather than someone else's company they then have to
+      // mentally discard. sendConfigInline below means this never needs
+      // a real businessKey/config file.
+      var BLANK_SLATE_CONFIG = {
+        businessName: "Your Business",
+        type: "general",
+        theme: { accentColor: "#2f8fe0", position: "right", assistantName: "Your AI Receptionist" },
+        greeting: "Hi! I'm not built yet - fill in the form below and watch me come to life as your own AI receptionist. Takes about a minute.",
+        fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number?",
+        faqs: []
+      };
 
       function collectPreviewDraft() {
         return {
@@ -678,27 +693,25 @@
         };
       }
 
-      function remountDemoWidget() {
-        if (!window.FrontdeskWidget || !window.FrontdeskBuildConfig) return;
-        var draft = collectPreviewDraft();
-        // Nothing typed yet - leave whatever's currently running (the
-        // generic example, or an earlier version of their own) alone
-        // rather than tearing it down to show nothing.
-        if (!draft.businessName.trim()) return;
-
-        if (window.FrontdeskWidget.autoInstance) {
-          window.FrontdeskWidget.autoInstance.destroy();
-          window.FrontdeskWidget.autoInstance = null;
-        }
+      function mountDemoWidget(config) {
         if (currentDemoWidget) { currentDemoWidget.destroy(); currentDemoWidget = null; }
-
-        var config = window.FrontdeskBuildConfig.buildFrontdeskConfig(draft);
         currentDemoWidget = window.FrontdeskWidget.mount(config, {
           businessKey: "homepage-preview",
           apiUrl: "/api/chat",
           leadApiUrl: null,
           sendConfigInline: true
         });
+      }
+
+      function remountDemoWidget() {
+        if (!window.FrontdeskWidget || !window.FrontdeskBuildConfig) return;
+        var draft = collectPreviewDraft();
+        // Nothing typed yet - leave the blank slate (or an earlier
+        // version of their own) alone rather than tearing it down to
+        // show nothing.
+        if (!draft.businessName.trim()) return;
+        demoStarted = true;
+        mountDemoWidget(window.FrontdeskBuildConfig.buildFrontdeskConfig(draft));
       }
 
       // Debounced so a fast typist doesn't destroy/recreate the widget on
@@ -711,6 +724,11 @@
       ["pv-name", "pv-agent-name", "pv-type", "pv-phone", "pv-color", "pv-extra-info"].forEach(function (id) {
         document.getElementById(id).addEventListener("input", scheduleDemoUpdate);
       });
+
+      (function mountBlankSlate() {
+        if (!window.FrontdeskWidget) { setTimeout(mountBlankSlate, 50); return; }
+        if (!demoStarted) mountDemoWidget(BLANK_SLATE_CONFIG);
+      })();
 
       // Button text follows the name as it's typed - a small touch, but it's
       // the difference between "fill in a form" and "you're naming someone."
