@@ -117,6 +117,14 @@ function buildSystemPrompt(config, channel) {
     .map(function (f) { return "- " + f.answer; })
     .join("\n");
 
+  // Free-text background from the dashboard's "Teach your AI
+  // receptionist" field (or the self-serve tool's matching field at
+  // signup) - same factual-reference trust level as the FAQ answers
+  // above, just not broken into individual Q&A pairs. Appended into the
+  // same knowledge blob rather than a separate section, since it serves
+  // exactly the same purpose: more facts to answer from.
+  if (config.businessInfo) faqLines += (faqLines ? "\n\n" : "") + config.businessInfo;
+
   var conversionGoal = CONVERSION_GOALS[config.type] || CONVERSION_GOALS.general;
   var isWhatsApp = channel === "whatsapp";
 

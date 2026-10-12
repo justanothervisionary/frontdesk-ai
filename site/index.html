@@ -225,14 +225,9 @@
     width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
     background: var(--bg2); color: var(--text); font-size: 13px; font-family: inherit; resize: none;
   }
-  .extra-actions { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 0; }
+  .extra-actions { display: flex; align-items: center; justify-content: flex-end; margin: 6px 0 0; }
   .char-count { font-size: 11px; color: var(--muted2); }
   .char-count.near-limit { color: var(--accent2); }
-  .pdf-btn {
-    font-size: 11px; color: var(--accent2); background: none; border: none; cursor: pointer;
-    font-family: inherit; padding: 0; text-decoration: underline;
-  }
-  .pdf-status { font-size: 11px; color: var(--muted2); margin: 4px 0 14px; min-height: 14px; }
   .field-tip { font-size: 11px; color: var(--muted2); margin: 6px 0 14px; line-height: 1.5; }
 
   /* The primary "scan my website" action - leads the form, not a buried
@@ -351,15 +346,12 @@
         <p class="avatar-hint">Optional - if you skip it, your AI receptionist gets a friendly default face instead.</p>
 
         <label for="pv-extra-info" id="pv-extra-label">Teach your AI receptionist something about your business</label>
-        <textarea id="pv-extra-info" maxlength="1000" rows="5"
+        <textarea id="pv-extra-info" maxlength="4000" rows="5"
           placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour. We accept card and bank transfer, not cash."></textarea>
         <div class="extra-actions">
-          <button type="button" class="pdf-btn" id="pv-pdf-trigger">📄 Or upload a PDF</button>
-          <span class="char-count" id="pv-extra-count">0 / 1000</span>
+          <span class="char-count" id="pv-extra-count">0 / 4000</span>
         </div>
-        <input type="file" id="pv-pdf-upload" accept="application/pdf" style="display:none;" />
-        <div class="pdf-status" id="pv-pdf-status"></div>
-        <div class="field-tip">💡 Already used the scan above? This is for anything extra - specific prices, policies, or what makes you different. A PDF (menu, brochure, price list, even a few pages) works great too - it gets read and distilled automatically, not cut off.</div>
+        <div class="field-tip">💡 Already used the scan above? This is for anything extra - specific prices, policies, or what makes you different.</div>
 
         <div class="field-row">
           <div>
@@ -635,10 +627,28 @@
 
         var reader = new FileReader();
         reader.onload = function () {
-          selectedAvatarDataUri = reader.result;
-          previewImgEl.src = reader.result;
-          uploaderEl.classList.add("has-image");
-          scheduleDemoUpdate();
+          // Verify the browser can actually DECODE this before committing
+          // to it - a HEIC/HEIF photo straight from an iPhone's camera
+          // roll (very common) passes the image/* MIME check above and
+          // reads fine as a data URI, but no browser can actually render
+          // it in an <img>, which otherwise silently leaves the uploader
+          // looking untouched with no feedback at all - this is what was
+          // actually behind "I upload a photo from my phone and nothing
+          // happens."
+          var testImg = new Image();
+          testImg.onload = function () {
+            selectedAvatarDataUri = reader.result;
+            previewImgEl.src = reader.result;
+            uploaderEl.classList.add("has-image");
+            scheduleDemoUpdate();
+          };
+          testImg.onerror = function () {
+            var isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+            document.getElementById("preview-hint").textContent = isHeic
+              ? "iPhone photos saved as HEIC can't be shown here - take a screenshot of it instead, or switch your camera to JPEG in Settings → Camera → Formats."
+              : "Couldn't open that image - try a JPG, PNG, or WebP instead.";
+          };
+          testImg.src = reader.result;
         };
         reader.readAsDataURL(file);
       });
@@ -713,90 +723,8 @@
       document.getElementById("pv-extra-info").addEventListener("input", function () {
         var len = this.value.length;
         var counter = document.getElementById("pv-extra-count");
-        counter.textContent = len + " / 1000";
-        counter.classList.toggle("near-limit", len >= 900);
-      });
-
-      // --- PDF extraction, client-side only - the extracted text is the
-      // only thing that ever reaches our backend, never the PDF itself.
-      // Same mechanism as site/signup.html - see that file's comment for
-      // why this is a dynamic import() rather than a <script src> tag
-      // (pdf.js 6.x ships as an ES module only, no UMD global build). ---
-      var pdfJsLoading = null;
-      var PDFJS_VERSION = "6.3.289";
-      function loadPdfJs() {
-        if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-        if (pdfJsLoading) return pdfJsLoading;
-        pdfJsLoading = import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VERSION + "/pdf.min.mjs")
-          .then(function (mod) {
-            mod.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/" + PDFJS_VERSION + "/pdf.worker.min.mjs";
-            window.pdfjsLib = mod;
-            return mod;
-          });
-        return pdfJsLoading;
-      }
-
-      document.getElementById("pv-pdf-trigger").addEventListener("click", function () {
-        document.getElementById("pv-pdf-upload").click();
-      });
-
-      document.getElementById("pv-pdf-upload").addEventListener("change", function (e) {
-        var file = e.target.files && e.target.files[0];
-        if (!file) return;
-        var statusEl = document.getElementById("pv-pdf-status");
-        statusEl.textContent = "Reading your PDF...";
-
-        loadPdfJs()
-          .then(function () { return file.arrayBuffer(); })
-          .then(function (buf) { return window.pdfjsLib.getDocument({ data: buf }).promise; })
-          .then(function (pdf) {
-            var pagePromises = [];
-            for (var i = 1; i <= pdf.numPages; i++) {
-              pagePromises.push(pdf.getPage(i).then(function (page) {
-                return page.getTextContent().then(function (content) {
-                  return content.items.map(function (item) { return item.str; }).join(" ");
-                });
-              }));
-            }
-            return Promise.all(pagePromises);
-          })
-          .then(function (pagesText) {
-            var fullText = pagesText.join("\n").replace(/\s+/g, " ").trim();
-            if (!fullText) {
-              statusEl.textContent = "Couldn't find any text in that PDF - try pasting the info manually instead.";
-              return;
-            }
-            // Same AI-extraction endpoint the website scan above uses - a
-            // long PDF (a full menu, brochure, etc.) gets distilled down to
-            // the actual useful facts instead of just being cut off wherever
-            // the 1000-character limit happens to land, and the same
-            // auto-fill (business name/type/phone) applies here too.
-            statusEl.textContent = "Reading your PDF...";
-            return fetch("/api/scrape-website", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: fullText })
-            })
-              .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
-              .then(function (result) {
-                if (!result.ok) {
-                  statusEl.textContent = result.data.error || "Couldn't read that PDF - try pasting the info manually instead.";
-                  return;
-                }
-                FrontdeskOnboardingScan.applyScanResult(result.data, {
-                  name: "pv-name", type: "pv-type", phone: "pv-phone", extraInfo: "pv-extra-info"
-                });
-                // applyScanResult sets name/type/phone directly without
-                // dispatching input events (only extraInfo does) - trigger
-                // the demo bubble update explicitly so a PDF-filled form
-                // still updates it, same as typing would.
-                scheduleDemoUpdate();
-                statusEl.textContent = "Extracted from your PDF - feel free to edit anything above.";
-              });
-          })
-          .catch(function (err) {
-            console.error("[frontdesk homepage] PDF extraction failed:", err);
-            statusEl.textContent = "Couldn't read that PDF - try a different file, or paste the info manually.";
-          });
+        counter.textContent = len + " / 4000";
+        counter.classList.toggle("near-limit", len >= 3600);
       });
 
       // --- "scan my website" - the primary onboarding shortcut, leading

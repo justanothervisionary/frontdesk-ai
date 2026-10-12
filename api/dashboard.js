@@ -107,6 +107,7 @@ async function handleGetData(req, res, businessKey) {
     whatsappPhoneNumberId: (result.config.whatsapp && result.config.whatsapp.phoneNumberId) || "",
     googleCalendarConnected: !!(result.config.googleCalendar && result.config.googleCalendar.connected),
     hours: result.config.hours || null,
+    businessInfo: result.config.businessInfo || "",
     pricingInfo: result.config.pricingInfo || "",
     active: result.config.active !== false,
     // Non-null only when this session was minted by an admin "viewing as"
@@ -245,6 +246,17 @@ async function handleSave(req, res, businessKey) {
     } else {
       config.hours = body.hours;
     }
+  }
+
+  // General free-text business background - separate from the
+  // structured faqs[] above, same "teach it something" field the free
+  // self-serve preview tool already has (shared/build-config.js's
+  // extraInfo), just editable on an ongoing basis here rather than only
+  // at initial signup.
+  if (typeof body.businessInfo === "string") {
+    var businessInfo = body.businessInfo.trim().slice(0, 4000);
+    if (!businessInfo) delete config.businessInfo;
+    else config.businessInfo = businessInfo;
   }
 
   // Optional - a business only gets photo-based rough quoting
