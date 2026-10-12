@@ -220,6 +220,11 @@
   .avatar-uploader .avatar-uploader-label { padding: 0 8px; }
   .avatar-uploader.has-image .avatar-uploader-label { display: none; }
   .avatar-uploader input { display: none; }
+  /* Right next to the uploader itself, not the far-away .preview-hint
+     near the bottom of the form - an upload error shown down there is
+     scrolled out of view on mobile, which looked exactly like "nothing
+     happened" even though a message was technically set. */
+  .avatar-upload-status { font-size: 12px; color: var(--accent2); margin: 8px 0 0; min-height: 16px; max-width: 280px; }
   .avatar-hint { font-size: 11px; color: var(--muted2); margin: 8px 0 14px; }
   textarea#pv-extra-info {
     width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--border);
@@ -343,6 +348,7 @@
           <img id="avatar-preview-img" alt="" />
           <input type="file" id="pv-avatar-upload" accept="image/*" />
         </label>
+        <div class="avatar-upload-status" id="avatar-upload-status"></div>
         <p class="avatar-hint">Optional - if you skip it, your AI receptionist gets a friendly default face instead.</p>
 
         <label for="pv-extra-info" id="pv-extra-label">Teach your AI receptionist something about your business</label>
@@ -620,20 +626,23 @@
       var previewImgEl = document.getElementById("avatar-preview-img");
 
       document.getElementById("pv-avatar-upload").addEventListener("change", function (e) {
+        var statusEl = document.getElementById("avatar-upload-status");
+        statusEl.textContent = "";
         var file = e.target.files && e.target.files[0];
         if (!file) return;
         if (!/^image\//.test(file.type)) {
-          document.getElementById("preview-hint").textContent = "That doesn't look like an image - try a JPG, PNG, or WebP.";
+          statusEl.textContent = "That doesn't look like an image - try a JPG, PNG, or WebP.";
           return;
         }
         if (file.size > MAX_AVATAR_BYTES) {
-          document.getElementById("preview-hint").textContent = "That image is a bit large (max 2MB) - try a smaller file.";
+          statusEl.textContent = "That image is a bit large (max 2MB) - try a smaller file.";
           return;
         }
+        statusEl.textContent = "Loading your photo...";
 
         var reader = new FileReader();
         reader.onerror = function () {
-          document.getElementById("preview-hint").textContent = "Couldn't read that file - try a different photo.";
+          statusEl.textContent = "Couldn't read that file - try a different photo.";
         };
         reader.onload = function () {
           // Verify the browser can actually DECODE this before committing
@@ -641,17 +650,20 @@
           // roll (very common) passes the image/* MIME check above and
           // reads fine as a data URI, but no browser can actually render
           // it in an <img>, which otherwise silently leaves the uploader
-          // looking untouched with no feedback at all - this is what was
-          // actually behind "I upload a photo from my phone and nothing
-          // happens." The timeout is a last-resort net in case neither
-          // callback ever fires on some mobile browser - always leaves
-          // the visitor with SOME feedback rather than a silent hang.
+          // looking untouched with no feedback at all. The timeout is a
+          // last-resort net in case neither callback ever fires on some
+          // mobile browser - always leaves the visitor with SOME
+          // feedback rather than a silent hang. Status shows right next
+          // to the uploader itself, not the far-away .preview-hint near
+          // the bottom of the form, which on mobile is scrolled out of
+          // view - that's what made a real, correctly-surfaced error
+          // message look exactly like nothing happening at all.
           var testImg = new Image();
           var settled = false;
           var failTimer = setTimeout(function () {
             if (settled) return;
             settled = true;
-            document.getElementById("preview-hint").textContent = "That photo took too long to load - try a different one, or a smaller file.";
+            statusEl.textContent = "That photo took too long to load - try a different one, or a smaller file.";
           }, 4000);
           testImg.onload = function () {
             if (settled) return;
@@ -660,6 +672,7 @@
             selectedAvatarDataUri = reader.result;
             previewImgEl.src = reader.result;
             uploaderEl.classList.add("has-image");
+            statusEl.textContent = "";
             scheduleDemoUpdate();
           };
           testImg.onerror = function () {
@@ -667,7 +680,7 @@
             settled = true;
             clearTimeout(failTimer);
             var isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
-            document.getElementById("preview-hint").textContent = isHeic
+            statusEl.textContent = isHeic
               ? "iPhone photos saved as HEIC can't be shown here - take a screenshot of it instead, or switch your camera to JPEG in Settings → Camera → Formats."
               : "Couldn't open that image - try a JPG, PNG, or WebP instead.";
           };
