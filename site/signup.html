@@ -277,13 +277,17 @@
     </div>
   </div>
 
-  <script src="../shared/avatar-presets.js"></script>
-  <script src="../shared/build-config.js"></script>
-  <script src="../shared/onboarding-scan.js"></script>
+  <!-- ?v= busts stale caches (mobile carrier proxies, iOS Safari's
+       back-forward cache, etc. don't always respect Cache-Control the
+       way Vercel's own headers intend) - bump alongside index.html's
+       matching ?v= whenever any of these files actually change. -->
+  <script src="../shared/avatar-presets.js?v=2"></script>
+  <script src="../shared/build-config.js?v=2"></script>
+  <script src="../shared/onboarding-scan.js?v=2"></script>
   <!-- No data-business/data-config-url here on purpose - this page never
        auto-inits a widget instance, only mounts one manually below once
        the visitor has typed something. -->
-  <script src="../widget/frontdesk-widget.js" defer></script>
+  <script src="../widget/frontdesk-widget.js?v=2" defer></script>
 
   <script>
     (function () {

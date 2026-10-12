@@ -542,14 +542,20 @@
     </footer>
   </div>
 
-  <script src="../shared/avatar-presets.js"></script>
-  <script src="../shared/build-config.js"></script>
-  <script src="../shared/onboarding-scan.js"></script>
+  <!-- ?v= busts stale caches (mobile carrier proxies, iOS Safari's
+       back-forward cache, etc. don't always respect Cache-Control the
+       way Vercel's own headers intend) - bump this whenever any of
+       these files, or widget/frontdesk-widget.js below, actually
+       change. Not used on the install snippet dashboard.html/success.html
+       generate for real client sites - that's a separate concern. -->
+  <script src="../shared/avatar-presets.js?v=2"></script>
+  <script src="../shared/build-config.js?v=2"></script>
+  <script src="../shared/onboarding-scan.js?v=2"></script>
   <!-- No auto-init attributes - this page mounts its own instance below,
        starting as a blank-slate "not built yet" placeholder rather than
        a fixed example business, so the very first thing a visitor sees
        is an invitation to build their own, not someone else's company. -->
-  <script src="../widget/frontdesk-widget.js" defer></script>
+  <script src="../widget/frontdesk-widget.js?v=2" defer></script>
 
   <script>
     (function () {
@@ -626,6 +632,9 @@
         }
 
         var reader = new FileReader();
+        reader.onerror = function () {
+          document.getElementById("preview-hint").textContent = "Couldn't read that file - try a different photo.";
+        };
         reader.onload = function () {
           // Verify the browser can actually DECODE this before committing
           // to it - a HEIC/HEIF photo straight from an iPhone's camera
@@ -634,15 +643,29 @@
           // it in an <img>, which otherwise silently leaves the uploader
           // looking untouched with no feedback at all - this is what was
           // actually behind "I upload a photo from my phone and nothing
-          // happens."
+          // happens." The timeout is a last-resort net in case neither
+          // callback ever fires on some mobile browser - always leaves
+          // the visitor with SOME feedback rather than a silent hang.
           var testImg = new Image();
+          var settled = false;
+          var failTimer = setTimeout(function () {
+            if (settled) return;
+            settled = true;
+            document.getElementById("preview-hint").textContent = "That photo took too long to load - try a different one, or a smaller file.";
+          }, 4000);
           testImg.onload = function () {
+            if (settled) return;
+            settled = true;
+            clearTimeout(failTimer);
             selectedAvatarDataUri = reader.result;
             previewImgEl.src = reader.result;
             uploaderEl.classList.add("has-image");
             scheduleDemoUpdate();
           };
           testImg.onerror = function () {
+            if (settled) return;
+            settled = true;
+            clearTimeout(failTimer);
             var isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
             document.getElementById("preview-hint").textContent = isHeic
               ? "iPhone photos saved as HEIC can't be shown here - take a screenshot of it instead, or switch your camera to JPEG in Settings → Camera → Formats."
