@@ -701,7 +701,7 @@
       // preview mechanism.
       var currentDemoWidget = null;
       var demoUpdateTimer = null;
-      var demoStarted = false; // true once a real business name has been typed - the blank slate never comes back after that
+      var demoStarted = false; // true once the visitor has touched anything - the blank slate never comes back after that
 
       // Deliberately not a real business - "not built yet" is the point,
       // so the first thing a visitor sees is an invitation to build
@@ -742,10 +742,13 @@
       function remountDemoWidget() {
         if (!window.FrontdeskWidget || !window.FrontdeskBuildConfig) return;
         var draft = collectPreviewDraft();
-        // Nothing typed yet - leave the blank slate (or an earlier
-        // version of their own) alone rather than tearing it down to
-        // show nothing.
-        if (!draft.businessName.trim()) return;
+        // Rebuilds on ANY field, not just once a business name is typed -
+        // "Give them a face" comes before "What's your business called?"
+        // in the form, so a visitor who uploads a photo first (a very
+        // natural thing to do) needs to see it reflected immediately, not
+        // only once they've also reached the name field. buildFrontdeskConfig
+        // already defaults every field sensibly (empty name -> "Your
+        // Business", etc.), so there's nothing to lose by always rebuilding.
         demoStarted = true;
         mountDemoWidget(window.FrontdeskBuildConfig.buildFrontdeskConfig(draft));
       }
