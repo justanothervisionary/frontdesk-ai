@@ -557,7 +557,7 @@
         setTimeout(function () { window.location.href = "signup.html"; }, 700);
       }
 
-      function finishScan(result) {
+      function finishScan(result, rawUrl) {
         if (result && result.ok) {
           var data = result.data || {};
           var draft = {};
@@ -565,6 +565,7 @@
           if (data.type) draft.type = data.type;
           if (data.phone) draft.phone = data.phone;
           if (data.text) draft.extraInfo = data.text;
+          if (rawUrl) draft.domain = rawUrl; // normalized on signup.html by hydrateFromHomepage()
           try { sessionStorage.setItem("frontdeskDraft", JSON.stringify(draft)); } catch (e) {}
           setScanLineText(data.businessName
             ? "Found it - building " + data.businessName + "'s AI receptionist..."
@@ -599,7 +600,7 @@
           function maybeFinish() {
             if (!scriptDone || fetchResult === null) return;
             clearTimeout(t1); clearTimeout(t2);
-            finishScan(fetchResult);
+            finishScan(fetchResult, url);
           }
           setTimeout(function () { scriptDone = true; maybeFinish(); }, SCAN_STAGE_MS[0]);
 

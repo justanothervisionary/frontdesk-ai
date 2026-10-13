@@ -343,6 +343,10 @@
         if (draft.phone) document.getElementById("su-phone").value = draft.phone;
         if (draft.color) document.getElementById("su-color").value = draft.color;
         if (draft.extraInfo) document.getElementById("su-extra-info").value = draft.extraInfo;
+        if (draft.domain && window.FrontdeskBuildConfig) {
+          var normalizedDomain = FrontdeskBuildConfig.normalizeDomain(draft.domain);
+          if (normalizedDomain) document.getElementById("su-domain").value = normalizedDomain;
+        }
         // No draft.avatarDataUri branch here - the homepage no longer has
         // an avatar uploader to carry a photo over from (it's scan-only
         // now), so avatar upload only ever happens on this page directly.
