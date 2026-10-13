@@ -90,6 +90,22 @@
   .scan-row button:disabled { opacity: .6; cursor: default; }
   .scan-status { font-size: 11px; color: var(--muted2); margin-top: 8px; min-height: 14px; }
   .scan-status.ok { color: var(--accent2); }
+  /* Collapsed when a visitor arrives with a draft already carried over
+     from the homepage's own scan - re-presenting the same "scan my
+     website" prompt they just used reads as "didn't I just do this".
+     Still reachable via the toggle, and still at full prominence for a
+     visitor landing on this page directly with no draft. */
+  .scan-box-toggle {
+    display: none; width: 100%; text-align: left; background: none; border: none;
+    color: var(--accent2); font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: inherit; padding: 0;
+  }
+  .scan-box.collapsed { padding: 10px 16px; }
+  .scan-box.collapsed .scan-box-toggle { display: block; }
+  .scan-box.collapsed .scan-box-label,
+  .scan-box.collapsed .scan-box-sub,
+  .scan-box.collapsed .scan-row,
+  .scan-box.collapsed .scan-status { display: none; }
 
   .start-btn {
     width: 100%; background: var(--accent2); color: #04160c; border: none; border-radius: 9px;
@@ -157,6 +173,7 @@
     <div class="layout">
       <div class="panel">
         <div class="scan-box" id="scan-box">
+          <button type="button" class="scan-box-toggle" id="scan-box-toggle">🌐 Rescan my website, or scan a different one</button>
           <div class="scan-box-label">🌐 Got a website already?</div>
           <p class="scan-box-sub">Paste the address below and we'll read it to fill in most of this for you - you can still edit anything it gets wrong.</p>
           <div class="scan-row">
@@ -302,6 +319,16 @@
 
       var MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
+      // Collapsed/expanded state for the scan box - defined here (hoisted)
+      // so hydrateFromHomepage() below can call collapseScanBox() even
+      // though it runs first in source order.
+      function collapseScanBox() { document.getElementById("scan-box").classList.add("collapsed"); }
+      function expandScanBox() {
+        document.getElementById("scan-box").classList.remove("collapsed");
+        document.getElementById("url-input").focus();
+      }
+      document.getElementById("scan-box-toggle").addEventListener("click", expandScanBox);
+
       // --- one-time hydration from a draft handed off by the homepage builder ---
       (function hydrateFromHomepage() {
         var raw;
@@ -316,6 +343,26 @@
         if (draft.phone) document.getElementById("su-phone").value = draft.phone;
         if (draft.color) document.getElementById("su-color").value = draft.color;
         if (draft.extraInfo) document.getElementById("su-extra-info").value = draft.extraInfo;
+        // Uses fresh getElementById lookups, not the uploaderEl/previewImgEl
+        // variables declared just below this IIFE - those are var-hoisted
+        // but not yet assigned at this point (this IIFE runs first, in the
+        // same synchronous pass), so referencing them here would throw and
+        // silently break the rest of this page's script for every visitor
+        // arriving with a draft.
+        if (draft.avatarDataUri) {
+          selectedAvatarDataUri = draft.avatarDataUri;
+          document.getElementById("avatar-preview-img").src = draft.avatarDataUri;
+          document.getElementById("avatar-uploader").classList.add("has-image");
+        }
+        // A visitor arriving here already has a draft - re-presenting the
+        // same scan prompt and "set up your AI receptionist" framing they
+        // just went through on the homepage is the "didn't I just do this"
+        // feeling this whole change exists to remove.
+        collapseScanBox();
+        var titleEl = document.querySelector(".page-title");
+        var subEl = document.querySelector(".page-sub");
+        if (titleEl) titleEl.textContent = "Almost there";
+        if (subEl) subEl.textContent = "We've carried over what you told us - finish it off and see it live.";
       })();
 
       // --- avatar upload + local preview ---
@@ -342,7 +389,7 @@
       });
 
       function ensureAvatarUploaded() {
-        if (!selectedAvatarFile) return Promise.resolve(null);
+        if (!selectedAvatarDataUri) return Promise.resolve(null);
         if (uploadedAvatarId) return Promise.resolve(uploadedAvatarId);
         return fetch("/api/upload-avatar", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -443,6 +490,7 @@
                 FrontdeskOnboardingScan.applyScanResult(result.data, {
                   name: "su-name", type: "su-type", phone: "su-phone", extraInfo: "su-extra-info"
                 });
+                scheduleMockUpdate();
                 statusEl.textContent = "Extracted from your PDF - feel free to edit anything above.";
               });
           })
@@ -482,6 +530,7 @@
             FrontdeskOnboardingScan.applyScanResult(result.data, {
               name: "su-name", type: "su-type", phone: "su-phone", extraInfo: "su-extra-info"
             });
+            scheduleMockUpdate();
             // The domain field is what actually gets installed/locked to
             // later - filling it from the URL the visitor just typed (not
             // from anything the AI extracted) is a plain, safe client-side
@@ -618,7 +667,7 @@
 
         statusEl.style.color = "var(--accent2)";
         trialInFlight = true;
-        statusEl.textContent = selectedAvatarFile ? "Uploading your photo..." : "Setting up your checkout...";
+        statusEl.textContent = selectedAvatarDataUri ? "Uploading your photo..." : "Setting up your checkout...";
 
         Promise.all([ensureAvatarUploaded(), ensureExtraInfoUploaded()])
           .then(function () {

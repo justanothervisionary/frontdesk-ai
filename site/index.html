@@ -312,8 +312,9 @@
     <header class="hero">
       <div class="badge">● Build yours below - watch the chat bubble become it, live</div>
       <h1>Never miss <span>a lead</span> again.</h1>
-      <p class="sub">Our AI receptionist talks to your website visitors, answers their questions
-      and captures their details, 24/7.</p>
+      <p class="sub">Our AI receptionist talks to your website visitors, answers their questions,
+      books appointments straight into your calendar if you connect one, and captures every
+      lead's details, 24/7.</p>
       <div class="cta-row">
         <a class="cta" href="#preview">Try it with your business &rarr;</a>
         <a class="cta secondary" href="#pricing">See pricing</a>
@@ -829,10 +830,13 @@
         if (e.key === "Enter") { e.preventDefault(); readWebsiteHomepage(); }
       });
 
-      // Hands the draft off to site/signup.html via sessionStorage (small
-      // fields only - never the avatar image itself, which can run to a
-      // couple of MB as a data URI and isn't worth the storage-quota risk;
-      // it's a small, acceptable ask to re-add a photo on the next page).
+      // Hands the draft off to site/signup.html via sessionStorage. Includes
+      // the avatar now (as a data URI) - frontdeskDraft is the only
+      // sessionStorage key this site uses anywhere, and a 2MB-capped photo
+      // is ~2.7MB as base64, comfortably inside the typical 5-10MB quota
+      // with nothing else competing for it. Carrying it over is what stops
+      // a visitor who already uploaded a photo here from being asked to
+      // re-add it on the next page.
       document.getElementById("preview-btn").addEventListener("click", function () {
         var businessName = document.getElementById("pv-name").value.trim();
         if (!businessName) {
@@ -846,7 +850,8 @@
           type: document.getElementById("pv-type").value,
           phone: document.getElementById("pv-phone").value,
           color: document.getElementById("pv-color").value,
-          extraInfo: document.getElementById("pv-extra-info").value
+          extraInfo: document.getElementById("pv-extra-info").value,
+          avatarDataUri: selectedAvatarDataUri || undefined
         };
         try { sessionStorage.setItem("frontdeskDraft", JSON.stringify(draft)); } catch (e) {}
 
