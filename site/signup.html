@@ -343,17 +343,9 @@
         if (draft.phone) document.getElementById("su-phone").value = draft.phone;
         if (draft.color) document.getElementById("su-color").value = draft.color;
         if (draft.extraInfo) document.getElementById("su-extra-info").value = draft.extraInfo;
-        // Uses fresh getElementById lookups, not the uploaderEl/previewImgEl
-        // variables declared just below this IIFE - those are var-hoisted
-        // but not yet assigned at this point (this IIFE runs first, in the
-        // same synchronous pass), so referencing them here would throw and
-        // silently break the rest of this page's script for every visitor
-        // arriving with a draft.
-        if (draft.avatarDataUri) {
-          selectedAvatarDataUri = draft.avatarDataUri;
-          document.getElementById("avatar-preview-img").src = draft.avatarDataUri;
-          document.getElementById("avatar-uploader").classList.add("has-image");
-        }
+        // No draft.avatarDataUri branch here - the homepage no longer has
+        // an avatar uploader to carry a photo over from (it's scan-only
+        // now), so avatar upload only ever happens on this page directly.
         // A visitor arriving here already has a draft - re-presenting the
         // same scan prompt and "set up your AI receptionist" framing they
         // just went through on the homepage is the "didn't I just do this"
