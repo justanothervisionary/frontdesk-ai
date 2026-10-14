@@ -104,16 +104,18 @@ async function handleCheckoutCompleted(session) {
     return;
   }
 
-  // extraInfo travels as a short reference (extraInfoId), not raw text -
-  // see api/upload-draft-text.js for why (Stripe metadata's 500-char
-  // value limit). Resolve it back to the real text here, before handing
+  // The chunk list travels as a short reference (chunksId), not raw JSON -
+  // see api/upload-draft-chunks.js for why (Stripe metadata's 500-char
+  // value limit). Resolve it back to the real array here, before handing
   // off to the same buildFrontdeskConfig() the free preview uses.
   var draft = Object.assign({}, session.metadata);
-  var extraInfoId = draft.extraInfoId;
-  delete draft.extraInfoId;
-  if (extraInfoId && /^[0-9a-f]{24}\.txt$/i.test(extraInfoId)) {
-    var draftTextFile = await getFile("configs/drafts/" + extraInfoId);
-    if (draftTextFile) draft.extraInfo = draftTextFile.content;
+  var chunksId = draft.chunksId;
+  delete draft.chunksId;
+  if (chunksId && /^[0-9a-f]{24}\.json$/i.test(chunksId)) {
+    var draftChunksFile = await getFile("configs/drafts/" + chunksId);
+    if (draftChunksFile) {
+      try { draft.chunks = JSON.parse(draftChunksFile.content); } catch (e) { /* malformed - buildFrontdeskConfig treats a missing chunks as empty, same net effect */ }
+    }
   }
 
   var config = buildConfigFromDraft(draft);

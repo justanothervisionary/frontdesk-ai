@@ -78,14 +78,14 @@ module.exports = async function handler(req, res) {
   var body = req.body || {};
   // Never trust the client's own caps - re-cap everything here regardless
   // of what the self-serve form already enforces. avatarId and
-  // extraInfoId must already be real, previously-uploaded references (see
-  // api/upload-avatar.js and api/upload-draft-text.js) - silently dropped
-  // if they don't match that shape. extraInfo is NEVER sent raw here: at
-  // up to 1000 characters it can exceed Stripe metadata's hard 500-char-
-  // per-value limit, which would fail checkout creation outright - it must
-  // already be uploaded and referenced by id, same reasoning as the avatar.
+  // chunksId must already be real, previously-uploaded references (see
+  // api/upload-avatar.js and api/upload-draft-chunks.js) - silently dropped
+  // if they don't match that shape. The chunk list is NEVER sent raw here:
+  // it can far exceed Stripe metadata's hard 500-char-per-value limit,
+  // which would fail checkout creation outright - it must already be
+  // uploaded and referenced by id, same reasoning as the avatar.
   var rawAvatarId = capStr(body.avatarId, 40);
-  var rawExtraInfoId = capStr(body.extraInfoId, 40);
+  var rawChunksId = capStr(body.chunksId, 40);
   var rawEmail = capStr(body.email, 200).trim();
   var draft = {
     businessName: capStr(body.businessName, 80).trim(),
@@ -95,7 +95,7 @@ module.exports = async function handler(req, res) {
     color: capStr(body.color, 10),
     domain: capStr(body.domain, 253).trim(),
     avatarId: /^[0-9a-f]{24}\.(png|jpg|webp|gif)$/i.test(rawAvatarId) ? rawAvatarId : "",
-    extraInfoId: /^[0-9a-f]{24}\.txt$/i.test(rawExtraInfoId) ? rawExtraInfoId : ""
+    chunksId: /^[0-9a-f]{24}\.json$/i.test(rawChunksId) ? rawChunksId : ""
   };
   var email = EMAIL_RE.test(rawEmail) ? rawEmail : undefined;
   if (!draft.businessName) return res.status(400).json({ error: "Business name is required" });

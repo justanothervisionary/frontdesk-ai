@@ -9,9 +9,13 @@
  * Only ever fills a field the scan actually returned a value for - an
  * unconfident "type" guess (api/scrape-website.js omits the field entirely
  * rather than guessing) must never blank out the dropdown's existing
- * selection, and a field the visitor already filled in by hand is simply
- * overwritten, same as re-running the scan has always overwritten the
- * extraInfo textarea.
+ * selection.
+ *
+ * Doesn't handle `data.chunks` (the scan's categorized knowledge chunks) -
+ * unlike name/type/phone, which each have exactly one settable field, a
+ * list of chunks needs to append N rows to a page's own chunk-list UI, so
+ * each caller handles `data.chunks` itself right after calling this
+ * (both current callers, in site/signup.html, already do).
  */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -20,8 +24,8 @@
     root.FrontdeskOnboardingScan = factory();
   }
 })(typeof self !== "undefined" ? self : this, function () {
-  // ids: { name, type, phone, extraInfo } - each an element id string (no
-  // leading #), any of which may be omitted if that page doesn't have it.
+  // ids: { name, type, phone } - each an element id string (no leading #),
+  // any of which may be omitted if that page doesn't have it.
   function applyScanResult(data, ids) {
     data = data || {};
     ids = ids || {};
@@ -39,13 +43,6 @@
     if (data.phone && ids.phone) {
       var phoneEl = document.getElementById(ids.phone);
       if (phoneEl) phoneEl.value = data.phone;
-    }
-    if (ids.extraInfo) {
-      var extraEl = document.getElementById(ids.extraInfo);
-      if (extraEl) {
-        extraEl.value = data.text || "";
-        extraEl.dispatchEvent(new Event("input", { bubbles: true }));
-      }
     }
   }
 

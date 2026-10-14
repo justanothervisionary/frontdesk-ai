@@ -56,15 +56,36 @@
     return mins >= toMins(todays[0]) && mins < toMins(todays[1]);
   }
 
+  // Client-side fallback used whenever the real AI backend call times out,
+  // errors, or isn't configured at all - not dead code, this is what keeps
+  // a visitor from seeing a broken widget during a real outage. Used to
+  // match on each FAQ's curated keywords; chunks don't have those, so this
+  // does simple word-overlap against each chunk's own text instead -
+  // deliberately substring-based (not exact-token), preserving the old
+  // keyword check's forgiveness for plurals/variants (a question containing
+  // "leak" still matches text containing "leaks").
+  var MATCH_STOPWORDS = ["the","a","an","is","are","was","were","do","does","did","you","your","yours",
+    "i","me","my","we","our","to","for","of","in","on","at","by","with","and","or","but","it","its",
+    "this","that","these","those","what","which","who","whom","how","when","where","why","can","could",
+    "will","would","should","have","has","had","be","been","being","am","if","so","as","about","into",
+    "from","up","out"];
+
+  function significantWords(text) {
+    return (text || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+      .filter(function (w) { return w.length >= 3 && MATCH_STOPWORDS.indexOf(w) === -1; });
+  }
+
   function matchAnswer(config, question) {
-    var q = question.toLowerCase();
-    var faqs = config.faqs || [];
-    for (var i = 0; i < faqs.length; i++) {
-      var keywords = faqs[i].keywords || [];
-      for (var k = 0; k < keywords.length; k++) {
-        if (q.indexOf(keywords[k]) !== -1) return faqs[i].answer;
-      }
+    var words = significantWords(question);
+    var uniqueWords = words.filter(function (w, i) { return words.indexOf(w) === i; });
+    var chunks = config.chunks || [];
+    var bestChunk = null, bestScore = 0;
+    for (var i = 0; i < chunks.length; i++) {
+      var haystack = (chunks[i].text || "").toLowerCase();
+      var score = uniqueWords.reduce(function (n, w) { return n + (haystack.indexOf(w) !== -1 ? 1 : 0); }, 0);
+      if (score > bestScore) { bestScore = score; bestChunk = chunks[i]; }
     }
+    if (bestChunk && bestScore > 0) return bestChunk.text;
     return config.fallbackAnswer ||
       "I'll pass that on to the team and someone will get back to you shortly. In the meantime, would you like to leave your name and number?";
   }

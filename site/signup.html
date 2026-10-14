@@ -71,6 +71,19 @@
   .pdf-status { font-size: 11px; color: var(--muted2); margin-top: 4px; min-height: 14px; }
   .field-tip { font-size: 11px; color: var(--muted2); margin-top: 6px; line-height: 1.5; }
 
+  .chunk-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; background: var(--bg2); }
+  .chunk-row select { width: auto; min-width: 140px; margin-bottom: 8px; }
+  .chunk-row textarea { margin-bottom: 0; }
+  .chunk-row button.remove {
+    position: absolute; top: 10px; right: 10px; background: none; border: none;
+    color: #f2837a; font-size: 11px; cursor: pointer;
+  }
+  #add-chunk {
+    background: none; border: 1px dashed var(--border); color: var(--muted); border-radius: 8px;
+    padding: 9px; width: 100%; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  #add-chunk:hover { color: var(--text); border-color: var(--muted); }
+
   /* The primary "scan my website" action - leads the form, not a buried
      text link, since most visitors already have a site that says most of
      this for them. */
@@ -204,12 +217,11 @@
         </div>
 
         <div class="field">
-          <label for="su-extra-info" id="su-extra-label">Teach your AI receptionist something about your business</label>
-          <textarea id="su-extra-info" maxlength="1000" rows="5"
-            placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour."></textarea>
+          <label id="su-extra-label">Teach your AI receptionist something about your business</label>
+          <div id="chunk-list"></div>
           <div class="extra-actions">
+            <button type="button" id="add-chunk" style="flex:1; margin-right:10px;">+ Add another</button>
             <button type="button" class="pdf-btn" id="pdf-trigger">📄 Or upload a PDF</button>
-            <span class="char-count" id="su-extra-count">0 / 1000</span>
           </div>
           <input type="file" id="pdf-upload" accept="application/pdf" style="display:none;" />
           <div class="pdf-status" id="pdf-status"></div>
@@ -311,8 +323,8 @@
       var selectedAvatarDataUri = null;
       var selectedAvatarFile = null;
       var uploadedAvatarId = null;
-      var uploadedExtraInfoId = null;
-      var lastUploadedExtraInfoText = null;
+      var uploadedChunksId = null;
+      var lastUploadedChunksKey = null;
       var trialInFlight = false;
       var currentPreview = null;
       var mockUpdateTimer = null;
@@ -329,6 +341,43 @@
       }
       document.getElementById("scan-box-toggle").addEventListener("click", expandScanBox);
 
+      // The unified "what your AI knows" chunk list - same function
+      // declarations/hoisting-hazard reasoning as collapseScanBox above:
+      // defined here (and always doing a fresh getElementById("chunk-list")
+      // lookup rather than caching it in a var) so hydrateFromHomepage()
+      // below can call addChunkRow() safely.
+      var CHUNK_CATEGORIES = ["Job", "Booking", "Product", "Pricing", "Policy", "FAQ", "General"];
+      // Deliberately does NOT call scheduleMockUpdate() itself - this is
+      // called from hydrateFromHomepage() below, which runs right at the
+      // top of this script, before GREETINGS_PLACEHOLDER/updateMockSite's
+      // other dependencies further down the file are assigned (the same
+      // var-hoisting hazard documented elsewhere in this file). Every
+      // call site below that runs later (the +Add button, the scan
+      // handlers, both only ever firing after the script's full initial
+      // pass has completed) triggers scheduleMockUpdate() itself instead.
+      function addChunkRow(category, text) {
+        var row = document.createElement("div");
+        row.className = "chunk-row";
+        var options = CHUNK_CATEGORIES.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join("");
+        row.innerHTML =
+          '<button class="remove" type="button">Remove</button>' +
+          '<select class="chunk-category">' + options + '</select>' +
+          '<textarea class="chunk-text" rows="2" maxlength="1200" placeholder="e.g. Open Tuesday to Saturday, 9am to 6pm."></textarea>';
+        row.querySelector(".chunk-category").value = CHUNK_CATEGORIES.indexOf(category) !== -1 ? category : "General";
+        row.querySelector(".chunk-text").value = text || "";
+        row.querySelector(".remove").addEventListener("click", function () { row.remove(); scheduleMockUpdate(); });
+        document.getElementById("chunk-list").appendChild(row);
+      }
+      function addChunkRows(chunks) {
+        (chunks || []).forEach(function (c) { addChunkRow(c.category, c.text); });
+      }
+      function collectChunks() {
+        return Array.prototype.map.call(document.querySelectorAll(".chunk-row"), function (row) {
+          return { category: row.querySelector(".chunk-category").value, text: row.querySelector(".chunk-text").value.trim() };
+        }).filter(function (c) { return c.text; });
+      }
+      document.getElementById("add-chunk").addEventListener("click", function () { addChunkRow("General", ""); scheduleMockUpdate(); });
+
       // --- one-time hydration from a draft handed off by the homepage builder ---
       (function hydrateFromHomepage() {
         var raw;
@@ -342,7 +391,7 @@
         if (draft.type) document.getElementById("su-type").value = draft.type;
         if (draft.phone) document.getElementById("su-phone").value = draft.phone;
         if (draft.color) document.getElementById("su-color").value = draft.color;
-        if (draft.extraInfo) document.getElementById("su-extra-info").value = draft.extraInfo;
+        if (Array.isArray(draft.chunks)) addChunkRows(draft.chunks);
         if (draft.domain && window.FrontdeskBuildConfig) {
           var normalizedDomain = FrontdeskBuildConfig.normalizeDomain(draft.domain);
           if (normalizedDomain) document.getElementById("su-domain").value = normalizedDomain;
@@ -360,6 +409,11 @@
         if (titleEl) titleEl.textContent = "Almost there";
         if (subEl) subEl.textContent = "We've carried over what you told us - finish it off and see it live.";
       })();
+
+      // Same empty-state fallback as dashboard.html: if nothing was carried
+      // over (no draft, or a draft with no chunks), seed one empty row with
+      // placeholder example text rather than leaving the list looking broken.
+      if (!document.querySelectorAll(".chunk-row").length) addChunkRow("General", "");
 
       // --- avatar upload + local preview ---
       var uploaderEl = document.getElementById("avatar-uploader");
@@ -395,26 +449,18 @@
           .then(function (data) { uploadedAvatarId = data.avatarId; return uploadedAvatarId; });
       }
 
-      function ensureExtraInfoUploaded() {
-        var text = document.getElementById("su-extra-info").value.trim();
-        if (!text) return Promise.resolve(null);
-        if (uploadedExtraInfoId && lastUploadedExtraInfoText === text) return Promise.resolve(uploadedExtraInfoId);
-        return fetch("/api/upload-draft-text", {
+      function ensureChunksUploaded() {
+        var chunks = collectChunks();
+        if (!chunks.length) return Promise.resolve(null);
+        var chunksKey = JSON.stringify(chunks);
+        if (uploadedChunksId && lastUploadedChunksKey === chunksKey) return Promise.resolve(uploadedChunksId);
+        return fetch("/api/upload-draft-chunks", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: text })
+          body: JSON.stringify({ chunks: chunks })
         })
           .then(function (r) { if (!r.ok) throw new Error("bad status " + r.status); return r.json(); })
-          .then(function (data) { uploadedExtraInfoId = data.draftTextId; lastUploadedExtraInfoText = text; return uploadedExtraInfoId; });
+          .then(function (data) { uploadedChunksId = data.draftChunksId; lastUploadedChunksKey = chunksKey; return uploadedChunksId; });
       }
-
-      // --- extra-info counter ---
-      document.getElementById("su-extra-info").addEventListener("input", function () {
-        var len = this.value.length;
-        var counter = document.getElementById("su-extra-count");
-        counter.textContent = len + " / 1000";
-        counter.classList.toggle("near-limit", len >= 900);
-        scheduleMockUpdate();
-      });
 
       // --- PDF extraction, client-side only - the extracted text is the
       // only thing that ever reaches our backend, never the PDF itself.
@@ -484,8 +530,9 @@
                   return;
                 }
                 FrontdeskOnboardingScan.applyScanResult(result.data, {
-                  name: "su-name", type: "su-type", phone: "su-phone", extraInfo: "su-extra-info"
+                  name: "su-name", type: "su-type", phone: "su-phone"
                 });
+                addChunkRows(result.data.chunks);
                 scheduleMockUpdate();
                 statusEl.textContent = "Extracted from your PDF - feel free to edit anything above.";
               });
@@ -497,10 +544,11 @@
       });
 
       // --- "scan my website" - the primary onboarding shortcut, leading
-      // the form rather than buried under the manual textarea. Fetches the
-      // URL server-side (api/scrape-website.js) and auto-fills business
-      // name/type/phone/extraInfo wherever it was confident enough to - the
-      // visitor reviews and can edit any of it afterward. ---
+      // the form rather than buried under the manual chunk list. Fetches
+      // the URL server-side (api/scrape-website.js), auto-fills business
+      // name/type/phone wherever it was confident enough to, and appends
+      // whatever categorized chunks it found - the visitor reviews and can
+      // edit any of it afterward. ---
       function readWebsite() {
         var urlInput = document.getElementById("url-input");
         var url = urlInput.value.trim();
@@ -524,8 +572,9 @@
               return;
             }
             FrontdeskOnboardingScan.applyScanResult(result.data, {
-              name: "su-name", type: "su-type", phone: "su-phone", extraInfo: "su-extra-info"
+              name: "su-name", type: "su-type", phone: "su-phone"
             });
+            addChunkRows(result.data.chunks);
             scheduleMockUpdate();
             // The domain field is what actually gets installed/locked to
             // later - filling it from the URL the visitor just typed (not
@@ -603,7 +652,7 @@
           phone: document.getElementById("su-phone").value,
           color: document.getElementById("su-color").value,
           domain: document.getElementById("su-domain").value,
-          extraInfo: document.getElementById("su-extra-info").value
+          chunks: collectChunks()
         };
       }
 
@@ -665,12 +714,12 @@
         trialInFlight = true;
         statusEl.textContent = selectedAvatarDataUri ? "Uploading your photo..." : "Setting up your checkout...";
 
-        Promise.all([ensureAvatarUploaded(), ensureExtraInfoUploaded()])
+        Promise.all([ensureAvatarUploaded(), ensureChunksUploaded()])
           .then(function () {
             statusEl.textContent = "Setting up your checkout...";
             var draft = collectDraft();
-            delete draft.extraInfo;
-            draft.extraInfoId = uploadedExtraInfoId;
+            delete draft.chunks;
+            draft.chunksId = uploadedChunksId;
             draft.avatarId = uploadedAvatarId;
             draft.email = email;
             return fetch("/api/create-checkout", {

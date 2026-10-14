@@ -566,7 +566,7 @@
           if (data.businessName) draft.businessName = data.businessName;
           if (data.type) draft.type = data.type;
           if (data.phone) draft.phone = data.phone;
-          if (data.text) draft.extraInfo = data.text;
+          if (Array.isArray(data.chunks) && data.chunks.length) draft.chunks = data.chunks;
           if (rawUrl) draft.domain = rawUrl; // normalized on signup.html by hydrateFromHomepage()
           try { sessionStorage.setItem("frontdeskDraft", JSON.stringify(draft)); } catch (e) {}
           setScanLineText(data.businessName

@@ -56,17 +56,18 @@
   .calendar-status-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
   .calendar-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted2); flex-shrink: 0; }
   .calendar-status-dot.connected { background: #35d68f; }
-  .faq-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; background: var(--bg2); }
-  .faq-row input, .faq-row textarea { margin-bottom: 8px; }
-  .faq-row button.remove {
+  .chunk-row { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; position: relative; background: var(--bg2); }
+  .chunk-row select { width: auto; min-width: 140px; margin-bottom: 8px; }
+  .chunk-row textarea { margin-bottom: 8px; }
+  .chunk-row button.remove {
     position: absolute; top: 10px; right: 10px; background: none; border: none;
     color: #f2837a; font-size: 11px; cursor: pointer;
   }
-  #add-faq {
+  #add-chunk {
     background: none; border: 1px dashed var(--border); color: var(--muted); border-radius: 8px;
     padding: 9px; width: 100%; font-size: 12px; cursor: pointer; font-family: inherit;
   }
-  #add-faq:hover { color: var(--text); border-color: var(--muted); }
+  #add-chunk:hover { color: var(--text); border-color: var(--muted); }
   .save-btn, .portal-btn, .pause-btn {
     background: var(--accent2); color: #04160c; border: none; border-radius: 9px; padding: 11px 20px;
     font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
@@ -260,15 +261,9 @@
 
     <div class="card">
       <h2>What it knows</h2>
-      <div id="faq-list"></div>
-      <button id="add-faq" type="button">+ Add another</button>
-    </div>
-
-    <div class="card">
-      <h2>Teach your AI receptionist</h2>
-      <p class="field-tip" style="margin-top:0;">Anything extra - specific prices, policies, what makes you different. Separate from the FAQs above, so you've always got one place for general background that doesn't fit a single question and answer.</p>
-      <textarea id="d-business-info" rows="5" maxlength="4000" placeholder="e.g. We're a 24/7 emergency locksmith covering North London. We specialise in lock changes after break-ins and can usually attend within the hour. We accept card and bank transfer, not cash."></textarea>
-      <div class="extra-actions"><span class="char-count" id="d-business-info-count">0 / 4000</span></div>
+      <p class="field-tip" style="margin-top:0;">Everything your AI can answer from - a job detail, a price, a policy, an FAQ, anything. Pick whatever category fits best, it's mostly for keeping this organized.</p>
+      <div id="chunk-list"></div>
+      <button id="add-chunk" type="button">+ Add another</button>
     </div>
 
     <div class="card">
@@ -318,7 +313,8 @@
   <script src="/widget/frontdesk-widget.js"></script>
   <script>
     (function () {
-      var faqListEl = document.getElementById("faq-list");
+      var chunkListEl = document.getElementById("chunk-list");
+      var CHUNK_CATEGORIES = ["Job", "Booking", "Product", "Pricing", "Policy", "FAQ", "General"];
       var businessKey = null;
       var DEFAULT_AVATAR_URL = "https://www.frontdesksuite.co.uk/site/assets/images/sia-avatar.jpg";
       var MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -341,35 +337,25 @@
         btn.className = active ? "pause-btn pause" : "pause-btn";
       }
 
-      function addFaqRow(keywords, answer) {
+      function addChunkRow(category, text) {
         var row = document.createElement("div");
-        row.className = "faq-row";
+        row.className = "chunk-row";
+        var options = CHUNK_CATEGORIES.map(function (c) { return '<option value="' + c + '">' + c + '</option>'; }).join("");
         row.innerHTML =
           '<button class="remove" type="button">Remove</button>' +
-          '<label>Keywords (comma separated, optional)</label>' +
-          '<input type="text" class="faq-keywords" placeholder="e.g. nhs, national health" />' +
-          '<label>Answer</label>' +
-          '<textarea class="faq-answer" rows="2" placeholder="Yes, we offer..."></textarea>';
-        row.querySelector(".faq-keywords").value = (keywords || []).join(", ");
-        row.querySelector(".faq-answer").value = answer || "";
+          '<select class="chunk-category">' + options + '</select>' +
+          '<textarea class="chunk-text" rows="2" maxlength="1200" placeholder="e.g. Fence panel replacement from £120 per panel depending on size/material."></textarea>';
+        row.querySelector(".chunk-category").value = CHUNK_CATEGORIES.indexOf(category) !== -1 ? category : "General";
+        row.querySelector(".chunk-text").value = text || "";
         row.querySelector(".remove").addEventListener("click", function () { row.remove(); });
-        faqListEl.appendChild(row);
+        chunkListEl.appendChild(row);
       }
-      document.getElementById("add-faq").addEventListener("click", function () { addFaqRow([], ""); });
+      document.getElementById("add-chunk").addEventListener("click", function () { addChunkRow("General", ""); });
 
-      function updateBusinessInfoCount() {
-        var len = document.getElementById("d-business-info").value.length;
-        var counter = document.getElementById("d-business-info-count");
-        counter.textContent = len + " / 4000";
-        counter.classList.toggle("near-limit", len >= 3600);
-      }
-      document.getElementById("d-business-info").addEventListener("input", updateBusinessInfoCount);
-
-      function collectFaqs() {
-        return Array.prototype.map.call(document.querySelectorAll(".faq-row"), function (row) {
-          var kw = row.querySelector(".faq-keywords").value.split(",").map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
-          return { keywords: kw, answer: row.querySelector(".faq-answer").value.trim() };
-        }).filter(function (f) { return f.answer; });
+      function collectChunks() {
+        return Array.prototype.map.call(document.querySelectorAll(".chunk-row"), function (row) {
+          return { category: row.querySelector(".chunk-category").value, text: row.querySelector(".chunk-text").value.trim() };
+        }).filter(function (c) { return c.text; });
       }
 
       function relativeTime(iso) {
@@ -619,8 +605,6 @@
           document.getElementById("d-assistant-name").value = data.assistantName || "";
           document.getElementById("d-greeting").value = data.greeting || "";
           document.getElementById("d-fallback").value = data.fallbackAnswer || "";
-          document.getElementById("d-business-info").value = data.businessInfo || "";
-          updateBusinessInfoCount();
           document.getElementById("d-pricing-info").value = data.pricingInfo || "";
           document.getElementById("d-notify-email").value = data.notifyEmail || "";
           renderHoursList(data.hours);
@@ -631,8 +615,8 @@
             calStatus.textContent = "Calendar connected!";
             history.replaceState(null, "", window.location.pathname);
           }
-          (data.faqs || []).forEach(function (f) { addFaqRow(f.keywords, f.answer); });
-          if (!data.faqs || !data.faqs.length) addFaqRow([], "");
+          (data.chunks || []).forEach(function (c) { addChunkRow(c.category, c.text); });
+          if (!data.chunks || !data.chunks.length) addChunkRow("General", "");
           document.getElementById("stat-conversations").textContent = data.messagesThisPeriod || 0;
           renderLeads(data.leads || []);
           renderMissedQuestions(data.missedQuestions || []);
@@ -709,10 +693,9 @@
               assistantName: document.getElementById("d-assistant-name").value,
               greeting: document.getElementById("d-greeting").value,
               fallbackAnswer: document.getElementById("d-fallback").value,
-              businessInfo: document.getElementById("d-business-info").value,
               pricingInfo: document.getElementById("d-pricing-info").value,
               notifyEmail: document.getElementById("d-notify-email").value,
-              faqs: collectFaqs(),
+              chunks: collectChunks(),
               hours: collectHours()
             };
             if (avatarReset) {
@@ -865,13 +848,13 @@
             btn.textContent = "Applied above"; btn.disabled = true;
           }));
         }
-        if (data.text) {
+        (data.chunks || []).forEach(function (chunk) {
           foundAnything = true;
-          el.appendChild(buildSuggestionRow("Summary of your site right now - check it says something new before adding", data.text, "Add as a new FAQ", function (btn) {
-            addFaqRow([], data.text);
+          el.appendChild(buildSuggestionRow("[" + chunk.category + "] from your site right now - check it says something new before adding", chunk.text, "Add as a new chunk", function (btn) {
+            addChunkRow(chunk.category, chunk.text);
             btn.textContent = "Added below"; btn.disabled = true;
           }));
-        }
+        });
 
         if (!foundAnything) {
           el.innerHTML = '<p class="empty">Nothing new found - everything matches what you already have.</p>';

@@ -45,7 +45,15 @@
     return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(v) ? v : "";
   }
 
-  // input: { businessName, agentName, type, phone, color, extraInfo,
+  // The unified "what your AI knows" category enum - duplicated here
+  // (rather than required from api/_lib/config.js) because this file is
+  // also loaded directly in the browser for the free live preview, and
+  // that file pulls in fs/path, which only exist in Node.
+  var CHUNK_CATEGORIES = ["Job", "Booking", "Product", "Pricing", "Policy", "FAQ", "General"];
+  var MAX_CHUNKS = 12;
+  var MAX_CHUNK_TEXT_CHARS = 1200;
+
+  // input: { businessName, agentName, type, phone, color, chunks?,
   //          domain?, avatarDataUri?, avatarId?, avatarPresetId? }
   // avatarDataUri (a full data URI, possibly a large custom-uploaded photo)
   // is only ever safe to trust from the free, client-side-only preview path.
@@ -61,7 +69,6 @@
     var type = GREETINGS[input.type] ? input.type : "general";
     var phone = (input.phone || "your number").toString().trim().slice(0, 40) || "your number";
     var color = (input.color || "#2f8fe0").toString().slice(0, 10);
-    var extraInfo = (input.extraInfo || "").toString().trim().slice(0, 4000);
 
     var avatarUrl;
     if (input.avatarDataUri) {
@@ -73,13 +80,22 @@
       if (preset) avatarUrl = avatarPresets.svgToDataUri(preset.svg);
     }
 
-    var faqs = [
-      { keywords: ["hour", "open", "close", "time"], answer: "For exact hours it's best to call " + phone + " - the team can confirm and fit you in." },
-      { keywords: ["price", "cost", "how much", "quote"], answer: "Pricing depends on what you need - call " + phone + " or leave your details for a quote." },
-      { keywords: ["book", "appointment", "callout", "viewing", "available"], answer: "You can book by calling " + phone + ", or leave your details here and we'll be in touch." },
-      { keywords: ["where", "location", "address"], answer: "Give us a call on " + phone + " for directions and parking info." }
+    var userChunks = (Array.isArray(input.chunks) ? input.chunks : []).slice(0, MAX_CHUNKS).map(function (c) {
+      return {
+        category: CHUNK_CATEGORIES.indexOf(c && c.category) !== -1 ? c.category : "General",
+        text: ((c && c.text) || "").toString().trim().slice(0, MAX_CHUNK_TEXT_CHARS)
+      };
+    }).filter(function (c) { return c.text; });
+
+    var defaultChunks = [
+      { category: "General", text: "For exact hours it's best to call " + phone + " - the team can confirm and fit you in." },
+      { category: "Pricing", text: "Pricing depends on what you need - call " + phone + " or leave your details for a quote." },
+      { category: "Booking", text: "You can book by calling " + phone + ", or leave your details here and we'll be in touch." },
+      { category: "General", text: "Give us a call on " + phone + " for directions and parking info." }
     ];
-    if (extraInfo) faqs.unshift({ keywords: [], answer: extraInfo });
+    // User-provided chunks first, same priority the old unshift(extraInfo)
+    // gave a business's own typed-in background over the generic defaults.
+    var chunks = userChunks.concat(defaultChunks);
 
     return {
       businessName: name,
@@ -97,7 +113,7 @@
       theme: { accentColor: color, position: "right", assistantName: agentName, avatarUrl: avatarUrl },
       greeting: GREETINGS[type].replace("{name}", name),
       fallbackAnswer: "I'll pass that on to the team - would you like to leave your name and number, or call " + phone + "?",
-      faqs: faqs
+      chunks: chunks
     };
   }
 

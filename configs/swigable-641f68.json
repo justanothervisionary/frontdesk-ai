@@ -9,20 +9,6 @@
   },
   "greeting": "Hey, welcome to Swigable. is there anything I can help you with?",
   "fallbackAnswer": "Our chat services are currently down - would you like to leave your name and number so someone can get back to you?",
-  "faqs": [
-    {
-      "keywords": [],
-      "answer": "Swigable is a smart bottle that tracks your intake & reminds you to drink. It Builds better habits."
-    },
-    {
-      "keywords": [],
-      "answer": "Swigable is a smart water bottle brand that automatically tracks hydration habits and provides personalized reminders to help users build consistent drinking routines. The product features a 450ml stainless steel bottle with a magnetic health device, AI-powered coaching via the Swiggy® coach, real-time sip tracking, and battery life of up to 2 days. Reservation on Kickstarter at 54% discount has now ended. The bottle works standalone or with an accompanying app for enhanced tracking and insights. Designed for everyday use at home, work, or on-the-go, suitable for families with app-based parental controls. Swigable Limited is registered in England (company number 16447020)."
-    },
-    {
-      "keywords": [],
-      "answer": "Swigable comes in 4 colours: Teal, Candy, Carbon and Forest."
-    }
-  ],
   "active": true,
   "stripeCustomerId": "cus_VAx24mSNgLS0DQ",
   "stripeSubscriptionId": "sub_1UAb8L1PzE19HBxHSWMs0lJZ",
@@ -39,5 +25,19 @@
     "fri": null,
     "sat": null,
     "sun": null
-  }
+  },
+  "chunks": [
+    {
+      "category": "FAQ",
+      "text": "Swigable is a smart bottle that tracks your intake & reminds you to drink. It Builds better habits."
+    },
+    {
+      "category": "FAQ",
+      "text": "Swigable is a smart water bottle brand that automatically tracks hydration habits and provides personalized reminders to help users build consistent drinking routines. The product features a 450ml stainless steel bottle with a magnetic health device, AI-powered coaching via the Swiggy® coach, real-time sip tracking, and battery life of up to 2 days. Reservation on Kickstarter at 54% discount has now ended. The bottle works standalone or with an accompanying app for enhanced tracking and insights. Designed for everyday use at home, work, or on-the-go, suitable for families with app-based parental controls. Swigable Limited is registered in England (company number 16447020)."
+    },
+    {
+      "category": "FAQ",
+      "text": "Swigable comes in 4 colours: Teal, Candy, Carbon and Forest."
+    }
+  ]
 }

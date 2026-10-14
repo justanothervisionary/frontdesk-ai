@@ -16,6 +16,30 @@ function isKnownType(v) {
 
 var CONFIGS_DIR = path.join(__dirname, "..", "..", "configs");
 
+// The unified "what your AI knows" list - replaces the old separate
+// faqs[]/businessInfo fields. One shared sanitizer so the cap/shape never
+// drifts between the 4 places that build or validate a config (dashboard
+// save, the free preview, the real committed-signup path, and the
+// scraper's own tool-call output) - the old faqs[] cap of 8 was
+// independently reimplemented 3 times before this.
+var CHUNK_CATEGORIES = ["Job", "Booking", "Product", "Pricing", "Policy", "FAQ", "General"];
+function isKnownChunkCategory(v) {
+  return CHUNK_CATEGORIES.indexOf(v) !== -1;
+}
+
+var MAX_CHUNKS = 12;
+var MAX_CHUNK_TEXT_CHARS = 1200;
+
+function sanitizeChunks(raw) {
+  if (!Array.isArray(raw)) return null;
+  return raw.slice(0, MAX_CHUNKS).map(function (c) {
+    return {
+      category: isKnownChunkCategory(c && c.category) ? c.category : "General",
+      text: ((c && c.text) || "").toString().trim().slice(0, MAX_CHUNK_TEXT_CHARS)
+    };
+  }).filter(function (c) { return c.text; });
+}
+
 // Every business's key, from the local configs/ directory - the full-scan
 // pattern api/weekly-digest.js and api/_lib/loginLookup.js each already
 // used (previously copy-pasted in both). Local disk, zero network I/O, a
@@ -98,19 +122,10 @@ function sanitizePreviewConfig(raw) {
   var businessName = (raw.businessName || "").toString().slice(0, 80);
   if (!businessName.trim()) return null;
 
-  var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
-  faqs = faqs.map(function (f) {
-    // 1000, not 300 - the "teach it something about your business" box now
-    // allows up to 1000 characters (see shared/build-config.js), and that
-    // text travels through here as an FAQ entry - this cap must not
-    // silently truncate it back down.
-    return { answer: ((f && f.answer) || "").toString().slice(0, 1000) };
-  }).filter(function (f) { return f.answer.trim(); });
-
   return {
     businessName: businessName,
     type: isKnownType(raw.type) ? raw.type : "general",
-    faqs: faqs,
+    chunks: sanitizeChunks(raw.chunks) || [],
     fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||
       "I'll pass that on to the team and someone will get back to you shortly."
   };
@@ -202,15 +217,6 @@ function sanitizeCommittedConfig(raw) {
   var assistantName = ((theme.assistantName || "Sia").toString().slice(0, 40).trim()) || "Sia";
   var avatarUrl = isKnownAvatarUrl(theme.avatarUrl) ? theme.avatarUrl : undefined;
 
-  var faqs = Array.isArray(raw.faqs) ? raw.faqs.slice(0, 8) : [];
-  faqs = faqs.map(function (f) {
-    return {
-      keywords: Array.isArray(f && f.keywords) ? f.keywords.slice(0, 10).map(function (k) { return String(k).slice(0, 30); }) : [],
-      // 1000, not 300 - see the matching comment in sanitizePreviewConfig above.
-      answer: ((f && f.answer) || "").toString().slice(0, 1000)
-    };
-  }).filter(function (f) { return f.answer.trim(); });
-
   return {
     businessName: businessName,
     domain: isDomain(raw.domain) ? raw.domain.toLowerCase() : undefined,
@@ -226,7 +232,7 @@ function sanitizeCommittedConfig(raw) {
     greeting: ((raw.greeting || "").toString().slice(0, 300)) || ("Hi! Welcome to " + businessName + "."),
     fallbackAnswer: ((raw.fallbackAnswer || "").toString().slice(0, 300)) ||
       "I'll pass that on to the team and someone will get back to you shortly.",
-    faqs: faqs,
+    chunks: sanitizeChunks(raw.chunks) || [],
     notifyEmail: isEmailShaped(raw.notifyEmail) ? raw.notifyEmail : undefined,
     active: raw.active !== false
   };
@@ -253,5 +259,6 @@ function buildConfigFromDraft(draft) {
 module.exports = {
   loadConfig, loadConfigLive, listBusinessKeys, sanitizePreviewConfig, sanitizeCommittedConfig, buildConfigFromDraft,
   isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId,
-  isCalendarIdShaped, isValidHours, KNOWN_TYPES
+  isCalendarIdShaped, isValidHours, KNOWN_TYPES,
+  CHUNK_CATEGORIES, isKnownChunkCategory, sanitizeChunks, MAX_CHUNKS, MAX_CHUNK_TEXT_CHARS
 };

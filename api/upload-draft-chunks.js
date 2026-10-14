@@ -1,17 +1,16 @@
 // Vercel serverless function - same reasoning as api/upload-avatar.js:
 // Stripe Checkout metadata caps each value at 500 characters, but the
-// "teach it something about your business" box now allows up to 1000 -
-// sending it straight through Stripe metadata silently breaks checkout
-// creation above that limit. This commits the text to the repo before
+// unified "what your AI knows" chunk list can hold far more than that
+// across its up-to-12 entries. This commits the chunks to the repo before
 // checkout starts (same GitHub-as-storage pattern as configs and avatars)
 // and only a short reference travels through Stripe.
 const crypto = require("crypto");
 const { putBinaryFile } = require("./_lib/github");
 const { createRateLimiter } = require("./_lib/rateLimit");
+const { sanitizeChunks } = require("./_lib/config");
 
 const isRateLimited = createRateLimiter(8, 60 * 1000);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
-const MAX_CHARS = 2000; // headroom above the 1000-char UI cap for future sources (e.g. PDF extraction)
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
@@ -27,20 +26,20 @@ module.exports = async function handler(req, res) {
   }
 
   var body = req.body || {};
-  var text = (body.text || "").toString().trim().slice(0, MAX_CHARS);
-  if (!text) return res.status(400).json({ error: "No text provided" });
+  var chunks = sanitizeChunks(body.chunks);
+  if (!chunks || !chunks.length) return res.status(400).json({ error: "No chunks provided" });
 
-  var draftTextId = crypto.randomBytes(12).toString("hex") + ".txt";
+  var draftChunksId = crypto.randomBytes(12).toString("hex") + ".json";
 
   try {
     await putBinaryFile(
-      "configs/drafts/" + draftTextId,
-      Buffer.from(text, "utf8").toString("base64"),
-      "Add draft training text " + draftTextId
+      "configs/drafts/" + draftChunksId,
+      Buffer.from(JSON.stringify(chunks), "utf8").toString("base64"),
+      "Add draft chunks " + draftChunksId
     );
-    return res.status(200).json({ draftTextId: draftTextId });
+    return res.status(200).json({ draftChunksId: draftChunksId });
   } catch (err) {
-    console.error("[frontdesk upload-draft-text] error:", err.message);
-    return res.status(502).json({ error: "Could not save that text - please try again." });
+    console.error("[frontdesk upload-draft-chunks] error:", err.message);
+    return res.status(502).json({ error: "Could not save that - please try again." });
   }
 };

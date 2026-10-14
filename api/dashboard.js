@@ -6,7 +6,7 @@
 // the original three files - just merged into one, routed by
 // method/action.
 const Stripe = require("stripe");
-const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId, isValidHours } = require("./_lib/config");
+const { loadConfig, loadConfigLive, listBusinessKeys, isEmailShaped, isPhoneShaped, isKnownType, isKnownAvatarUrl, isWhatsAppPhoneNumberId, isValidHours, sanitizeChunks } = require("./_lib/config");
 const { readLeads } = require("./_lib/leadLog");
 const { findBusinessKeyByWhatsAppPhoneNumberId } = require("./_lib/loginLookup");
 const { getSessionBusinessKey, getSessionAdminEmail, getSessionImpersonator, setSessionCookie, signGoogleOAuthState, verifyGoogleOAuthState } = require("./_lib/session");
@@ -100,14 +100,13 @@ async function handleGetData(req, res, businessKey) {
     domain: result.config.domain || "",
     greeting: result.config.greeting,
     fallbackAnswer: result.config.fallbackAnswer,
-    faqs: result.config.faqs || [],
+    chunks: result.config.chunks || [],
     notifyEmail: result.config.notifyEmail || "",
     assistantName: (result.config.theme && result.config.theme.assistantName) || "Sia",
     avatarUrl: (result.config.theme && result.config.theme.avatarUrl) || "",
     whatsappPhoneNumberId: (result.config.whatsapp && result.config.whatsapp.phoneNumberId) || "",
     googleCalendarConnected: !!(result.config.googleCalendar && result.config.googleCalendar.connected),
     hours: result.config.hours || null,
-    businessInfo: result.config.businessInfo || "",
     pricingInfo: result.config.pricingInfo || "",
     active: result.config.active !== false,
     // Non-null only when this session was minted by an admin "viewing as"
@@ -125,16 +124,6 @@ async function handleGetData(req, res, businessKey) {
     // recent, newest first.
     leads: leadData.all.slice().reverse()
   });
-}
-
-function sanitizeFaqs(raw) {
-  if (!Array.isArray(raw)) return null;
-  return raw.slice(0, 8).map(function (f) {
-    return {
-      keywords: Array.isArray(f && f.keywords) ? f.keywords.slice(0, 10).map(function (k) { return String(k).slice(0, 30); }) : [],
-      answer: ((f && f.answer) || "").toString().slice(0, 1000)
-    };
-  }).filter(function (f) { return f.answer.trim(); });
 }
 
 // The one rule this function exists to enforce: `active`, `stripeCustomerId`,
@@ -201,10 +190,10 @@ async function handleSave(req, res, businessKey) {
       return res.status(400).json({ error: "That doesn't look like a valid avatar image." });
     }
   }
-  if (body.faqs !== undefined) {
-    var faqs = sanitizeFaqs(body.faqs);
-    if (faqs === null) return res.status(400).json({ error: "Invalid FAQ list." });
-    config.faqs = faqs;
+  if (body.chunks !== undefined) {
+    var chunks = sanitizeChunks(body.chunks);
+    if (chunks === null) return res.status(400).json({ error: "Invalid chunks list." });
+    config.chunks = chunks;
   }
   // Same omitted-vs-empty-string convention as avatarUrl above: omitted
   // entirely leaves it alone, an explicit "" disconnects WhatsApp
@@ -246,17 +235,6 @@ async function handleSave(req, res, businessKey) {
     } else {
       config.hours = body.hours;
     }
-  }
-
-  // General free-text business background - separate from the
-  // structured faqs[] above, same "teach it something" field the free
-  // self-serve preview tool already has (shared/build-config.js's
-  // extraInfo), just editable on an ongoing basis here rather than only
-  // at initial signup.
-  if (typeof body.businessInfo === "string") {
-    var businessInfo = body.businessInfo.trim().slice(0, 4000);
-    if (!businessInfo) delete config.businessInfo;
-    else config.businessInfo = businessInfo;
   }
 
   // Optional - a business only gets photo-based rough quoting
@@ -524,7 +502,7 @@ async function handleAdminToggle(req, res) {
 // 4 fields before delegating to handleSave's own field-sanitization logic -
 // handleSave takes businessKey as a plain parameter already, so reuse is
 // clean, but passing the RAW admin request body through would silently
-// also accept every other field handleSave whitelists (faqs, greeting,
+// also accept every other field handleSave whitelists (chunks, greeting,
 // assistantName, avatarUrl) - not a security hole since admin is already
 // trusted, but scope drift: the backend would permit more than this admin
 // action's own UI implies, with zero review.
