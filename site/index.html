@@ -219,19 +219,54 @@
   .scan-status.ok { color: var(--accent2); }
 
   /* Scanning-in-progress state - swaps in for the scan row while the real
-     request is in flight. Spinner ring adapted from success.html's
-     .spinner, the only other place in the codebase that already does
-     staged/sequential status text. */
-  .scan-progress { display: none; align-items: center; gap: 10px; }
+     request is in flight. A small HUD-style scan log: a thin progress bar
+     with a moving highlight sweep, and a checklist of status lines that
+     build up one at a time, each turning from a pulsing dot into a filled
+     checkmark as it completes - same dark/accent-green palette as the
+     rest of the page, just a more "system is working" feel than a plain
+     spinner. */
+  .scan-progress { display: none; flex-direction: column; gap: 12px; }
   .scan-progress.active { display: flex; }
   .scan-row.hidden { display: none; }
-  .scan-spinner {
-    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
-    border: 3px solid var(--border); border-top-color: var(--accent2);
-    animation: scan-spin .9s linear infinite;
+
+  .scan-progress-bar { position: relative; height: 3px; border-radius: 2px; overflow: hidden; background: var(--border); }
+  .scan-progress-fill {
+    position: relative; height: 100%; width: 8%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 1.1s cubic-bezier(.4,0,.2,1);
   }
-  @keyframes scan-spin { to { transform: rotate(360deg); } }
-  .scan-progress-text { font-size: 13px; font-weight: 600; }
+  .scan-progress-fill::after {
+    content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 36px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.65));
+    animation: scan-sweep 1.1s ease-in-out infinite;
+  }
+  @keyframes scan-sweep { 0%, 100% { opacity: .15; } 50% { opacity: .9; } }
+
+  .scan-log { display: flex; flex-direction: column; gap: 7px; }
+  .scan-log-line {
+    display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--muted);
+    opacity: 0; transform: translateY(4px); animation: scan-line-in .35s ease forwards;
+  }
+  @keyframes scan-line-in { to { opacity: 1; transform: translateY(0); } }
+  .scan-log-line.done { color: var(--text); }
+  .scan-log-icon {
+    width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; position: relative;
+    border: 2px solid var(--accent2); transition: background-color .2s, border-color .2s;
+  }
+  .scan-log-line.active .scan-log-icon { animation: scan-dot-pulse 1.1s ease-in-out infinite; }
+  @keyframes scan-dot-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent2) 45%, transparent); }
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent2) 0%, transparent); }
+  }
+  .scan-log-line.done .scan-log-icon { background: var(--accent2); }
+  .scan-log-line.done .scan-log-icon::after {
+    content: ""; position: absolute; left: 3px; top: 1px; width: 4px; height: 7px;
+    border-right: 2px solid #04160c; border-bottom: 2px solid #04160c; transform: rotate(45deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scan-progress-fill::after, .scan-log-line.active .scan-log-icon { animation: none; }
+    .scan-log-line { animation: none; opacity: 1; transform: none; }
+  }
 
   .build-manually-link {
     display: block; text-align: center; font-size: 12px; color: var(--muted2);
@@ -320,8 +355,8 @@
             <button type="button" id="pv-url-go-btn">Scan my website</button>
           </div>
           <div class="scan-progress" id="scan-progress">
-            <div class="scan-spinner"></div>
-            <div class="scan-progress-text" id="scan-progress-text"></div>
+            <div class="scan-progress-bar"><div class="scan-progress-fill" id="scan-progress-fill"></div></div>
+            <div class="scan-log" id="scan-log"></div>
           </div>
           <div class="scan-status" id="pv-url-status"></div>
         </div>
@@ -545,14 +580,45 @@
       // "build manually" link) on any failure. Never a dead-end error
       // here: the full builder on signup.html is always the next step.
       var SCAN_STAGE_MS = [1400, 3200];
+      var scanLogLines = [];
 
-      function setScanLineText(text) {
-        document.getElementById("scan-progress-text").textContent = text;
+      // Marks the current last line "done" (pulsing dot -> filled check)
+      // and appends a new "active" line below it, building up a small log
+      // rather than swapping one line of text - the HUD/checklist feel
+      // that's the point of this redesign.
+      function addScanLine(text) {
+        var logEl = document.getElementById("scan-log");
+        if (scanLogLines.length) {
+          var prev = scanLogLines[scanLogLines.length - 1];
+          prev.classList.remove("active");
+          prev.classList.add("done");
+        }
+        var line = document.createElement("div");
+        line.className = "scan-log-line active";
+        line.innerHTML = '<span class="scan-log-icon"></span><span class="scan-log-label"></span>';
+        line.querySelector(".scan-log-label").textContent = text;
+        logEl.appendChild(line);
+        scanLogLines.push(line);
+      }
+
+      function setScanProgress(pct) {
+        document.getElementById("scan-progress-fill").style.width = pct + "%";
+      }
+
+      function completeScanLog() {
+        if (scanLogLines.length) {
+          scanLogLines[scanLogLines.length - 1].classList.remove("active");
+          scanLogLines[scanLogLines.length - 1].classList.add("done");
+        }
+        setScanProgress(100);
       }
 
       function enterScanningState() {
         document.getElementById("scan-row").classList.add("hidden");
         document.getElementById("scan-progress").classList.add("active");
+        document.getElementById("scan-log").innerHTML = "";
+        scanLogLines = [];
+        setScanProgress(8);
       }
 
       function goToSignup() {
@@ -569,7 +635,7 @@
           if (Array.isArray(data.chunks) && data.chunks.length) draft.chunks = data.chunks;
           if (rawUrl) draft.domain = rawUrl; // normalized on signup.html by hydrateFromHomepage()
           try { sessionStorage.setItem("frontdeskDraft", JSON.stringify(draft)); } catch (e) {}
-          setScanLineText(data.businessName
+          addScanLine(data.businessName
             ? "Found it - building " + data.businessName + "'s AI receptionist..."
             : "Done - taking you to finish it off...");
         } else {
@@ -577,8 +643,9 @@
           // like a direct landing or the "build manually" link. Per design,
           // every failure mode (bad URL, low-confidence scan, network
           // error) is treated identically to a skip, never as an error.
-          setScanLineText("Taking you to the builder...");
+          addScanLine("Taking you to the builder...");
         }
+        completeScanLog();
         goToSignup();
       }
 
@@ -594,9 +661,9 @@
           enterScanningState();
 
           var hostLabel = url.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
-          setScanLineText("Reading " + hostLabel + "...");
-          var t1 = setTimeout(function () { setScanLineText("Understanding what you do..."); }, SCAN_STAGE_MS[0]);
-          var t2 = setTimeout(function () { setScanLineText("Still working - some sites take a little longer..."); }, SCAN_STAGE_MS[1]);
+          addScanLine("Reading " + hostLabel + "...");
+          var t1 = setTimeout(function () { addScanLine("Understanding what you do..."); setScanProgress(55); }, SCAN_STAGE_MS[0]);
+          var t2 = setTimeout(function () { addScanLine("Still working - some sites take a little longer..."); setScanProgress(85); }, SCAN_STAGE_MS[1]);
 
           var scriptDone = false, fetchResult = null;
           function maybeFinish() {
